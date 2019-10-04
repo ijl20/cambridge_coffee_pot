@@ -1,4 +1,4 @@
-#! /usr/bin/python2
+#! /usr/bin/python3
 
 import time
 import sys
@@ -70,11 +70,11 @@ while True:
         # to both channel A and B), do something like this
         val_A = hx.get_weight_A(5)
         val_B = hx.get_weight_B(5)
-        print "A: %s  B: %s TOTAL: %s" % ( val_A, val_B, val_A+val_B )
+        print ("A: %s  B: %s TOTAL: %s" % ( val_A, val_B, val_A+val_B ))
 
-        hx.power_down()
-        hx.power_up()
-        time.sleep(0.1)
+        #hx.power_down()
+        #hx.power_up()
+        time.sleep(1.0)
 
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
