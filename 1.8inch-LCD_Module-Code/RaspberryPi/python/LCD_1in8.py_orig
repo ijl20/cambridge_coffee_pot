@@ -24,7 +24,6 @@
  # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  # THE SOFTWARE.
  #
-print("Loading LCD_1in8.py")
 
 import LCD_Config
 import RPi.GPIO as GPIO
@@ -64,7 +63,6 @@ SCAN_DIR_DFT = U2D_R2L
 #************************************************************************************************************************
 class LCD:
 	def __init__(self):
-		print("LCD __init__")
 		self.LCD_Dis_Column = LCD_WIDTH
 		self.LCD_Dis_Page = LCD_HEIGHT
 		self.LCD_Scan_Dir = SCAN_DIR_DFT
