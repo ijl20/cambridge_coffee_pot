@@ -33,8 +33,7 @@ E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
 
 E.g. [available Amazon UK](https://www.amazon.co.uk/Waveshare-1-8inch-LCD-Module/dp/B077YFTMVT)
 
-[Online info](https://www.waveshare.com/wiki/1.8inch_LCD_module)
-
+[Online info](https://www.waveshare.com/wiki/1.8inch_LCD_Module)
 
 ----
 Quick code credited to [underdoeg](https://github.com/underdoeg/)'s [Gist HX711.py](https://gist.github.com/underdoeg/98a38b54f889fce2b237).
