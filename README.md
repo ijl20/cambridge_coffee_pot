@@ -1,5 +1,7 @@
 # Cambridge Coffee Pot
 
+![Original Trojan Room coffee pot image](https://en.wikipedia.org/wiki/Trojan_Room_coffee_pot#/media/File:Trojan_Room_coffee_pot_xcoffee.png)
+
 ## The concept
 
 Build a sensor set that measures and transmits in real-time the coffee-making
