@@ -1,6 +1,6 @@
 # Cambridge Coffee Pot
 
-![Original Trojan Room coffee pot image](https://en.wikipedia.org/wiki/Trojan_Room_coffee_pot#/media/File:Trojan_Room_coffee_pot_xcoffee.png)
+![Original Trojan Room coffee pot image](Trojan_Room_coffee_pot_xcoffee.png)
 
 ## The concept
 
