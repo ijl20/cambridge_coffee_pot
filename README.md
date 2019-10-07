@@ -19,6 +19,12 @@ This uses a Raspberry Pi (Model 3 B+) with two 5Kg load cells connected via
 a HX711 A/D converter, and also a Waveshare 1.8inch color LCD module for a
 local display.
 
+It will take weight measurements as in the sample data illustrated below, and recognize events
+such as a fresh pot of coffee being placed. The objective is that these events are communicated
+to the server with the minimum latency.
+
+![data chart of weight load with time for full coffe pot plus pouring 1 cup](data/sample_weights_fill_plus_1_cup.png)
+
 #### Raspberry Pi
 
 ![Pi 3 B+ GPIO pinout](raspberry_pi/gpio.png)
