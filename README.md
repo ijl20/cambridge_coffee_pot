@@ -1,6 +1,8 @@
 # Cambridge Coffee Pot
 
 ![Original Trojan Room coffee pot image](Trojan_Room_coffee_pot_xcoffee.png)
+![Current Netos coffee pot image 2019-10-08](kitchen.png)
+
 
 ## The concept
 
