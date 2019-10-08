@@ -2,6 +2,7 @@
 
 import time
 import sys
+sys.path.append('hx711')
 
 EMULATE_HX711=False
 
