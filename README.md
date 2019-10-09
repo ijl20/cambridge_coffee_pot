@@ -1,7 +1,7 @@
 # Cambridge Coffee Pot
 
-![Original Trojan Room coffee pot image](Trojan_Room_coffee_pot_xcoffee.png)
-![Current Netos coffee pot image 2019-10-08](kitchen.jpg)
+![Original Trojan Room coffee pot image](images/Trojan_Room_coffee_pot_xcoffee.png)
+![Current Netos coffee pot image 2019-10-08](images/kitchen.jpg)
 
 
 ## The concept
@@ -12,6 +12,13 @@ and consuming events happening on the Computer Lab Cambridge Coffee Pot.
 This is actually monitoring the direct descendant of the original
 Cambridge [Trojan Room coffee pot](https://en.wikipedia.org/wiki/Trojan_Room_coffee_pot)
 from 1991 to 2001.
+
+![whiteboard sketch Ian Lewis and Brian Jones](images/whiteboard_design.jpg)
+
+## Prototype
+
+2019-10-09
+![William Gates Building Ian Lewis office FE11 sensor prototype](images/prototype.jpg)
 
 ## Sensors
 
