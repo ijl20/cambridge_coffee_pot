@@ -14,38 +14,40 @@ from PIL import ImageColor
 
 LCD = LCD_1in8.LCD()
 
+font = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
+
 print ("**********Init LCD**********")
 
 Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
 LCD.LCD_Init(Lcd_ScanDir)
 
+image = Image.open('example.bmp')
+LCD.LCD_ShowImage(image,0,0)
+
 def update_lcd(weight_g):
 
-    image = Image.new("RGB", (LCD.LCD_Dis_Column, LCD.LCD_Dis_Page), "WHITE")
+    image = Image.new("RGB", (LCD.LCD_Dis_Column, LCD.LCD_Dis_Page), "BLACK")
     draw = ImageDraw.Draw(image)
 
-    #font = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf', 16)
-    print ("***draw line")
-    draw.line([(0,0),(159,0)], fill = "BLUE",width = 5)
-    draw.line([(159,0),(159,127)], fill = "BLUE",width = 5)
-    draw.line([(159,127),(0,127)], fill = "BLUE",width = 5)
-    draw.line([(0,127),(0,0)], fill = "BLUE",width = 5)
+    #print ("***draw line")
+    #draw.line([(0,0),(159,0)], fill = "BLUE",width = 5)
+    #draw.line([(159,0),(159,127)], fill = "BLUE",width = 5)
+    #draw.line([(159,127),(0,127)], fill = "BLUE",width = 5)
+    #draw.line([(0,127),(0,0)], fill = "BLUE",width = 5)
 
-    print ("***draw rectangle")
-    draw.rectangle([(18,10),(142,20)],fill = "RED")
+    #print ("***draw rectangle")
+    #draw.rectangle([(18,10),(142,20)],fill = "RED")
 
-    print ("***draw text")
-    draw.text((33, 22), 'Cambridge', fill = "BLUE")
-    draw.text((33, 36), 'Coffee', fill = "BLUE")
-    draw.text((33, 48), 'Pot', fill = "BLUE")
+    #print ("***draw text")
+    #draw.text((33, 22), 'Cambridge', fill = "BLUE")
+    #draw.text((33, 36), 'Coffee', fill = "BLUE")
+    #draw.text((33, 48), 'Pot', fill = "BLUE")
 
-    draw.text((33, 60), "%.1f" % weight_g, fill = "BLACK")
+    draw.text((13, 64), "%.1f" % weight_g, fill = "WHITE", font=font, align="right")
 
     LCD.LCD_ShowImage(image,0,0)
     #LCD_Config.Driver_Delay_ms(500)
 
-    #image = Image.open('example.bmp')
-    #LCD.LCD_ShowImage(image,0,0)
 
 EMULATE_HX711=False
 
@@ -112,8 +114,8 @@ while True:
 
         # To get weight from both channels (if you have load cells hooked up
         # to both channel A and B), do something like this
-        val_A = hx.get_weight_A(5)
-        val_B = hx.get_weight_B(5)
+        val_A = hx.get_weight_A(1)
+        val_B = hx.get_weight_B(1)
 
         weight_g = val_A + val_B
 
@@ -123,7 +125,7 @@ while True:
 
         #hx.power_down()
         #hx.power_up()
-        time.sleep(1.0)
+        time.sleep(0.1)
 
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
