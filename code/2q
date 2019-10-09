@@ -42,10 +42,10 @@ def update_lcd(weight_g):
     draw.text((33, 60), "%.1f" % weight_g, fill = "BLACK")
 
     LCD.LCD_ShowImage(image,0,0)
-    #LCD_Config.Driver_Delay_ms(500)
+    LCD_Config.Driver_Delay_ms(500)
 
-    #image = Image.open('example.bmp')
-    #LCD.LCD_ShowImage(image,0,0)
+    image = Image.open('example.bmp')
+    LCD.LCD_ShowImage(image,0,0)
 
 EMULATE_HX711=False
 
