@@ -1,8 +1,15 @@
 #! /usr/bin/python3
 
+SENSOR_ID = 'cambridge_coffee_pot'
+SENSOR_TYPE = 'coffee_pot'
+ACP_TOKEN = 'testtoken'
+
 import time
 import sys
 sys.path.append('hx711')
+from hx711 import HX711
+import simplejson as json
+import requests
 sys.path.append('LCD_1in8')
 import LCD_1in8
 import LCD_Config
@@ -28,45 +35,25 @@ def update_lcd(weight_g):
 
     image = Image.new("RGB", (LCD.LCD_Dis_Column, LCD.LCD_Dis_Page), "BLACK")
     draw = ImageDraw.Draw(image)
-
-    #print ("***draw line")
-    #draw.line([(0,0),(159,0)], fill = "BLUE",width = 5)
-    #draw.line([(159,0),(159,127)], fill = "BLUE",width = 5)
-    #draw.line([(159,127),(0,127)], fill = "BLUE",width = 5)
-    #draw.line([(0,127),(0,0)], fill = "BLUE",width = 5)
-
-    #print ("***draw rectangle")
-    #draw.rectangle([(18,10),(142,20)],fill = "RED")
-
-    #print ("***draw text")
-    #draw.text((33, 22), 'Cambridge', fill = "BLUE")
-    #draw.text((33, 36), 'Coffee', fill = "BLUE")
-    #draw.text((33, 48), 'Pot', fill = "BLUE")
-
     draw.text((13, 64), "%.1f" % weight_g, fill = "WHITE", font=font, align="right")
 
     LCD.LCD_ShowImage(image,0,0)
-    #LCD_Config.Driver_Delay_ms(500)
-
-
-EMULATE_HX711=False
-
-referenceUnit = 1
-
-if not EMULATE_HX711:
-    import RPi.GPIO as GPIO
-    from hx711 import HX711
-else:
-    from emulated_hx711 import HX711
 
 def cleanAndExit():
     print("Cleaning...")
 
-    if not EMULATE_HX711:
-        GPIO.cleanup()
+    GPIO.cleanup()
 
     print("Bye!")
     sys.exit()
+
+def send_data(post_data, token):
+    response = requests.post('https://tfc-app2.cl.cam.ac.uk/test/feedmaker/test/general',
+              headers={'X-Auth-Token': token },
+              json=post_data
+              )
+
+    print("status code",response.status_code)
 
 hx = HX711(5, 6)
 
@@ -79,7 +66,7 @@ hx = HX711(5, 6)
 # According to the HX711 Datasheet, the second parameter is MSB so you shouldn't need to modify it.
 hx.set_reading_format("MSB", "MSB")
 
-# HOW TO CALCULATE THE REFFERENCE UNIT
+# HOW TO CALCULATE THE REFERENCE UNIT
 # To set the reference unit to 1. Put 1kg on your sensor or anything you have and know exactly how much it weights.
 # In this case, 92 is 1 gram because, with 1 as a reference unit I got numbers near 0 without any weight
 # and I got numbers around 184000 when I added 2kg. So, according to the rule of thirds:
@@ -90,13 +77,12 @@ hx.set_reference_unit_B(112.4)
 
 hx.reset()
 
-#hx.tare()
-
-
 # to use both channels, you'll need to tare them both
 hx.tare_A()
 hx.tare_B()
 print("Tare A&B done! Add weight now...")
+
+prev_time = time.time() # floating point seconds in epoch
 
 while True:
     try:
@@ -116,16 +102,31 @@ while True:
         # to both channel A and B), do something like this
         val_A = hx.get_weight_A(1)
         val_B = hx.get_weight_B(1)
-
-        weight_g = val_A + val_B
-
+        weight_g = val_A + val_B # grams
         print ("A: %s  B: %s TOTAL: %s" % ( val_A, val_B, weight_g ))
 
         update_lcd(weight_g)
 
+        now = time.time() # floating point time in seconds since epoch
+        if now - prev_time > 30:
+            print("sending data",time.ctime(now))
+            post_data = { 'request_data': [ { 'acp_id': SENSOR_ID,
+                                              'acp_type': SENSOR_TYPE,
+                                              'acp_ts': now,
+                                              'weight': weight_g,
+                                              'acp_units': 'GRAMS'
+                                             }
+                                          ]
+                        }
+            send_data(post_data, ACP_TOKEN)
+            prev_time = now
+        else:
+            print("next reading")
+
+
         #hx.power_down()
         #hx.power_up()
-        time.sleep(0.1)
+        time.sleep(1.0)
 
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
