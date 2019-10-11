@@ -20,6 +20,13 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
+DISPLAY_WEIGHT_HEIGHT = 40
+DISPLAY_WEIGHT_WIDTH = 120
+DISPLAY_WEIGHT_COLOR_FG = "WHITE"
+DISPLAY_WEIGHT_COLOR_BG = "BLACK"
+DISPLAY_WEIGHT_X = 10
+DISPLAY_WEIGHT_Y = 60
+
 LCD = LCD_1in8.LCD()
 
 font = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
@@ -29,16 +36,16 @@ print ("**********Init LCD**********")
 Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
 LCD.LCD_Init(Lcd_ScanDir)
 
-image = Image.open('example.bmp')
-LCD.LCD_ShowImage(image,0,0)
+image = Image.open('pot.bmp')
+LCD.LCD_PageImage(image)
 
 def update_lcd(weight_g):
 
-    image = Image.new("RGB", (LCD.LCD_Dis_Column, LCD.LCD_Dis_Page), "BLACK")
+    image = Image.new("RGB", (DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT), DISPLAY_WEIGHT_COLOR_BG)
     draw = ImageDraw.Draw(image)
-    draw.text((13, 64), "%.1f" % weight_g, fill = "WHITE", font=font, align="right")
+    draw.text((0,0), "%.1f" % weight_g, fill = DISPLAY_WEIGHT_COLOR_FG, font=font, align="right")
 
-    LCD.LCD_ShowImage(image,0,0)
+    LCD.LCD_ShowImage(image, DISPLAY_WEIGHT_X, DISPLAY_WEIGHT_Y, DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT)
 
 def cleanAndExit():
     print("Cleaning...")
