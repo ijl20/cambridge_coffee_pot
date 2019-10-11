@@ -20,6 +20,24 @@ from 1991 to 2001.
 2019-10-09
 ![William Gates Building Ian Lewis office FE11 sensor prototype](images/prototype.jpg)
 
+## Development install
+
+For access to load cell A/D converter: origin of hx711py (now modified in this repo):
+
+```
+git clone https://github.com/tatobari/hx711py
+```
+
+Download the Waveshare python lib for the 1.8 inch display
+
+[Online info](https://www.waveshare.com/wiki/1.8inch_LCD_Module)
+
+Python support for http POST of sensor data:
+
+```
+pip install requests
+```
+
 ## Sensors
 
 ### Raspberry Pi based weight sensor
