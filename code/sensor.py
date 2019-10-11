@@ -6,6 +6,7 @@ ACP_TOKEN = 'testtoken'
 
 import time
 import sys
+import RPi.GPIO as GPIO
 sys.path.append('hx711')
 from hx711 import HX711
 import simplejson as json
