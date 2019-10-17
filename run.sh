@@ -1,6 +1,10 @@
 #!/bin/bash
 
-echo Cambridge Coffee Pot
+echo $(date) '[info] cambridge_coffee_pot/run.sh starting...'
 
-python3 /home/pi/cambridge_coffee_pot/code/coffee.py
+cd /home/pi/cambridge_coffee_pot/code
+
+python3 sensor.py
+
+echo $(date) '[info] cambridge_coffee_pot/run.sh completed'
 

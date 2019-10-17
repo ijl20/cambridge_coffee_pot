@@ -1,0 +1,38 @@
+                                                                                
+{
+    "main":    "uk.ac.cam.tfc_server.feedmaker.FeedMaker",
+    "options":
+        { "config":
+          {
+
+            "module.name":           "feedmaker",
+            "module.id":             "test",
+
+            "eb.system_status":      "tfc.system_status",
+            "eb.console_out":        "tfc.console_out",
+            "eb.manager":            "tfc.manager",
+              
+            "feedmaker.log_level":   1,
+
+            "feedmaker.http.port":   8099,
+
+            "feedmaker.feeds":     [
+                                       { 
+                                         "feed_id" :   "general",
+                                         "feed_type":  "feed_eventbus_msg",
+                                         "area_id" :   "cam",
+
+                                         "http.post":  true,
+                                         "http.token": "testtoken",
+
+                                         "file_suffix":   ".json",
+                                         "data_bin" :     "/media/tfc/test/general/data_bin",
+                                         "data_monitor" : "/media/tfc/test/general/data_monitor",
+
+                                         "msg_type" :  "feed_cam_sensor",
+                                         "address" :   "tfc.feedmaker.test"
+                                       }
+                                     ]
+          }
+        }
+}
