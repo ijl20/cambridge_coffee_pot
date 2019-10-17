@@ -36,11 +36,12 @@ DISPLAY_HEIGHT = 128               # LCD panel height
 
 # Pixel size and coordinates of the 'Weight' display
 DISPLAY_WEIGHT_HEIGHT = 40
-DISPLAY_WEIGHT_WIDTH = 120
+DISPLAY_WEIGHT_WIDTH = 160
 DISPLAY_WEIGHT_COLOR_FG = "WHITE"
 DISPLAY_WEIGHT_COLOR_BG = "BLACK"
-DISPLAY_WEIGHT_X = 10
+DISPLAY_WEIGHT_X = 0
 DISPLAY_WEIGHT_Y = 60
+DISPLAY_WEIGHT_RIGHT_MARGIN = 10
 
 
 FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
@@ -93,7 +94,14 @@ def update_lcd(weight_g):
 
     image = Image.new("RGB", (DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT), DISPLAY_WEIGHT_COLOR_BG)
     draw = ImageDraw.Draw(image)
-    draw.text((0,0), "%.1f" % weight_g, fill = DISPLAY_WEIGHT_COLOR_FG, font=FONT, align="right")
+    # convert weight to fixed 5 digits including 1 decimal place
+    if weight_g >= 10000:
+        weight_g = 9999.9
+
+    draw_string = "{:5.1f}".format(weight_g) # 10 points for witty variable name
+    # calculate x coordinate necessary to right-justify text
+    string_width, string_height = draw.textsize(draw_string, font=FONT)
+    draw.text((DISPLAY_WEIGHT_WIDTH-string_width-DISPLAY_WEIGHT_RIGHT_MARGIN,0), draw_string, fill = DISPLAY_WEIGHT_COLOR_FG, font=FONT)
 
     LCD.LCD_ShowImage(image, DISPLAY_WEIGHT_X, DISPLAY_WEIGHT_Y, DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT)
 
