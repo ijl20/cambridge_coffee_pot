@@ -1,5 +1,8 @@
 #! /usr/bin/python3
 
+# for dev / debug
+LOG_TIME = True
+
 # info sent in json packet to feed handler
 SENSOR_ID = 'cambridge_coffee_pot'
 SENSOR_TYPE = 'coffee_pot'
@@ -47,8 +50,7 @@ DISPLAY_WEIGHT_RIGHT_MARGIN = 10
 FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
 
 def init_lcd():
-    print ("**********Init LCD**********")
-
+    t_start = time.process_time()
     LCD = LCD_1in8.LCD()
 
     Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
@@ -56,6 +58,9 @@ def init_lcd():
 
     image = Image.open('pot.bmp')
     LCD.LCD_PageImage(image)
+
+    if LOG_TIME:
+        print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
     return LCD
 
@@ -84,26 +89,45 @@ def get_weight():
     global hx
 
     val_A = hx.get_weight_A(1)
-    val_B = hx.get_weight_B(1)
-    return val_A + val_B # grams
+    # val_B = hx.get_weight_B(1)
+    return val_A # + val_B # grams
 
 # Update a PIL image with the weight, and send to LCD
 # Note we are creating an image smaller than the screen size, and only updating a part of the display
 def update_lcd(weight_g):
     global LCD
 
+    t_start = time.process_time()
+
+    # create a blank image to write the weight on
     image = Image.new("RGB", (DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT), DISPLAY_WEIGHT_COLOR_BG)
     draw = ImageDraw.Draw(image)
-    # convert weight to fixed 5 digits including 1 decimal place
+
+    # convert weight to string with fixed 5 digits including 1 decimal place, max 9999.9
+
     if weight_g >= 10000:
         weight_g = 9999.9
 
     draw_string = "{:5.1f}".format(weight_g) # 10 points for witty variable name
+
     # calculate x coordinate necessary to right-justify text
     string_width, string_height = draw.textsize(draw_string, font=FONT)
-    draw.text((DISPLAY_WEIGHT_WIDTH-string_width-DISPLAY_WEIGHT_RIGHT_MARGIN,0), draw_string, fill = DISPLAY_WEIGHT_COLOR_FG, font=FONT)
 
-    LCD.LCD_ShowImage(image, DISPLAY_WEIGHT_X, DISPLAY_WEIGHT_Y, DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT)
+    # embed this number into the blank image we created earlier
+    draw.text((DISPLAY_WEIGHT_WIDTH-string_width-DISPLAY_WEIGHT_RIGHT_MARGIN,0),
+              draw_string,
+              fill = DISPLAY_WEIGHT_COLOR_FG,
+              font=FONT)
+
+    # display image on screen at coords x,y. (0,0)=top left.
+    LCD.LCD_ShowImage(image,
+                      DISPLAY_WEIGHT_X,
+                      DISPLAY_WEIGHT_Y,
+                      DISPLAY_WEIGHT_WIDTH,
+                      DISPLAY_WEIGHT_HEIGHT)
+
+    if LOG_TIME:
+        print("LCD updated with weight in {:.3f} secs.".format(time.process_time() - t_start))
 
 def cleanAndExit():
     print("Cleaning...")
@@ -132,6 +156,7 @@ def loop():
 
     while True:
         try:
+            t_start = time.process_time()
             # get readings from A and B channels
             weight_g = get_weight()
 
@@ -155,6 +180,10 @@ def loop():
 
             #hx.power_down()
             #hx.power_up()
+
+            if LOG_TIME:
+                print("Loop time (before sleep) {:.3f} secs.".format(time.process_time() - t_start))
+
             time.sleep(1.0)
 
         except (KeyboardInterrupt, SystemExit):

@@ -55,13 +55,13 @@ D2U_L2R = 7
 D2U_R2L = 8
 SCAN_DIR_DFT = U2D_R2L
 
-##***********************************************************************************************************************
+##**********************************************************************
 #------------------------------------------------------------------------
 #|\\\																#/|
 #|\\\						Drive layer								#/|
 #|\\\																#/|
 #------------------------------------------------------------------------
-#************************************************************************************************************************
+#***********************************************************************
 class LCD:
 	def __init__(self):
 		print("LCD __init__")
@@ -275,12 +275,20 @@ class LCD:
 	#	Yend    :   Y direction end coordinates
 	#********************************************************************************/
 	def LCD_SetWindows(self, Xstart, Ystart, Xend, Yend ):
-		#set the X coordinates
+		# set the X coordinates
 		self.LCD_WriteReg ( 0x2A )
-		self.LCD_WriteData_8bit ( 0x00 )					#Set the horizontal starting point to the high octet
-		self.LCD_WriteData_8bit ( (Xstart & 0xff) + self.LCD_X_Adjust)		#Set the horizontal starting point to the low octet
-		self.LCD_WriteData_8bit ( 0x00 )					#Set the horizontal end to the high octet
-		self.LCD_WriteData_8bit ( (( Xend - 1 ) & 0xff) + self.LCD_X_Adjust)    #Set the horizontal end to the low octet
+
+                # Set the horizontal starting point to the high octet
+		self.LCD_WriteData_8bit ( 0x00 )
+
+                # Set the horizontal starting point to the low octet
+		self.LCD_WriteData_8bit ( (Xstart & 0xff) + self.LCD_X_Adjust)
+
+                # Set the horizontal end to the high octet
+		self.LCD_WriteData_8bit ( 0x00 )
+
+                # Set the horizontal end to the low octet
+		self.LCD_WriteData_8bit ( (( Xend - 1 ) & 0xff) + self.LCD_X_Adjust)
 
 		#set the Y coordinates
 		self.LCD_WriteReg ( 0x2B )
@@ -360,7 +368,9 @@ class LCD:
 		Pixels = Image.load()
 		for j in range(0, self.LCD_Dis_Page ):
 			for i in range(0, self.LCD_Dis_Column ):
-				Pixels_Color = ((Pixels[i, j][0] >> 3) << 11)|((Pixels[i, j][1] >> 2) << 5)|(Pixels[i, j][2] >> 3)#RGB Data
+				Pixels_Color = (((Pixels[i, j][0] >> 3) << 11) |
+                                                ((Pixels[i, j][1] >> 2) << 5) |
+                                                (Pixels[i, j][2] >> 3)) #RGB Data
 				self.LCD_SetColor(Pixels_Color , 1, 1)
 
 	#/********************************************************************************
