@@ -106,12 +106,12 @@ LCD_BL_PIN          = 24
 LCD_1IN44 = 0
 LCD_1IN8 = 1
 if LCD_1IN44 == 1:
-	LCD_WIDTH  = 128  #LCD width
-	LCD_HEIGHT = 128 #LCD height
+    LCD_WIDTH  = 128  #LCD width
+    LCD_HEIGHT = 128 #LCD height
 
 if LCD_1IN8 == 1:
-	LCD_WIDTH  = 160
-	LCD_HEIGHT = 128
+    LCD_WIDTH  = 160
+    LCD_HEIGHT = 128
 
 LCD_X = 2
 LCD_Y = 1
@@ -130,6 +130,7 @@ D2U_R2L = 8
 SCAN_DIR_DFT = U2D_R2L
 
 # SPI device, bus = 0, device = 0
+
 SPI = spidev.SpiDev(0, 0)
 
 def epd_digital_write(pin, value):
@@ -138,48 +139,48 @@ def epd_digital_write(pin, value):
 def delay_ms(xms):
     time.sleep(xms / 1000.0)
 
-def GPIO_Init():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-    GPIO.setup(LCD_RST_PIN, GPIO.OUT)
-    GPIO.setup(LCD_DC_PIN, GPIO.OUT)
-    GPIO.setup(LCD_CS_PIN, GPIO.OUT)
-    GPIO.setup(LCD_BL_PIN, GPIO.OUT)
-    SPI.max_speed_hz = 9000000
-    SPI.mode = 0b00
-    return 0;
-
 class LCD_ST7735(object):
     """Representation of an ST7735 TFT LCD."""
 
-    def __init__(self, dc=LCD_DC_PIN, rst=LCD_RST_PIN, spi, gpio=None, width=LCD_WIDTH, height=LCD_HEIGHT):
+    def __init__(self,
+                 dc=LCD_DC_PIN,
+                 rst=LCD_RST_PIN,
+                 width=LCD_WIDTH,
+                 height=LCD_HEIGHT):
         """Create an instance of the display using SPI communication.  Must
         provide the GPIO pin number for the D/C pin and the SPI driver.  Can
         optionally provide the GPIO pin number for the reset pin as the rst
         parameter.
         """
+
+        print("initializing LCD_ST7735")
+
         self._dc = dc
         self._rst = rst
-        self._spi = spi
-        self._gpio = gpio
         self.width = width
         self.height = height
-		self.LCD_Scan_Dir = SCAN_DIR_DFT
-		self.LCD_X_Adjust = LCD_X
-		self.LCD_Y_Adjust = LCD_Y
-        if self._gpio is None:
-            self._gpio = GPIO.get_platform_gpio()
-        # Set DC as output.
-        self._gpio.setup(dc, GPIO.OUT)
-        # Setup reset as output (if provided).
-        if rst is not None:
-            self._gpio.setup(rst, GPIO.OUT)
-        # Set SPI to mode 0, MSB first.
-        spi.set_mode(0)
-        spi.set_bit_order(SPI.MSBFIRST)
-        spi.set_clock_hz(SPI_CLOCK_HZ)
+        self.LCD_Scan_Dir = SCAN_DIR_DFT
+        self.LCD_X_Adjust = LCD_X
+        self.LCD_Y_Adjust = LCD_Y
+
+        # set up i/o pins
+        self.GPIO_init()
+
         # Create an image buffer.
         self.buffer = Image.new('RGB', (width, height))
+
+    def GPIO_init(self):
+        """Initialize GPIO pins for ST7735 comms"""
+
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(LCD_RST_PIN, GPIO.OUT)
+        GPIO.setup(LCD_DC_PIN, GPIO.OUT)
+        GPIO.setup(LCD_CS_PIN, GPIO.OUT)
+        GPIO.setup(LCD_BL_PIN, GPIO.OUT)
+        SPI.max_speed_hz = SPI_CLOCK_HZ
+        SPI.mode = 0b00
+        return 0;
 
     def send(self, data, is_data=True, chunk_size=4096):
         """Write a byte or array of bytes to the display. Is_data parameter
@@ -188,14 +189,14 @@ class LCD_ST7735(object):
         single SPI transaction, with a default of 4096.
         """
         # Set DC low for command, high for data.
-        self._gpio.output(self._dc, is_data)
+        GPIO.output(self._dc, is_data)
         # Convert scalar argument to list so either can be passed as parameter.
         if isinstance(data, numbers.Number):
             data = [data & 0xFF]
         # Write data a chunk at a time.
         for start in range(0, len(data), chunk_size):
             end = min(start+chunk_size, len(data))
-            self._spi.write(data[start:end])
+            SPI.write(data[start:end])
 
     def send_command(self, data):
         """Write a byte or array of bytes to the display as command data."""
@@ -205,40 +206,40 @@ class LCD_ST7735(object):
         """Write a byte or array of bytes to the display as display data."""
         self.send(data, True)
 
-    def send_byte(self, byte)
-        self._gpio.output(self._dc, True)
-		self._spi.write([byte])
+    def send_byte(self, byte):
+        GPIO.output(self._dc, True)
+        SPI.write([byte])
 
     def reset(self):
         """Reset the display, if reset pin is connected."""
         if self._rst is not None:
-            self._gpio.set_high(self._rst)
+            GPIO.set_high(self._rst)
             time.sleep(0.500)
-            self._gpio.set_low(self._rst)
+            GPIO.set_low(self._rst)
             time.sleep(0.500)
-            self._gpio.set_high(self._rst)
+            GPIO.set_high(self._rst)
             time.sleep(0.500)
 
     def _init(self):
         # Initialize the display.  Broken out as a separate function so it can
         # be overridden by other displays in the future.
-        
+
         self.send_command(ST7735_SWRESET) # Software reset
         time.sleep(0.150) # delay 150 ms
-        
+
         self.send_command(ST7735_SLPOUT) # Out of sleep mode
         time.sleep(0.500) # delay 500 ms
-        
+
         self.send_command(ST7735_FRMCTR1) # Frame rate ctrl - normal mode
         self.send_data(0x01) # Rate = fosc/(1x2+40) * (LINE+2C+2D)
         self.send_data(0x2C)
         self.send_data(0x2D)
-        
+
         self.send_command(ST7735_FRMCTR2) # Frame rate ctrl - idle mode
         self.send_data(0x01) # Rate = fosc/(1x2+40) * (LINE+2C+2D)
         self.send_data(0x2C)
         self.send_data(0x2D)
-        
+
         self.send_command(ST7735_FRMCTR3) # Frame rate ctrl - partial mode
         self.send_data(0x01) # Dot inversion mode
         self.send_data(0x2C)
@@ -246,54 +247,54 @@ class LCD_ST7735(object):
         self.send_data(0x01) # Line inversion mode
         self.send_data(0x2C)
         self.send_data(0x2D)
-        
+
         self.send_command(ST7735_INVCTR) # Display inversion ctrl
         self.send_data(0x07) # No inversion
-        
+
         self.send_command(ST7735_PWCTR1) # Power control
         self.send_data(0xA2)
         self.send_data(0x02) # -4.6V
         self.send_data(0x84) # auto mode
-        
+
         self.send_command(ST7735_PWCTR2) # Power control
         self.send_data(0x0A) # Opamp current small
         self.send_data(0x00) # Boost frequency
-        
+
         self.send_command(ST7735_PWCTR4) # Power control
         self.send_data(0x8A) # BCLK/2, Opamp current small & Medium low
         self.send_data(0x2A)
-        
+
         self.send_command(ST7735_PWCTR5) # Power control
         self.send_data(0x8A)
         self.send_data(0xEE)
-        
+
         self.send_command(ST7735_VMCTR1) # Power control
         self.send_data(0x0E)
-        
+
         self.send_command(ST7735_INVOFF) # Don't invert display
-        
+
         self.send_command(ST7735_MADCTL) # Memory access control (directions)
         self.send_data(0xC8) # row addr/col addr, bottom to top refresh
-        
+
         self.send_command(ST7735_COLMOD) # set color mode
         self.send_data(0x05) # 16-bit color
-        
+
         #
-        
+
         self.send_command(ST7735_CASET) # Column addr set
         self.send_data(0x00) # XSTART = 0
         self.send_data(0x00)
         self.send_data(0x00) # XEND = 127
         self.send_data(0x7F)
-        
+
         self.send_command(ST7735_RASET) # Row addr set
         self.send_data(0x00) # XSTART = 0
         self.send_data(0x00)
         self.send_data(0x00) # XEND = 159
         self.send_data(0x9F)
-        
+
         #
-        
+
         self.send_command(ST7735_GMCTRP1) # Set Gamma
         self.send_data(0x02)
         self.send_data(0x1c)
@@ -311,7 +312,7 @@ class LCD_ST7735(object):
         self.send_data(0x01)
         self.send_data(0x03)
         self.send_data(0x10)
-        
+
         self.send_command(ST7735_GMCTRN1) # Set Gamma
         self.send_data(0x03)
         self.send_data(0x1d)
@@ -329,10 +330,10 @@ class LCD_ST7735(object):
         self.send_data(0x00)
         self.send_data(0x02)
         self.send_data(0x10)
-        
+
         self.send_command(ST7735_NORON) # Normal display on
         time.sleep(0.10) # 10 ms
-        
+
         self.send_command(ST7735_DISPON) # Display on
         time.sleep(0.100) # 100 ms
 
@@ -394,322 +395,322 @@ class LCD_ST7735(object):
         """Return a PIL ImageDraw instance for 2D drawing on the image buffer."""
         return ImageDraw.Draw(self.buffer)
 
-	"""    Hardware reset     """
-	def  LCD_Reset(self):
-		GPIO.output(LCD_RST_PIN, GPIO.HIGH)
-		delay_ms(100)
-		GPIO.output(LCD_RST_PIN, GPIO.LOW)
-		delay_ms(100)
-		GPIO.output(LCD_RST_PIN, GPIO.HIGH)
-		delay_ms(100)
+    """    Hardware reset     """
+    def  LCD_Reset(self):
+        GPIO.output(LCD_RST_PIN, GPIO.HIGH)
+        delay_ms(100)
+        GPIO.output(LCD_RST_PIN, GPIO.LOW)
+        delay_ms(100)
+        GPIO.output(LCD_RST_PIN, GPIO.HIGH)
+        delay_ms(100)
 
-	"""    Write register address and data     """
-	def WriteCommand(self, Reg):
-		GPIO.output(LCD_DC_PIN, GPIO.LOW)
-		SPI.writebytes([Reg])
+    """    Write register address and data     """
+    def WriteCommand(self, Reg):
+        GPIO.output(LCD_DC_PIN, GPIO.LOW)
+        SPI.writebytes([Reg])
 
-	def WriteByte(self, Data):
-		GPIO.output(LCD_DC_PIN, GPIO.HIGH)
-		SPI.writebytes([Data])
+    def WriteByte(self, Data):
+        GPIO.output(LCD_DC_PIN, GPIO.HIGH)
+        SPI.writebytes([Data])
 
-	def WriteData_NLen16Bit(self, Data, DataLen):
-		GPIO.output(LCD_DC_PIN, GPIO.HIGH)
-		for i in range(0, DataLen):
-			SPI.writebytes([Data >> 8])
-			SPI.writebytes([Data & 0xff])
+    def WriteData_NLen16Bit(self, Data, DataLen):
+        GPIO.output(LCD_DC_PIN, GPIO.HIGH)
+        for i in range(0, DataLen):
+            SPI.writebytes([Data >> 8])
+            SPI.writebytes([Data & 0xff])
 
-	"""    Common register initialization    """
-	def LCD_InitReg(self):
-		#ST7735R Frame Rate
-		self.WriteCommand(ST7735_FRMCTR1)
-		self.WriteByte(0x01)
-		self.WriteByte(0x2C)
-		self.WriteByte(0x2D)
+    """    Common register initialization    """
+    def LCD_InitReg(self):
+        #ST7735R Frame Rate
+        self.WriteCommand(ST7735_FRMCTR1)
+        self.WriteByte(0x01)
+        self.WriteByte(0x2C)
+        self.WriteByte(0x2D)
 
-		self.WriteCommand(ST7735_FRMCTR2)
-		self.WriteByte(0x01)
-		self.WriteByte(0x2C)
-		self.WriteByte(0x2D)
+        self.WriteCommand(ST7735_FRMCTR2)
+        self.WriteByte(0x01)
+        self.WriteByte(0x2C)
+        self.WriteByte(0x2D)
 
-		self.WriteCommand(ST7735_FRMCTR3)
-		self.WriteByte(0x01)
-		self.WriteByte(0x2C)
-		self.WriteByte(0x2D)
-		self.WriteByte(0x01)
-		self.WriteByte(0x2C)
-		self.WriteByte(0x2D)
+        self.WriteCommand(ST7735_FRMCTR3)
+        self.WriteByte(0x01)
+        self.WriteByte(0x2C)
+        self.WriteByte(0x2D)
+        self.WriteByte(0x01)
+        self.WriteByte(0x2C)
+        self.WriteByte(0x2D)
 
-		#Column inversion
-		self.WriteCommand(ST7735_INVCTR)
-		self.WriteByte(0x07)
+        #Column inversion
+        self.WriteCommand(ST7735_INVCTR)
+        self.WriteByte(0x07)
 
-		#ST7735R Power Sequence
-		self.WriteCommand(ST7735_PWCTR1)
-		self.WriteByte(0xA2)
-		self.WriteByte(0x02)
-		self.WriteByte(0x84)
-		self.WriteCommand(ST7735_PWCTR2)
-		self.WriteByte(0xC5)
+        #ST7735R Power Sequence
+        self.WriteCommand(ST7735_PWCTR1)
+        self.WriteByte(0xA2)
+        self.WriteByte(0x02)
+        self.WriteByte(0x84)
+        self.WriteCommand(ST7735_PWCTR2)
+        self.WriteByte(0xC5)
 
-		self.WriteCommand(ST7735_PWCTR3)
-		self.WriteByte(0x0A)
-		self.WriteByte(0x00)
+        self.WriteCommand(ST7735_PWCTR3)
+        self.WriteByte(0x0A)
+        self.WriteByte(0x00)
 
-		self.WriteCommand(ST7735_PWCTR4)
-		self.WriteByte(0x8A)
-		self.WriteByte(0x2A)
-		self.WriteCommand(ST7735_PWCTR5)
-		self.WriteByte(0x8A)
-		self.WriteByte(0xEE)
+        self.WriteCommand(ST7735_PWCTR4)
+        self.WriteByte(0x8A)
+        self.WriteByte(0x2A)
+        self.WriteCommand(ST7735_PWCTR5)
+        self.WriteByte(0x8A)
+        self.WriteByte(0xEE)
 
-		self.WriteCommand(ST7735_VMCTR1)#VCOM
-		self.WriteByte(0x0E)
+        self.WriteCommand(ST7735_VMCTR1)#VCOM
+        self.WriteByte(0x0E)
 
-		#ST7735R Gamma Sequence
-		self.WriteCommand(ST7735_GMCTRP1)
-		self.WriteByte(0x0f)
-		self.WriteByte(0x1a)
-		self.WriteByte(0x0f)
-		self.WriteByte(0x18)
-		self.WriteByte(0x2f)
-		self.WriteByte(0x28)
-		self.WriteByte(0x20)
-		self.WriteByte(0x22)
-		self.WriteByte(0x1f)
-		self.WriteByte(0x1b)
-		self.WriteByte(0x23)
-		self.WriteByte(0x37)
-		self.WriteByte(0x00)
-		self.WriteByte(0x07)
-		self.WriteByte(0x02)
-		self.WriteByte(0x10)
+        #ST7735R Gamma Sequence
+        self.WriteCommand(ST7735_GMCTRP1)
+        self.WriteByte(0x0f)
+        self.WriteByte(0x1a)
+        self.WriteByte(0x0f)
+        self.WriteByte(0x18)
+        self.WriteByte(0x2f)
+        self.WriteByte(0x28)
+        self.WriteByte(0x20)
+        self.WriteByte(0x22)
+        self.WriteByte(0x1f)
+        self.WriteByte(0x1b)
+        self.WriteByte(0x23)
+        self.WriteByte(0x37)
+        self.WriteByte(0x00)
+        self.WriteByte(0x07)
+        self.WriteByte(0x02)
+        self.WriteByte(0x10)
 
-		self.WriteCommand(ST7735_GMCTRN1)
-		self.WriteByte(0x0f)
-		self.WriteByte(0x1b)
-		self.WriteByte(0x0f)
-		self.WriteByte(0x17)
-		self.WriteByte(0x33)
-		self.WriteByte(0x2c)
-		self.WriteByte(0x29)
-		self.WriteByte(0x2e)
-		self.WriteByte(0x30)
-		self.WriteByte(0x30)
-		self.WriteByte(0x39)
-		self.WriteByte(0x3f)
-		self.WriteByte(0x00)
-		self.WriteByte(0x07)
-		self.WriteByte(0x03)
-		self.WriteByte(0x10)
+        self.WriteCommand(ST7735_GMCTRN1)
+        self.WriteByte(0x0f)
+        self.WriteByte(0x1b)
+        self.WriteByte(0x0f)
+        self.WriteByte(0x17)
+        self.WriteByte(0x33)
+        self.WriteByte(0x2c)
+        self.WriteByte(0x29)
+        self.WriteByte(0x2e)
+        self.WriteByte(0x30)
+        self.WriteByte(0x30)
+        self.WriteByte(0x39)
+        self.WriteByte(0x3f)
+        self.WriteByte(0x00)
+        self.WriteByte(0x07)
+        self.WriteByte(0x03)
+        self.WriteByte(0x10)
 
-		#Enable test command
-		self.WriteCommand(0xF0)
-		self.WriteByte(0x01)
+        #Enable test command
+        self.WriteCommand(0xF0)
+        self.WriteByte(0x01)
 
-		#Disable ram power save mode
-		self.WriteCommand(0xF6)
-		self.WriteByte(0x00)
+        #Disable ram power save mode
+        self.WriteCommand(0xF6)
+        self.WriteByte(0x00)
 
-		#65k mode
-		self.WriteCommand(0x3A)
-		self.WriteByte(0x05)
+        #65k mode
+        self.WriteCommand(0x3A)
+        self.WriteByte(0x05)
 
-	#********************************************************************************
-	#function:	Set the display scan and color transfer modes
-	#parameter:
-	#		Scan_dir   :   Scan direction
-	#		Colorchose :   RGB or GBR color format
-	#********************************************************************************
-	def LCD_SetGramScanWay(self, Scan_dir):
-		#Get the screen scan direction
-		self.LCD_Scan_Dir = Scan_dir
+    #********************************************************************************
+    #function:  Set the display scan and color transfer modes
+    #parameter:
+    #       Scan_dir   :   Scan direction
+    #       Colorchose :   RGB or GBR color format
+    #********************************************************************************
+    def LCD_SetGramScanWay(self, Scan_dir):
+        #Get the screen scan direction
+        self.LCD_Scan_Dir = Scan_dir
 
-		#Get GRAM and LCD width and height
-		if (Scan_dir == L2R_U2D) or (Scan_dir == L2R_D2U) or (Scan_dir == R2L_U2D) or (Scan_dir == R2L_D2U) :
-			self.width	= LCD_HEIGHT
-			self.height 	= LCD_WIDTH
-			self.LCD_X_Adjust = LCD_X
-			self.LCD_Y_Adjust = LCD_Y
-			if Scan_dir == L2R_U2D:
-				MemoryAccessReg_Data = 0X00 | 0x00
-			elif Scan_dir == L2R_D2U:
-				MemoryAccessReg_Data = 0X00 | 0x80
-			elif Scan_dir == R2L_U2D:
-				MemoryAccessReg_Data = 0x40 | 0x00
-			else:		#R2L_D2U:
-				MemoryAccessReg_Data = 0x40 | 0x80
-		else:
-			self.width	= LCD_WIDTH
-			self.height 	= LCD_HEIGHT
-			self.LCD_X_Adjust = LCD_Y
-			self.LCD_Y_Adjust = LCD_X
-			if Scan_dir == U2D_L2R:
-				MemoryAccessReg_Data = 0X00 | 0x00 | 0x20
-			elif Scan_dir == U2D_R2L:
-				MemoryAccessReg_Data = 0X00 | 0x40 | 0x20
-			elif Scan_dir == D2U_L2R:
-				MemoryAccessReg_Data = 0x80 | 0x00 | 0x20
-			else:		#R2L_D2U
-				MemoryAccessReg_Data = 0x40 | 0x80 | 0x20
+        #Get GRAM and LCD width and height
+        if (Scan_dir == L2R_U2D) or (Scan_dir == L2R_D2U) or (Scan_dir == R2L_U2D) or (Scan_dir == R2L_D2U) :
+            self.width  = LCD_HEIGHT
+            self.height     = LCD_WIDTH
+            self.LCD_X_Adjust = LCD_X
+            self.LCD_Y_Adjust = LCD_Y
+            if Scan_dir == L2R_U2D:
+                MemoryAccessReg_Data = 0X00 | 0x00
+            elif Scan_dir == L2R_D2U:
+                MemoryAccessReg_Data = 0X00 | 0x80
+            elif Scan_dir == R2L_U2D:
+                MemoryAccessReg_Data = 0x40 | 0x00
+            else:       #R2L_D2U:
+                MemoryAccessReg_Data = 0x40 | 0x80
+        else:
+            self.width  = LCD_WIDTH
+            self.height     = LCD_HEIGHT
+            self.LCD_X_Adjust = LCD_Y
+            self.LCD_Y_Adjust = LCD_X
+            if Scan_dir == U2D_L2R:
+                MemoryAccessReg_Data = 0X00 | 0x00 | 0x20
+            elif Scan_dir == U2D_R2L:
+                MemoryAccessReg_Data = 0X00 | 0x40 | 0x20
+            elif Scan_dir == D2U_L2R:
+                MemoryAccessReg_Data = 0x80 | 0x00 | 0x20
+            else:       #R2L_D2U
+                MemoryAccessReg_Data = 0x40 | 0x80 | 0x20
 
-		# Set the read / write scan direction of the frame memory
-		self.WriteCommand(0x36)		#MX, MY, RGB mode
-		if LCD_1IN44 == 1:
-			self.WriteByte( MemoryAccessReg_Data | 0x08)	#0x08 set RGB
-		else:
-			self.WriteByte( MemoryAccessReg_Data & 0xf7)	#RGB color filter panel
+        # Set the read / write scan direction of the frame memory
+        self.WriteCommand(0x36)     #MX, MY, RGB mode
+        if LCD_1IN44 == 1:
+            self.WriteByte( MemoryAccessReg_Data | 0x08)    #0x08 set RGB
+        else:
+            self.WriteByte( MemoryAccessReg_Data & 0xf7)    #RGB color filter panel
 
-	#/********************************************************************************
-	#function:
-	#			initialization
-	#********************************************************************************/
-	def LCD_Init(self, Lcd_ScanDir):
-		if (GPIO_Init() != 0):
-			return -1
+    #/********************************************************************************
+    #function:
+    #           initialization
+    #********************************************************************************/
+    def LCD_Init(self, Lcd_ScanDir):
+        if (GPIO_Init() != 0):
+            return -1
 
-		#Turn on the backlight
-		GPIO.output(LCD_BL_PIN,GPIO.HIGH)
+        #Turn on the backlight
+        GPIO.output(LCD_BL_PIN,GPIO.HIGH)
 
-		#Hardware reset
-		self.LCD_Reset()
+        #Hardware reset
+        self.LCD_Reset()
 
-		#Set the initialization register
-		self.LCD_InitReg()
+        #Set the initialization register
+        self.LCD_InitReg()
 
-		#Set the display scan and color transfer modes
-		self.LCD_SetGramScanWay( Lcd_ScanDir )
-		delay_ms(200)
+        #Set the display scan and color transfer modes
+        self.LCD_SetGramScanWay( Lcd_ScanDir )
+        delay_ms(200)
 
-		#sleep out
-		self.WriteCommand(0x11)
-		delay_ms(120)
+        #sleep out
+        self.WriteCommand(0x11)
+        delay_ms(120)
 
-		#Turn on the LCD display
-		self.WriteCommand(0x29)
+        #Turn on the LCD display
+        self.WriteCommand(0x29)
 
-		self.LCD_Clear()
+        self.LCD_Clear()
 
-	#/********************************************************************************
-	#function:	Sets the start position and size of the display area
-	#parameter:
-	#	Xstart 	:   X direction Start coordinates
-	#	Ystart  :   Y direction Start coordinates
-	#	Xend    :   X direction end coordinates
-	#	Yend    :   Y direction end coordinates
-	#********************************************************************************/
-	def LCD_SetWindows(self, Xstart, Ystart, Xend, Yend ):
-		# set the X coordinates
-		self.WriteCommand( ST7735_CASET )
+    #/********************************************************************************
+    #function:  Sets the start position and size of the display area
+    #parameter:
+    #   Xstart  :   X direction Start coordinates
+    #   Ystart  :   Y direction Start coordinates
+    #   Xend    :   X direction end coordinates
+    #   Yend    :   Y direction end coordinates
+    #********************************************************************************/
+    def LCD_SetWindows(self, Xstart, Ystart, Xend, Yend ):
+        # set the X coordinates
+        self.WriteCommand( ST7735_CASET )
 
                 # Set the horizontal starting point to the high octet
-		self.WriteByte( 0x00 )
+        self.WriteByte( 0x00 )
 
                 # Set the horizontal starting point to the low octet
-		self.WriteByte( (Xstart & 0xff) + self.LCD_X_Adjust)
+        self.WriteByte( (Xstart & 0xff) + self.LCD_X_Adjust)
 
                 # Set the horizontal end to the high octet
-		self.WriteByte( 0x00 )
+        self.WriteByte( 0x00 )
 
                 # Set the horizontal end to the low octet
-		self.WriteByte( (( Xend - 1 ) & 0xff) + self.LCD_X_Adjust)
+        self.WriteByte( (( Xend - 1 ) & 0xff) + self.LCD_X_Adjust)
 
-		#set the Y coordinates
-		self.WriteCommand( ST7735_RASET )
-		self.WriteByte( 0x00 )
-		self.WriteByte( (Ystart & 0xff) + self.LCD_Y_Adjust)
-		self.WriteByte( 0x00 )
-		self.WriteByte( ( (Yend - 1) & 0xff )+ self.LCD_Y_Adjust)
+        #set the Y coordinates
+        self.WriteCommand( ST7735_RASET )
+        self.WriteByte( 0x00 )
+        self.WriteByte( (Ystart & 0xff) + self.LCD_Y_Adjust)
+        self.WriteByte( 0x00 )
+        self.WriteByte( ( (Yend - 1) & 0xff )+ self.LCD_Y_Adjust)
 
-		self.WriteCommand( ST7735_RAMWR )
+        self.WriteCommand( ST7735_RAMWR )
 
-	#/********************************************************************************
-	#function:	Set the display point (Xpoint, Ypoint)
-	#parameter:
-	#		xStart :   X direction Start coordinates
-	#		xEnd   :   X direction end coordinates
-	#********************************************************************************/
-	def LCD_SetCursor (self, Xpoint, Ypoint ):
-		self.LCD_SetWindows ( Xpoint, Ypoint, Xpoint , Ypoint )
+    #/********************************************************************************
+    #function:  Set the display point (Xpoint, Ypoint)
+    #parameter:
+    #       xStart :   X direction Start coordinates
+    #       xEnd   :   X direction end coordinates
+    #********************************************************************************/
+    def LCD_SetCursor (self, Xpoint, Ypoint ):
+        self.LCD_SetWindows ( Xpoint, Ypoint, Xpoint , Ypoint )
 
-	#/********************************************************************************
-	#function:	Set show color
-	#parameter:
-	#		Color  :   Set show color
-	#********************************************************************************/
-	def LCD_SetColor(self, Color , width,  height):
-		self.WriteData_NLen16Bit(Color,width * height)
+    #/********************************************************************************
+    #function:  Set show color
+    #parameter:
+    #       Color  :   Set show color
+    #********************************************************************************/
+    def LCD_SetColor(self, Color , width,  height):
+        self.WriteData_NLen16Bit(Color,width * height)
 
-	#/********************************************************************************
-	#function:	Point (Xpoint, Ypoint) Fill the color
-	#parameter:
-	#		Xpoint :   The x coordinate of the point
-	#		Ypoint :   The y coordinate of the point
-	#		Color  :   Set the color
-	#********************************************************************************/
-	def LCD_SetPointlColor (self,  Xpoint,  Ypoint, Color ):
-		if ( ( Xpoint <= self.width ) and ( Ypoint <= self.height ) ):
-			self.LCD_SetCursor (Xpoint, Ypoint)
-			self.LCD_SetColor ( Color , 1 , 1)
+    #/********************************************************************************
+    #function:  Point (Xpoint, Ypoint) Fill the color
+    #parameter:
+    #       Xpoint :   The x coordinate of the point
+    #       Ypoint :   The y coordinate of the point
+    #       Color  :   Set the color
+    #********************************************************************************/
+    def LCD_SetPointlColor (self,  Xpoint,  Ypoint, Color ):
+        if ( ( Xpoint <= self.width ) and ( Ypoint <= self.height ) ):
+            self.LCD_SetCursor (Xpoint, Ypoint)
+            self.LCD_SetColor ( Color , 1 , 1)
 
-	#/********************************************************************************
-	#function:	Fill the area with the color
-	#parameter:
-	#		Xstart :   Start point x coordinate
-	#		Ystart :   Start point y coordinate
-	#		Xend   :   End point coordinates
-	#		Yend   :   End point coordinates
-	#		Color  :   Set the color
-	#********************************************************************************/
-	def LCD_SetArealColor (self, Xstart, Ystart, Xend, Yend, Color):
-		if (Xend > Xstart) and (Yend > Ystart):
-			self.LCD_SetWindows( Xstart , Ystart , Xend , Yend  )
-			self.LCD_SetColor ( Color ,Xend - Xstart , Yend - Ystart )
+    #/********************************************************************************
+    #function:  Fill the area with the color
+    #parameter:
+    #       Xstart :   Start point x coordinate
+    #       Ystart :   Start point y coordinate
+    #       Xend   :   End point coordinates
+    #       Yend   :   End point coordinates
+    #       Color  :   Set the color
+    #********************************************************************************/
+    def LCD_SetArealColor (self, Xstart, Ystart, Xend, Yend, Color):
+        if (Xend > Xstart) and (Yend > Ystart):
+            self.LCD_SetWindows( Xstart , Ystart , Xend , Yend  )
+            self.LCD_SetColor ( Color ,Xend - Xstart , Yend - Ystart )
 
-	#/********************************************************************************
-	#function:
-	#			Clear screen
-	#********************************************************************************/
-	def LCD_Clear(self):
-		if ((self.LCD_Scan_Dir == L2R_U2D) or
+    #/********************************************************************************
+    #function:
+    #           Clear screen
+    #********************************************************************************/
+    def LCD_Clear(self):
+        if ((self.LCD_Scan_Dir == L2R_U2D) or
                     (self.LCD_Scan_Dir == L2R_D2U) or
                     (self.LCD_Scan_Dir == R2L_U2D) or
                     (self.LCD_Scan_Dir == R2L_D2U)) :
-			self.LCD_SetArealColor(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , Color = 0xFFFF)#white
-		else:
-			self.LCD_SetArealColor(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , Color = 0xFFFF)#white
+            self.LCD_SetArealColor(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , Color = 0xFFFF)#white
+        else:
+            self.LCD_SetArealColor(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , Color = 0xFFFF)#white
 
-	#/********************************************************************************
-	#function:
-	#			Page Image
+    #/********************************************************************************
+    #function:
+    #           Page Image
         # Writes a display-sized image to the full display
-	#********************************************************************************/
-	def LCD_PageImage(self,Image):
-		if (Image == None):
-			return
+    #********************************************************************************/
+    def LCD_PageImage(self,Image):
+        if (Image == None):
+            return
 
-		self.LCD_SetWindows ( 0, 0, self.width , self.height  )
-		Pixels = Image.load()
-		for j in range(0, self.height ):
-			for i in range(0, self.width ):
-				Pixels_Color = (((Pixels[i, j][0] >> 3) << 11) |
+        self.LCD_SetWindows ( 0, 0, self.width , self.height  )
+        Pixels = Image.load()
+        for j in range(0, self.height ):
+            for i in range(0, self.width ):
+                Pixels_Color = (((Pixels[i, j][0] >> 3) << 11) |
                                                 ((Pixels[i, j][1] >> 2) << 5) |
                                                 (Pixels[i, j][2] >> 3)) #RGB Data
-				self.LCD_SetColor(Pixels_Color , 1, 1)
+                self.LCD_SetColor(Pixels_Color , 1, 1)
 
-	#/********************************************************************************
-	#function:
-	#			Show Image
-	#********************************************************************************/
-	def LCD_ShowWindowImage(self,image,x,y,w,h):
-		if (image == None):
-			return
+    #/********************************************************************************
+    #function:
+    #           Show Image
+    #********************************************************************************/
+    def LCD_ShowWindowImage(self,image,x,y,w,h):
+        if (image == None):
+            return
 
-		self.LCD_SetWindows ( x, y, x+w , x+h )
-		Pixels = image.load()
-		for j in range(0, h ):
-			for i in range(0, w ):
-				Pixels_Color = (((Pixels[i, j][0] >> 3) << 11) |
+        self.LCD_SetWindows ( x, y, x+w , x+h )
+        Pixels = image.load()
+        for j in range(0, h ):
+            for i in range(0, w ):
+                Pixels_Color = (((Pixels[i, j][0] >> 3) << 11) |
                                                 ((Pixels[i, j][1] >> 2) << 5) |
                                                 (Pixels[i, j][2] >> 3)) #RGB Data
-				self.LCD_SetColor(Pixels_Color , 1, 1)
+                self.LCD_SetColor(Pixels_Color , 1, 1)
 
