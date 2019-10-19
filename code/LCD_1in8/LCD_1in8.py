@@ -385,6 +385,8 @@ class LCD:
 		Pixels = image.load()
 		for j in range(0, h ):
 			for i in range(0, w ):
-				Pixels_Color = ((Pixels[i, j][0] >> 3) << 11)|((Pixels[i, j][1] >> 2) << 5)|(Pixels[i, j][2] >> 3)#RGB Data
+				Pixels_Color = (((Pixels[i, j][0] >> 3) << 11) |
+                                                ((Pixels[i, j][1] >> 2) << 5) |
+                                                (Pixels[i, j][2] >> 3)) #RGB Data
 				self.LCD_SetColor(Pixels_Color , 1, 1)
 
