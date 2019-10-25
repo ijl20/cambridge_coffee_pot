@@ -24,9 +24,11 @@ sys.path.append('hx711_tatobari')
 from hx711 import HX711
 
 # LCD display libs
-sys.path.append('LCD_1in8') # LCD display (160x128 color 1.8")
-import LCD_1in8
-import LCD_Config
+#sys.path.append('LCD_1in8') # LCD display (160x128 color 1.8")
+#import LCD_1in8
+#import LCD_Config
+sys.path.append('LCD_ST7735')
+from LCD_ST7735 import LCD_ST7735
 
 from PIL import Image
 from PIL import ImageDraw
@@ -51,13 +53,17 @@ FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
 
 def init_lcd():
     t_start = time.process_time()
-    LCD = LCD_1in8.LCD()
+    #LCD = LCD_1in8.LCD()
+    LCD = LCD_ST7735()
 
-    Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
-    LCD.LCD_Init(Lcd_ScanDir)
+    #Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
+    #LCD.LCD_Init(Lcd_ScanDir)
+
+    LCD.begin()
 
     image = Image.open('pot.bmp')
-    LCD.LCD_PageImage(image)
+    #LCD.LCD_PageImage(image)
+    LCD.display(image)
 
     if LOG_TIME:
         print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
@@ -120,7 +126,8 @@ def update_lcd(weight_g):
               font=FONT)
 
     # display image on screen at coords x,y. (0,0)=top left.
-    LCD.LCD_ShowImage(image,
+    #LCD.LCD_ShowImage(image,
+    LCD.display_window(image,
                       DISPLAY_WEIGHT_X,
                       DISPLAY_WEIGHT_Y,
                       DISPLAY_WEIGHT_WIDTH,

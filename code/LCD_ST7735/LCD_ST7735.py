@@ -82,20 +82,6 @@ ST7735_YELLOW      = 0xFFE0 # 0b 11111 111111 00000
 ST7735_WHITE       = 0xFFFF # 0b 11111 111111 11111
 
 
-def color565(r, g, b):
-    """Convert red, green, blue components to a 16-bit 565 RGB value. Components
-    should be values 0 to 255.
-    """
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-
-def image_to_data(image):
-    """Generator function to convert a PIL image to 16-bit 565 RGB bytes."""
-    # NumPy is much faster at doing this. NumPy code provided by:
-    # Keith (https://www.blogger.com/profile/02555547344016007163)
-    pb = np.array(image.convert('RGB')).astype('uint16')
-    color = ((pb[:,:,0] & 0xF8) << 8) | ((pb[:,:,1] & 0xFC) << 3) | (pb[:,:,2] >> 3)
-    return np.dstack(((color >> 8) & 0xFF, color & 0xFF)).flatten().tolist()
-
 # Pin definition
 LCD_RST_PIN         = 27
 LCD_DC_PIN          = 25
@@ -159,7 +145,7 @@ class LCD_ST7735(object):
         self._rst = rst
         self.width = width
         self.height = height
-        self.LCD_Scan_Dir = SCAN_DIR_DFT
+        self.scan_direction = SCAN_DIR_DFT
         self.LCD_X_Adjust = LCD_X
         self.LCD_Y_Adjust = LCD_Y
 
@@ -182,6 +168,21 @@ class LCD_ST7735(object):
         SPI.mode = 0b00
         return 0;
 
+    def color565(self, r, g, b):
+        """Convert red, green, blue components to a 16-bit 565 RGB value. Components
+        should be values 0 to 255.
+        """
+        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+    # numpy is fastest way to convert image to bytes
+    def image_to_data(self, image):
+        """Generator function to convert a PIL image to 16-bit 565 RGB bytes."""
+        # NumPy is much faster at doing this. NumPy code provided by:
+        # Keith (https://www.blogger.com/profile/02555547344016007163)
+        pb = np.array(image.convert('RGB')).astype('uint16')
+        color = ((pb[:,:,0] & 0xF8) << 8) | ((pb[:,:,1] & 0xFC) << 3) | (pb[:,:,2] >> 3)
+        return np.dstack(((color >> 8) & 0xFF, color & 0xFF)).flatten().tolist()
+
     def send(self, data, is_data=True, chunk_size=4096):
         """Write a byte or array of bytes to the display. Is_data parameter
         controls if byte should be interpreted as display data (True) or command
@@ -196,7 +197,7 @@ class LCD_ST7735(object):
         # Write data a chunk at a time.
         for start in range(0, len(data), chunk_size):
             end = min(start+chunk_size, len(data))
-            SPI.write(data[start:end])
+            SPI.writebytes(data[start:end])
 
     def send_command(self, data):
         """Write a byte or array of bytes to the display as command data."""
@@ -208,19 +209,19 @@ class LCD_ST7735(object):
 
     def send_byte(self, byte):
         GPIO.output(self._dc, True)
-        SPI.write([byte])
+        SPI.writebytes([byte])
 
     def reset(self):
         """Reset the display, if reset pin is connected."""
         if self._rst is not None:
-            GPIO.set_high(self._rst)
-            time.sleep(0.500)
-            GPIO.set_low(self._rst)
-            time.sleep(0.500)
-            GPIO.set_high(self._rst)
-            time.sleep(0.500)
+            GPIO.output(self._rst, GPIO.HIGH)
+            time.sleep(0.100)
+            GPIO.output(self._rst, GPIO.LOW)
+            time.sleep(0.100)
+            GPIO.output(self._rst, GPIO.HIGH)
+            time.sleep(0.100)
 
-    def _init(self):
+    def OLD_init(self):
         # Initialize the display.  Broken out as a separate function so it can
         # be overridden by other displays in the future.
 
@@ -337,14 +338,14 @@ class LCD_ST7735(object):
         self.send_command(ST7735_DISPON) # Display on
         time.sleep(0.100) # 100 ms
 
-    def begin(self):
+    def OLD_begin(self):
         """Initialize the display.  Should be called once before other calls that
         interact with the display are called.
         """
         self.reset()
         self._init()
 
-    def set_window(self, x0=0, y0=0, x1=None, y1=None):
+    def OLD_set_window(self, x0=0, y0=0, x1=None, y1=None):
         """Set the pixel address window for proceeding drawing commands. x0 and
         x1 should define the minimum and maximum x pixel bounds.  y0 and y1
         should define the minimum and maximum y pixel bound.  If no parameters
@@ -377,12 +378,31 @@ class LCD_ST7735(object):
         if image is None:
             image = self.buffer
         # Set address bounds to entire display.
-        self.set_window()
+        self.set_window( 0, 0, self.width, self.height )
         # Convert image to array of 16bit 565 RGB data bytes.
         # Unfortunate that this copy has to occur, but the SPI byte writing
         # function needs to take an array of bytes and PIL doesn't natively
         # store images in 16-bit 565 RGB format.
-        pixelbytes = list(image_to_data(image))
+        pixelbytes = list(self.image_to_data(image))
+        # Write data to hardware.
+        self.send_data(pixelbytes)
+
+    def display_window(self, image, x, y, w, h):
+        """Write the display buffer or provided image to the hardware.  If no
+        image parameter is provided the display buffer will be written to the
+        hardware.  If an image is provided, it should be RGB format and the
+        same dimensions as the display hardware.
+        """
+        # By default write the internal buffer to the display.
+        if image is None:
+            image = self.buffer
+        # Set address bounds to entire display.
+        self.set_window( x, y, x+w, y+h)
+        # Convert image to array of 16bit 565 RGB data bytes.
+        # Unfortunate that this copy has to occur, but the SPI byte writing
+        # function needs to take an array of bytes and PIL doesn't natively
+        # store images in 16-bit 565 RGB format.
+        pixelbytes = list(self.image_to_data(image))
         # Write data to hardware.
         self.send_data(pixelbytes)
 
@@ -396,7 +416,7 @@ class LCD_ST7735(object):
         return ImageDraw.Draw(self.buffer)
 
     """    Hardware reset     """
-    def  LCD_Reset(self):
+    def OLD_Reset(self):
         GPIO.output(LCD_RST_PIN, GPIO.HIGH)
         delay_ms(100)
         GPIO.output(LCD_RST_PIN, GPIO.LOW)
@@ -517,25 +537,22 @@ class LCD_ST7735(object):
 
     #********************************************************************************
     #function:  Set the display scan and color transfer modes
-    #parameter:
-    #       Scan_dir   :   Scan direction
-    #       Colorchose :   RGB or GBR color format
     #********************************************************************************
-    def LCD_SetGramScanWay(self, Scan_dir):
-        #Get the screen scan direction
-        self.LCD_Scan_Dir = Scan_dir
-
+    def set_scan(self):
         #Get GRAM and LCD width and height
-        if (Scan_dir == L2R_U2D) or (Scan_dir == L2R_D2U) or (Scan_dir == R2L_U2D) or (Scan_dir == R2L_D2U) :
+        if ((self.scan_direction == L2R_U2D) or
+            (self.scan_direction == L2R_D2U) or
+            (self.scan_direction == R2L_U2D) or
+            (self.scan_direction == R2L_D2U)) :
             self.width  = LCD_HEIGHT
             self.height     = LCD_WIDTH
             self.LCD_X_Adjust = LCD_X
             self.LCD_Y_Adjust = LCD_Y
-            if Scan_dir == L2R_U2D:
+            if self.scan_direction == L2R_U2D:
                 MemoryAccessReg_Data = 0X00 | 0x00
-            elif Scan_dir == L2R_D2U:
+            elif self.scan_direction == L2R_D2U:
                 MemoryAccessReg_Data = 0X00 | 0x80
-            elif Scan_dir == R2L_U2D:
+            elif self.scan_direction == R2L_U2D:
                 MemoryAccessReg_Data = 0x40 | 0x00
             else:       #R2L_D2U:
                 MemoryAccessReg_Data = 0x40 | 0x80
@@ -544,17 +561,17 @@ class LCD_ST7735(object):
             self.height     = LCD_HEIGHT
             self.LCD_X_Adjust = LCD_Y
             self.LCD_Y_Adjust = LCD_X
-            if Scan_dir == U2D_L2R:
+            if self.scan_direction == U2D_L2R:
                 MemoryAccessReg_Data = 0X00 | 0x00 | 0x20
-            elif Scan_dir == U2D_R2L:
+            elif self.scan_direction == U2D_R2L:
                 MemoryAccessReg_Data = 0X00 | 0x40 | 0x20
-            elif Scan_dir == D2U_L2R:
+            elif self.scan_direction == D2U_L2R:
                 MemoryAccessReg_Data = 0x80 | 0x00 | 0x20
             else:       #R2L_D2U
                 MemoryAccessReg_Data = 0x40 | 0x80 | 0x20
 
         # Set the read / write scan direction of the frame memory
-        self.WriteCommand(0x36)     #MX, MY, RGB mode
+        self.WriteCommand(ST7735_MADCTL)     #MX, MY, RGB mode
         if LCD_1IN44 == 1:
             self.WriteByte( MemoryAccessReg_Data | 0x08)    #0x08 set RGB
         else:
@@ -564,29 +581,29 @@ class LCD_ST7735(object):
     #function:
     #           initialization
     #********************************************************************************/
-    def LCD_Init(self, Lcd_ScanDir):
-        if (GPIO_Init() != 0):
+    def begin(self): # was LCD_Init
+        if (self.GPIO_init() != 0):
             return -1
 
         #Turn on the backlight
         GPIO.output(LCD_BL_PIN,GPIO.HIGH)
 
         #Hardware reset
-        self.LCD_Reset()
+        self.reset()
 
         #Set the initialization register
         self.LCD_InitReg()
 
         #Set the display scan and color transfer modes
-        self.LCD_SetGramScanWay( Lcd_ScanDir )
+        self.set_scan()
         delay_ms(200)
 
         #sleep out
-        self.WriteCommand(0x11)
+        self.WriteCommand(ST7735_SLPOUT)
         delay_ms(120)
 
         #Turn on the LCD display
-        self.WriteCommand(0x29)
+        self.WriteCommand(ST7735_DISPON)
 
         self.LCD_Clear()
 
@@ -598,7 +615,7 @@ class LCD_ST7735(object):
     #   Xend    :   X direction end coordinates
     #   Yend    :   Y direction end coordinates
     #********************************************************************************/
-    def LCD_SetWindows(self, Xstart, Ystart, Xend, Yend ):
+    def set_window(self, Xstart, Ystart, Xend, Yend ): # was LCD_SetWindows
         # set the X coordinates
         self.WriteCommand( ST7735_CASET )
 
@@ -630,7 +647,7 @@ class LCD_ST7735(object):
     #       xEnd   :   X direction end coordinates
     #********************************************************************************/
     def LCD_SetCursor (self, Xpoint, Ypoint ):
-        self.LCD_SetWindows ( Xpoint, Ypoint, Xpoint , Ypoint )
+        self.set_window ( Xpoint, Ypoint, Xpoint , Ypoint )
 
     #/********************************************************************************
     #function:  Set show color
@@ -663,7 +680,7 @@ class LCD_ST7735(object):
     #********************************************************************************/
     def LCD_SetArealColor (self, Xstart, Ystart, Xend, Yend, Color):
         if (Xend > Xstart) and (Yend > Ystart):
-            self.LCD_SetWindows( Xstart , Ystart , Xend , Yend  )
+            self.set_window( Xstart , Ystart , Xend , Yend  )
             self.LCD_SetColor ( Color ,Xend - Xstart , Yend - Ystart )
 
     #/********************************************************************************
@@ -671,10 +688,10 @@ class LCD_ST7735(object):
     #           Clear screen
     #********************************************************************************/
     def LCD_Clear(self):
-        if ((self.LCD_Scan_Dir == L2R_U2D) or
-                    (self.LCD_Scan_Dir == L2R_D2U) or
-                    (self.LCD_Scan_Dir == R2L_U2D) or
-                    (self.LCD_Scan_Dir == R2L_D2U)) :
+        if ((self.scan_direction == L2R_U2D) or
+                    (self.scan_direction == L2R_D2U) or
+                    (self.scan_direction == R2L_U2D) or
+                    (self.scan_direction == R2L_D2U)) :
             self.LCD_SetArealColor(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , Color = 0xFFFF)#white
         else:
             self.LCD_SetArealColor(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , Color = 0xFFFF)#white
@@ -684,7 +701,7 @@ class LCD_ST7735(object):
     #           Page Image
         # Writes a display-sized image to the full display
     #********************************************************************************/
-    def LCD_PageImage(self,Image):
+    def OLD_PageImage(self,Image): # now display(image)
         if (Image == None):
             return
 
@@ -705,7 +722,7 @@ class LCD_ST7735(object):
         if (image == None):
             return
 
-        self.LCD_SetWindows ( x, y, x+w , x+h )
+        self.set_window ( x, y, x+w , y+h )
         Pixels = image.load()
         for j in range(0, h ):
             for i in range(0, w ):
