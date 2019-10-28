@@ -54,7 +54,7 @@ to the server with the minimum latency.
 
 #### Raspberry Pi
 
-![Pi 3 B+ GPIO pinout](raspberry_pi/gpio.png)
+![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png)
 
 #### Load cells for weight sensing the coffee pot
 
