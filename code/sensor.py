@@ -20,15 +20,10 @@ import simplejson as json
 import requests
 
 # D to A converter libs
-sys.path.append('hx711_ijl20')
-from hx711 import HX711
+from hx711_ijl20.hx711 import HX711
 
 # LCD display libs
-#sys.path.append('LCD_1in8') # LCD display (160x128 color 1.8")
-#import LCD_1in8
-#import LCD_Config
-sys.path.append('LCD_ST7735')
-from LCD_ST7735 import LCD_ST7735
+from st7735_ijl20.st7735 import ST7735
 
 from PIL import Image
 from PIL import ImageDraw
@@ -50,11 +45,12 @@ DISPLAY_WEIGHT_RIGHT_MARGIN = 10
 
 
 FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
+DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 def init_lcd():
     t_start = time.process_time()
-    #LCD = LCD_1in8.LCD()
-    LCD = LCD_ST7735()
+
+    LCD = ST7735()
 
     #Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
     #LCD.LCD_Init(Lcd_ScanDir)
@@ -116,15 +112,20 @@ def init_scales():
 # Return the weight in grams, combined from both load cells
 def get_weight():
     global hx # hx is [ hx_1, hx_2 ]
+    global debug_weight1, debug_weight2
 
     t_start = time.process_time()
 
     # get_weight accepts a parameter 'number of times to sample weight and then average'
     weight_1 = hx[0].get_weight_A(1)
+    debug_weight1 = weight_1 # store weight for debug display
+
     if DEBUG_LOG:
         print("init_scales weight_1 {:5.1f} completed at {:.3f} secs.".format(weight_1, time.process_time() - t_start))
 
     weight_2 = hx[1].get_weight_A(1)
+    debug_weight2 = weight_2 # store weight for debug display
+
     if DEBUG_LOG:
         print("init_scales weight_2 {:5.1f} completed at {:.3f} secs.".format(weight_2, time.process_time() - t_start))
 
@@ -165,15 +166,24 @@ def update_lcd(weight_g):
                       DISPLAY_WEIGHT_WIDTH,
                       DISPLAY_WEIGHT_HEIGHT)
 
+    # DEBUG: display the debug weights (from each load cell) if they've been set
+    if debug_weight1 != 0:
+        image = Image.new("RGB", (50, 40), "BLACK")
+        draw = ImageDraw.Draw(image)
+        draw_string = "{:5.1f}".format(debug_weight1)
+        draw.text((0,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
+        draw_string = "{:5.1f}".format(debug_weight2)
+        draw.text((0,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
+        LCD.display_window(image, 110, 5, 50, 40)
+
     if DEBUG_LOG:
         print("LCD updated with weight in {:.3f} secs.".format(time.process_time() - t_start))
 
 def cleanAndExit():
-    print("Cleaning...")
+    print(" GPIO cleanup()...")
 
     GPIO.cleanup()
 
-    print("Bye!")
     sys.exit()
 
 def send_data(post_data, token):
@@ -209,7 +219,7 @@ def loop():
 
             now = time.time() # floating point time in seconds since epoch
             if now - prev_time > 30:
-                print ("SENDING {:5.1f}, {}".format(weight_g, time.ctime(now)))
+                print ("SENDING WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
                 post_data = { 'request_data': [ { 'acp_id': SENSOR_ID,
                                                   'acp_type': SENSOR_TYPE,
                                                   'acp_ts': now,
@@ -224,7 +234,7 @@ def loop():
                 if DEBUG_LOG:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
 
-            else:
+            elif DEBUG_LOG:
                 print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
 
             #hx.power_down()
@@ -239,11 +249,16 @@ def loop():
             cleanAndExit()
 
 # globals
-LCD = None
-hx = None
+LCD = None # ST7735 LCD display chip
+hx = None # LIST of hx711 A/D chips
 
+debug_weight1 = 0.0 # weights from each load cell, for debug
+debug_weight2 = 0.0
+
+# Initialize everything
 init()
 
+# Infinite loop until killed, reading weight and sending data
 loop()
 
 
