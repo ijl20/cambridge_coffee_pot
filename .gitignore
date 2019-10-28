@@ -2,3 +2,7 @@ build/
 dist/
 *.egg-info/
 *.pyc
+*.log
+*.err
+*.swp
+

@@ -1,16 +1,16 @@
 #! /usr/bin/python3
 
 # for dev / debug
-LOG_TIME = True
+DEBUG_LOG = False
 
 # info sent in json packet to feed handler
 SENSOR_ID = 'cambridge_coffee_pot'
 SENSOR_TYPE = 'coffee_pot'
 ACP_TOKEN = 'testtoken'
 
-# linear calibration of A and B channels of scale
-A_SCALE = 488.1 # grams per reading value
-B_SCALE = 112.4
+# linear calibration of A channels of both hx711
+SCALE_REF_1 = 384.1 # grams per reading value
+SCALE_REF_2 = 356.0
 
 # Python libs
 import time
@@ -20,7 +20,7 @@ import simplejson as json
 import requests
 
 # D to A converter libs
-sys.path.append('hx711_tatobari')
+sys.path.append('hx711_ijl20')
 from hx711 import HX711
 
 # LCD display libs
@@ -65,38 +65,70 @@ def init_lcd():
     #LCD.LCD_PageImage(image)
     LCD.display(image)
 
-    if LOG_TIME:
+    if DEBUG_LOG:
         print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
     return LCD
 
-# Initialize scales, return hx711 object
+# Initialize scales, return hx711 objects
+# Note there are TWO load cells, each with their own HX711 A/D converter.
+# Each HX711 has an A and a B channel, we are only using the A channel of each.
 def init_scales():
-    hx = HX711(5, 6)
+
+    t_start = time.process_time()
+
+    hx_1 = HX711(5, 6) # first hx711, connected to load cell 1
+    hx_1.DEBUG_LOG = DEBUG_LOG
+
+    hx_2 = HX711(12, 13) # second hx711, connected to load cell 2
+    hx_2.DEBUG_LOG = DEBUG_LOG
+
+    if DEBUG_LOG:
+        print("init_scales HX objects created at {:.3f} secs.".format(time.process_time() - t_start))
 
     # set_reading_format(order bytes to build the "long" value, order of the bits inside each byte) MSB | LSB
     # According to the HX711 Datasheet, the second parameter is MSB so you shouldn't need to modify it.
-    hx.set_reading_format("MSB", "MSB")
+    hx_1.set_reading_format("MSB", "MSB")
+    hx_2.set_reading_format("MSB", "MSB")
 
-    hx.set_reference_unit_A(488.1)
-    hx.set_reference_unit_B(112.4)
+    hx_1.set_reference_unit_A(SCALE_REF_1)
+    hx_2.set_reference_unit_A(SCALE_REF_2)
 
-    hx.reset()
+    hx_1.reset()
+    hx_2.reset()
 
-    # to use both channels, you'll need to tare them both
-    hx.tare_A()
-    hx.tare_B()
-    print("Tare A&B done! Add weight now...")
+    if DEBUG_LOG:
+        print("init_scales HX objects reset at {:.3f} secs.".format(time.process_time() - t_start))
 
-    return hx
+    # Here we initialize the 'empty weight' settings
+    hx_1.tare_A()
 
-# Return the weight in grams
+    if DEBUG_LOG:
+        print("init_scales tare 1 completed at {:.3f} secs.".format(time.process_time() - t_start))
+
+    hx_2.tare_A()
+
+    if DEBUG_LOG:
+        print("init_scales tare 2 completed at {:.3f} secs.".format(time.process_time() - t_start))
+
+    return [ hx_1, hx_2 ]
+
+# Return the weight in grams, combined from both load cells
 def get_weight():
-    global hx
+    global hx # hx is [ hx_1, hx_2 ]
 
-    val_A = hx.get_weight_A(1)
-    # val_B = hx.get_weight_B(1)
-    return val_A # + val_B # grams
+    t_start = time.process_time()
+
+    # get_weight accepts a parameter 'number of times to sample weight and then average'
+    weight_1 = hx[0].get_weight_A(1)
+    if DEBUG_LOG:
+        print("init_scales weight_1 {:5.1f} completed at {:.3f} secs.".format(weight_1, time.process_time() - t_start))
+
+    weight_2 = hx[1].get_weight_A(1)
+    if DEBUG_LOG:
+        print("init_scales weight_2 {:5.1f} completed at {:.3f} secs.".format(weight_2, time.process_time() - t_start))
+
+    return weight_1  + weight_2 # grams
 
 # Update a PIL image with the weight, and send to LCD
 # Note we are creating an image smaller than the screen size, and only updating a part of the display
@@ -133,7 +165,7 @@ def update_lcd(weight_g):
                       DISPLAY_WEIGHT_WIDTH,
                       DISPLAY_WEIGHT_HEIGHT)
 
-    if LOG_TIME:
+    if DEBUG_LOG:
         print("LCD updated with weight in {:.3f} secs.".format(time.process_time() - t_start))
 
 def cleanAndExit():
@@ -167,7 +199,13 @@ def loop():
             # get readings from A and B channels
             weight_g = get_weight()
 
+            if DEBUG_LOG:
+                print("loop got weight at {:.3f} secs.".format(time.process_time() - t_start))
+
             update_lcd(weight_g)
+
+            if DEBUG_LOG:
+                print("loop update_lcd at {:.3f} secs.".format(time.process_time() - t_start))
 
             now = time.time() # floating point time in seconds since epoch
             if now - prev_time > 30:
@@ -182,14 +220,18 @@ def loop():
                             }
                 send_data(post_data, ACP_TOKEN)
                 prev_time = now
+
+                if DEBUG_LOG:
+                    print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
+
             else:
                 print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
 
             #hx.power_down()
             #hx.power_up()
 
-            if LOG_TIME:
-                print("Loop time (before sleep) {:.3f} secs.".format(time.process_time() - t_start))
+            if DEBUG_LOG:
+                print("loop time (before sleep) {:.3f} secs.".format(time.process_time() - t_start))
 
             time.sleep(1.0)
 
