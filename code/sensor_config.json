@@ -1,0 +1,15 @@
+
+{
+    "scales_tare_filename": "sensor_tare.json",
+
+    "DISPLAY_WIDTH": 160,
+    "DISPLAY_HEIGHT": 128,
+
+    "DISPLAY_WEIGHT_HEIGHT": 40,
+    "DISPLAY_WEIGHT_WIDTH": 160,
+    "DISPLAY_WEIGHT_COLOR_FG": "WHITE",
+    "DISPLAY_WEIGHT_COLOR_BG": "BLACK",
+    "DISPLAY_WEIGHT_X": 0,
+    "DISPLAY_WEIGHT_Y": 60,
+    "DISPLAY_WEIGHT_RIGHT_MARGIN": 10
+}

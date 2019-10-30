@@ -1,7 +1,7 @@
 #! /usr/bin/python3
 
 # for dev / debug
-DEBUG_LOG = False
+DEBUG_LOG = True
 
 # info sent in json packet to feed handler
 SENSOR_ID = 'cambridge_coffee_pot'
@@ -30,22 +30,60 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
-# LCD panel size in pixels (0,0) is top left
-DISPLAY_WIDTH = 160                # LCD panel width in pixels
-DISPLAY_HEIGHT = 128               # LCD panel height
+# loads settings from sensor.json or argv[1]
+CONFIG_FILENAME = "sensor_config.json"
 
-# Pixel size and coordinates of the 'Weight' display
-DISPLAY_WEIGHT_HEIGHT = 40
-DISPLAY_WEIGHT_WIDTH = 160
-DISPLAY_WEIGHT_COLOR_FG = "WHITE"
-DISPLAY_WEIGHT_COLOR_BG = "BLACK"
-DISPLAY_WEIGHT_X = 0
-DISPLAY_WEIGHT_Y = 60
-DISPLAY_WEIGHT_RIGHT_MARGIN = 10
+CONFIG = {
+    # filename to persist scales tare values
+    "SCALES_TARE_FILE": "sensor_tare.json",
 
+    # LCD panel size in pixels (0,0) is top left
+    "DISPLAY_WIDTH": 160,                # LCD panel width in pixels
+    "DISPLAY_HEIGHT": 128,               # LCD panel height
+
+    # Pixel size and coordinates of the 'Weight' display
+    "DISPLAY_WEIGHT_HEIGHT": 40,
+    "DISPLAY_WEIGHT_WIDTH": 160,
+    "DISPLAY_WEIGHT_COLOR_FG": "WHITE",
+    "DISPLAY_WEIGHT_COLOR_BG": "BLACK",
+    "DISPLAY_WEIGHT_X": 0,
+    "DISPLAY_WEIGHT_Y": 60,
+    "DISPLAY_WEIGHT_RIGHT_MARGIN": 10
+    }
 
 FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
+
+# Load sensor configuration from Json config file
+def load_config():
+    filename = CONFIG_FILENAME
+    try:
+        if len(sys.argv) > 0 and sys.argv[1]:
+            filename = sys.argv[1]
+
+        if DEBUG_LOG:
+            print("Config file is {}".format(filename))
+
+        read_config_file(filename)
+
+    except:
+        pass
+
+def read_config_file(filename):
+    global CONFIG
+    if DEBUG_LOG:
+        print("reading config file {}".format(filename))
+
+    try:
+        config_file_handle = open(filename, "r")
+        file_text = config_file_handle.read()
+        config_dictionary = json.loads(file_text)
+        config_file_handle.close()
+        # here's the clever bit... merge entries from file in to CONFIG dictionary
+        CONFIG = { **CONFIG, **config_dictionary }
+    except:
+        print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(filename))
+
 
 def init_lcd():
     t_start = time.process_time()
@@ -96,18 +134,25 @@ def init_scales():
     if DEBUG_LOG:
         print("init_scales HX objects reset at {:.3f} secs.".format(time.process_time() - t_start))
 
-    # Here we initialize the 'empty weight' settings
-    hx_1.tare_A()
-
-    if DEBUG_LOG:
-        print("init_scales tare 1 completed at {:.3f} secs.".format(time.process_time() - t_start))
-
-    hx_2.tare_A()
-
-    if DEBUG_LOG:
-        print("init_scales tare 2 completed at {:.3f} secs.".format(time.process_time() - t_start))
-
     return [ hx_1, hx_2 ]
+
+# Find the 'tare' for load cell 1 & 2
+def tare_scales(hx):
+
+    t_start = time.process_time()
+
+    # Here we initialize the 'empty weight' settings
+    tare_1 = hx[0].tare_A()
+
+    if DEBUG_LOG:
+        print("init_scales tare 1 {:.1f} completed at {:.3f} secs.".format(tare_1, time.process_time() - t_start))
+
+    tare_2 = hx[1].tare_A()
+
+    if DEBUG_LOG:
+        print("init_scales tare 2 {:.1f} completed at {:.3f} secs.".format(tare_2, time.process_time() - t_start))
+
+    return [ tare_1, tare_2 ]
 
 # Return the weight in grams, combined from both load cells
 def get_weight():
@@ -121,13 +166,13 @@ def get_weight():
     debug_weight1 = weight_1 # store weight for debug display
 
     if DEBUG_LOG:
-        print("init_scales weight_1 {:5.1f} completed at {:.3f} secs.".format(weight_1, time.process_time() - t_start))
+        print("get_weight weight_1 {:5.1f} completed at {:.3f} secs.".format(weight_1, time.process_time() - t_start))
 
     weight_2 = hx[1].get_weight_A(1)
     debug_weight2 = weight_2 # store weight for debug display
 
     if DEBUG_LOG:
-        print("init_scales weight_2 {:5.1f} completed at {:.3f} secs.".format(weight_2, time.process_time() - t_start))
+        print("get_weight weight_2 {:5.1f} completed at {:.3f} secs.".format(weight_2, time.process_time() - t_start))
 
     return weight_1  + weight_2 # grams
 
@@ -139,7 +184,10 @@ def update_lcd(weight_g):
     t_start = time.process_time()
 
     # create a blank image to write the weight on
-    image = Image.new("RGB", (DISPLAY_WEIGHT_WIDTH, DISPLAY_WEIGHT_HEIGHT), DISPLAY_WEIGHT_COLOR_BG)
+    image = Image.new( "RGB",
+                       ( CONFIG["DISPLAY_WEIGHT_WIDTH"],
+                         CONFIG["DISPLAY_WEIGHT_HEIGHT"]),
+                         CONFIG["DISPLAY_WEIGHT_COLOR_BG"])
     draw = ImageDraw.Draw(image)
 
     # convert weight to string with fixed 5 digits including 1 decimal place, max 9999.9
@@ -153,18 +201,18 @@ def update_lcd(weight_g):
     string_width, string_height = draw.textsize(draw_string, font=FONT)
 
     # embed this number into the blank image we created earlier
-    draw.text((DISPLAY_WEIGHT_WIDTH-string_width-DISPLAY_WEIGHT_RIGHT_MARGIN,0),
+    draw.text((CONFIG["DISPLAY_WEIGHT_WIDTH"]-string_width-CONFIG["DISPLAY_WEIGHT_RIGHT_MARGIN"],0),
               draw_string,
-              fill = DISPLAY_WEIGHT_COLOR_FG,
+              fill = CONFIG["DISPLAY_WEIGHT_COLOR_FG"],
               font=FONT)
 
     # display image on screen at coords x,y. (0,0)=top left.
     #LCD.LCD_ShowImage(image,
     LCD.display_window(image,
-                      DISPLAY_WEIGHT_X,
-                      DISPLAY_WEIGHT_Y,
-                      DISPLAY_WEIGHT_WIDTH,
-                      DISPLAY_WEIGHT_HEIGHT)
+                      CONFIG["DISPLAY_WEIGHT_X"],
+                      CONFIG["DISPLAY_WEIGHT_Y"],
+                      CONFIG["DISPLAY_WEIGHT_WIDTH"],
+                      CONFIG["DISPLAY_WEIGHT_HEIGHT"])
 
     # DEBUG: display the debug weights (from each load cell) if they've been set
     if debug_weight1 != 0:
@@ -197,8 +245,11 @@ def send_data(post_data, token):
 def init():
     global LCD
     global hx
+
+    load_config()
     LCD = init_lcd()
     hx = init_scales()
+    tare_scales(hx)
 
 def loop():
     prev_time = time.time() # floating point seconds in epoch
