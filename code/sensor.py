@@ -187,15 +187,17 @@ def update_lcd(weight_g):
     image = Image.new( "RGB",
                        ( CONFIG["DISPLAY_WEIGHT_WIDTH"],
                          CONFIG["DISPLAY_WEIGHT_HEIGHT"]),
-                         CONFIG["DISPLAY_WEIGHT_COLOR_BG"])
+                       CONFIG["DISPLAY_WEIGHT_COLOR_BG"])
     draw = ImageDraw.Draw(image)
 
     # convert weight to string with fixed 5 digits including 1 decimal place, max 9999.9
 
-    if weight_g >= 10000:
-        weight_g = 9999.9
+    display_number = weight_g
 
-    draw_string = "{:5.1f}".format(weight_g) # 10 points for witty variable name
+    if display_number >= 10000:
+        display_number = 9999.9
+
+    draw_string = "{:5.1f}".format(display_number) # 10 points for witty variable name
 
     # calculate x coordinate necessary to right-justify text
     string_width, string_height = draw.textsize(draw_string, font=FONT)
@@ -207,15 +209,14 @@ def update_lcd(weight_g):
               font=FONT)
 
     # display image on screen at coords x,y. (0,0)=top left.
-    #LCD.LCD_ShowImage(image,
     LCD.display_window(image,
                       CONFIG["DISPLAY_WEIGHT_X"],
                       CONFIG["DISPLAY_WEIGHT_Y"],
                       CONFIG["DISPLAY_WEIGHT_WIDTH"],
                       CONFIG["DISPLAY_WEIGHT_HEIGHT"])
 
-    # DEBUG: display the debug weights (from each load cell) if they've been set
-    if debug_weight1 != 0:
+    # display a two-line debug display of the weights from both load cells
+    if DEBUG_LOG:
         image = Image.new("RGB", (50, 40), "BLACK")
         draw = ImageDraw.Draw(image)
         draw_string = "{:5.1f}".format(debug_weight1)
@@ -225,7 +226,7 @@ def update_lcd(weight_g):
         LCD.display_window(image, 110, 5, 50, 40)
 
     if DEBUG_LOG:
-        print("LCD updated with weight in {:.3f} secs.".format(time.process_time() - t_start))
+        print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
 
 def cleanAndExit():
     print(" GPIO cleanup()...")
@@ -246,7 +247,7 @@ def init():
     global LCD
     global hx
 
-    load_config()
+    #load_config()
     LCD = init_lcd()
     hx = init_scales()
     tare_scales(hx)
@@ -261,12 +262,12 @@ def loop():
             weight_g = get_weight()
 
             if DEBUG_LOG:
-                print("loop got weight at {:.3f} secs.".format(time.process_time() - t_start))
+                print("loop got weight {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
             update_lcd(weight_g)
 
             if DEBUG_LOG:
-                print("loop update_lcd at {:.3f} secs.".format(time.process_time() - t_start))
+                print("loop update_lcd {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
             now = time.time() # floating point time in seconds since epoch
             if now - prev_time > 30:
@@ -312,4 +313,7 @@ init()
 # Infinite loop until killed, reading weight and sending data
 loop()
 
+#update_lcd(1122.3)
+#time.sleep(2.0)
+#cleanAndExit()
 
