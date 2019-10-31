@@ -69,7 +69,7 @@ happens to carry a useful payload.
     * POT_REMOVED - the pot appears not to be present
     * POT_NEW - freshly made coffee seems to have appeared
     * POT_POURED - a cup was poured
-    * POT EMPTY - pot appears to contain no coffee
+    * POT_EMPTY - pot appears to contain no coffee
     * COFFEE_GROUND - by also monitoring coffee grinding machine (with a microphone), it seems coffee has been ground.
 
 ## Visualizing the data
@@ -81,7 +81,7 @@ issue the ```xcoffee``` command at the time they were interested in the coffee.
 The new design can assume the permanent connection of web-based displays (in addition to the 'user request'
 model) and we will consider (i.e. measure) the latency in the system reporting a fresh pot of coffee.
 
-It has been suggested any self-respecting coffee machine in 2019 would have a Twitter account. [[ref]](#ref_1)
+It has been suggested that any self-respecting coffee machine in 2019 would have a Twitter account. [[ref]](#ref_1)
 
 
 ## Development install
