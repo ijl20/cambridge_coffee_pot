@@ -72,6 +72,18 @@ happens to carry a useful payload.
     * POT EMPTY - pot appears to contain no coffee
     * COFFEE_GROUND - by also monitoring coffee grinding machine (with a microphone), it seems coffee has been ground.
 
+## Visualizing the data
+
+This is an open question at the moment. The original coffee pot presented the data as a 128x128px monochrome
+image and it was left to the viewer how to interpret it, combined with an implicit assumption the user would
+issue the ```xcoffee``` command at the time they were interested in the coffee.
+
+The new design can assume the permanent connection of web-based displays (in addition to the 'user request'
+model) and we will consider (i.e. measure) the latency in the system reporting a fresh pot of coffee.
+
+It has been suggested any self-respecting coffee machine in 2019 would have a Twitter account. [ref][1])
+
+
 ## Development install
 
 ```
@@ -119,3 +131,6 @@ E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
 
 [HX711 Data sheet](hx711/hx711_english.pdf)
 
+## References
+
+[1] Hiedi Howard, in conversation around the Coffee Pot, Cambridge Computer Lab, 2019-10-30
