@@ -1,7 +1,21 @@
 # Cambridge Coffee Pot
 
+Back in the day (1991) we had this coffee pot with a low-res monochrome camera connected to
+a frame-grabber and a server in the Computer Laboratory, then in the Austin Building in central
+Cambridge.  We could type the command ```xcoffee``` on our workstations and decide whether to make
+the arduous trip around to the coffee machine or lurk in our offices until some worthy colleague had
+made a fresh pot of coffee. When the world-wide-web first became a thing we connected the frame grabber
+to a web server and were surprised how many people around the world wanted to see a 'webcam' (the word wasn't
+yet invented) and the rest is history (see [Trojan Room coffee pot](https://en.wikipedia.org/wiki/Trojan_Room_coffee_pot)).
+
 ![Original Trojan Room coffee pot image](images/Trojan_Room_coffee_pot_xcoffee.png)
+
+Well, here we are ~30 years later in a somewhat shinier modern Computer Laboratory out at West Cambridge, but
+the endemic coffee dependency remains a central theme, with our kitchen looking like this:
+
 ![Current Netos coffee pot image 2019-10-08](images/kitchen.jpg)
+
+So the question is, should we have a **new** coffee sensor and if so what would it look like in 2019 vs 1991?
 
 
 ## The concept
@@ -54,7 +68,7 @@ For this one-off experimental sensor we used a Raspberry Pi 3B+, using the GPIO 
 connect the LCD display (via SPI) and the two load cell A/D converters (each needing +Vcc, GND and two data
 pins)
 
-![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png)
+![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png | width="400")
 
 ### Weight sensor
 
