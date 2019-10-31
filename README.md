@@ -41,6 +41,37 @@ to the server with the minimum latency.
 
 ![data chart of weight load with time for full coffe pot plus pouring 1 cup](data/sample_weights_fill_plus_1_cup.png)
 
+## Real-time events
+
+Embedded in the coffee pot sensor are two load cells that measure the weight of the pot.
+
+In the data-sensing business, everybody, and I mean everybody, assumes the sensor design is finished
+after the first
+few lines of code are written that actually manages to read the parameter being measured and send the results.
+This is understandable as often they will have spent weeks or months just trying to get the measurement sensor
+to actually work reliably.
+
+The effect of this is you end up with a 'weight sensor' that either has a built in period for repeatedly sending its reading, or it can be 'polled' by a server somewhere that periodically asks for its reading. Either
+way you end up with a sensor that doesn't really care about the thing it's measuring, and neither does the server, so long as the data flow adheres to the once-a-minute (or whatever) regular schedule.
+
+Maybe someone comes along and asks for the data with less system-related latency. The sensor / system developer
+will always, and I mean always, respond with one of two answers: (1) you don't need the data more quickly, or (2) shall I send the data twice as 'fast' (i.e. every 30 seconds).
+
+The truth is the required 'timeliness' (or acceptable latency) of the reading depends considerably on the state of the the thing being measured.  E.g. A traffic speed sensor on a highway that sends the prevailing traffic speed once a minute is better than no sensor, but there is no good reason it would send the readings "72,75,71,69,0" at regular intervals. Hopefully that last reading of ZERO could be sent within a millisecond of being measured, rather the possibly waiting 59 seconds to send it as a regular update. And a design that simply sends the measured speeds *every* millisecond is pretty dumb.
+
+This issue regarding the timeliness of sensor data is pervasive, particularly in urban and in-building sensor systems.
+
+Our coffee pot will connect to our existing real-time Intelligent City Platform (which itself can process
+incoming events without introducing system-related polling latencies) and will
+* send the weight periodically, say once per five minutes - this is best thought of as a 'watchdog' which
+happens to carry a useful payload.
+* recognize the following events and transmit them to the platform as soon as they are recognized:
+    * POT_REMOVED - the pot appears not to be present
+    * POT_NEW - freshly made coffee seems to have appeared
+    * POT_POURED - a cup was poured
+    * POT EMPTY - pot appears to contain no coffee
+    * COFFEE_GROUND - by also monitoring coffee grinding machine (with a microphone), it seems coffee has been ground.
+
 ## Development install
 
 ```
@@ -68,7 +99,7 @@ For this one-off experimental sensor we used a Raspberry Pi 3B+, using the GPIO 
 connect the LCD display (via SPI) and the two load cell A/D converters (each needing +Vcc, GND and two data
 pins)
 
-![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png | width="400")
+![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png)
 
 ### Weight sensor
 
