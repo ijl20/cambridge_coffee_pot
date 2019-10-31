@@ -81,7 +81,7 @@ issue the ```xcoffee``` command at the time they were interested in the coffee.
 The new design can assume the permanent connection of web-based displays (in addition to the 'user request'
 model) and we will consider (i.e. measure) the latency in the system reporting a fresh pot of coffee.
 
-It has been suggested any self-respecting coffee machine in 2019 would have a Twitter account. [ref][1])
+It has been suggested any self-respecting coffee machine in 2019 would have a Twitter account. [[ref]](#ref_1)
 
 
 ## Development install
@@ -133,4 +133,4 @@ E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
 
 ## References
 
-[1] Hiedi Howard, in conversation around the Coffee Pot, Cambridge Computer Lab, 2019-10-30
+<a id="ref_1">[1]</a> Heidi Howard, in conversation around the Coffee Pot, Cambridge Computer Lab, 2019-10-30
