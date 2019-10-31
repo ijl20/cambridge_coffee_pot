@@ -20,31 +20,6 @@ from 1991 to 2001.
 2019-10-09
 ![William Gates Building Ian Lewis office FE11 sensor prototype](images/prototype.jpg)
 
-## Development install
-
-For access to load cell A/D converter: origin of hx711py (now modified in this repo):
-
-```
-git clone https://github.com/tatobari/hx711py
-```
-
-Download the Waveshare python lib for the 1.8 inch display
-
-[Online info](https://www.waveshare.com/wiki/1.8inch_LCD_Module)
-
-Python support for http POST of sensor data:
-
-```
-pip install requests
-```
-
-## Sensors
-
-### Raspberry Pi based weight sensor
-
-This uses a Raspberry Pi (Model 3 B+) with two 5Kg load cells connected via
-a HX711 A/D converter, and also a Waveshare 1.8inch color LCD module for a
-local display.
 
 It will take weight measurements as in the sample data illustrated below, and recognize events
 such as a fresh pot of coffee being placed. The objective is that these events are communicated
@@ -52,9 +27,44 @@ to the server with the minimum latency.
 
 ![data chart of weight load with time for full coffe pot plus pouring 1 cup](data/sample_weights_fill_plus_1_cup.png)
 
-#### Raspberry Pi
+## Development install
+
+```
+git clone https://github.com/ijl20/cambridge_coffee_pot
+```
+
+This repo includes working python libraries for:
+
+* the hx711 D/A chip commonly used to connect load cells (code/hx711_ijl20/hx711.py)
+* the st7735 LCD drive chip commonly used with inexpensive small LCD displays (code/st7735_ijl20/st7735.py)
+
+The ```code``` directory contains a bunch of other libraries for the hx711 and the st7735 which were a reasonable source of clues but needed improvement.
+
+Python support for http POST of sensor data:
+
+```
+pip install requests
+```
+
+## Components
+
+### CPU
+
+For this one-off experimental sensor we used a Raspberry Pi 3B+, using the GPIO pins to
+connect the LCD display (via SPI) and the two load cell A/D converters (each needing +Vcc, GND and two data
+pins)
 
 ![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png)
+
+### Weight sensor
+
+Two 5Kg load cells connected via two HX711 A/D converters.
+
+### LCD Display - Waveshare 1.8inch color LCD module
+
+[Online info](https://www.waveshare.com/wiki/1.8inch_LCD_Module)
+
+E.g. [available Amazon UK](https://www.amazon.co.uk/Waveshare-1-8inch-LCD-Module/dp/B077YFTMVT)
 
 #### Load cells for weight sensing the coffee pot
 
@@ -63,40 +73,4 @@ E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
 #### HX711 A/D converter for load cells
 
 [HX711 Data sheet](hx711/hx711_english.pdf)
-
-#### Waveshare 1.8inch color LCD module
-
-E.g. [available Amazon UK](https://www.amazon.co.uk/Waveshare-1-8inch-LCD-Module/dp/B077YFTMVT)
-
-[Online info](https://www.waveshare.com/wiki/1.8inch_LCD_Module)
-
-----
-Quick code credited to [underdoeg](https://github.com/underdoeg/)'s [Gist HX711.py](https://gist.github.com/underdoeg/98a38b54f889fce2b237).
-I've only made a few modifications on the way the captured bits are processed and to support Two's Complement, which it didn't.
-
-Instructions
-------------
-Check example.py to see how it works.
-
-Installation
-------------
-1. Clone or download and unpack this repository
-2. In the repository directory, run
-```
-python setup.py install
-```
-
-Using a 2-channel HX711 module
-------------------------------
-Channel A has selectable gain of 128 or 64.  Using set_gain(128) or set_gain(64)
-selects channel A with the specified gain.
-
-Using set_gain(32) selects channel B at the fixed gain of 32.  The tare_B(),
-get_value_B() and get_weight_B() functions do this for you.
-
-This info was obtained from an HX711 datasheet located at
-https://cdn.sparkfun.com/datasheets/Sensors/ForceFlex/hx711_english.pdf
-
-### wifi Power monitors for the coffee percolator and the grinder
-
 
