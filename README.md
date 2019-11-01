@@ -103,9 +103,7 @@ Python support for http POST of sensor data:
 pip install requests
 ```
 
-## Components
-
-### CPU
+## CPU
 
 For this one-off experimental sensor we used a Raspberry Pi 3B+, using the GPIO pins to
 connect the LCD display (via SPI) and the two load cell A/D converters (each needing +Vcc, GND and two data
@@ -113,21 +111,32 @@ pins)
 
 ![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png)
 
-### Weight sensor
 
-Two 5Kg load cells connected via two HX711 A/D converters.
+## LCD Display - Waveshare 1.8inch color LCD module
 
-### LCD Display - Waveshare 1.8inch color LCD module
+We interact with this via the st7735_ijl20 library `code/st7735_ijl20/st7735.py`
+
+![1.8 inch 128x160 lcd display](images/lcd_1.8in_128x160.jpg)
 
 [Online info](https://www.waveshare.com/wiki/1.8inch_LCD_Module)
 
 E.g. [available Amazon UK](https://www.amazon.co.uk/Waveshare-1-8inch-LCD-Module/dp/B077YFTMVT)
 
-#### Load cells for weight sensing the coffee pot
+[LCD Module Schematic (pdf)](LCD_1in8/1.8inch-LCD-Module-Schematic.pdf)
+
+[LCD Module user manual (pdf)](LCD_1in8/1.8inch_LCD_Module_User_Manual_EN.pdf)
+
+[ST7735 data sheet (pdf)](LCD_1in8/ST7735S_V1.1_20111121.pdf)
+
+## Load cells for weight sensing the coffee pot
+
+Two 5Kg load cells connected via two HX711 A/D converters.
+
+We connect with the A/D converters via the `code/hx711_ijl20/hx711.py` library
+
+![load cell](images/load_cell.jpg)
 
 E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
-
-#### HX711 A/D converter for load cells
 
 [HX711 Data sheet](hx711/hx711_english.pdf)
 
