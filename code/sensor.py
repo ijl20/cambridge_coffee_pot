@@ -7,10 +7,8 @@ DEBUG_LOG = True
 SENSOR_ID = 'cambridge_coffee_pot'
 SENSOR_TYPE = 'coffee_pot'
 ACP_TOKEN = 'testtoken'
-
-# linear calibration of A channels of both hx711
-SCALE_REF_1 = 384.1 # grams per reading value
-SCALE_REF_2 = 356.0
+# loads settings from sensor.json or argv[1]
+CONFIG_FILENAME = "sensor_config.json"
 
 # Python libs
 import time
@@ -30,25 +28,23 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
-# loads settings from sensor.json or argv[1]
-CONFIG_FILENAME = "sensor_config.json"
-
 CONFIG = {
     # filename to persist scales tare values
-    "SCALES_TARE_FILE": "sensor_tare.json",
+    "TARE_FILENAME": "sensor_tare.json",
+    "WEIGHT_FACTOR": 412, # reading per gram
 
     # LCD panel size in pixels (0,0) is top left
-    "DISPLAY_WIDTH": 160,                # LCD panel width in pixels
-    "DISPLAY_HEIGHT": 128,               # LCD panel height
+    "LCD_WIDTH": 160,                # LCD panel width in pixels
+    "LCD_HEIGHT": 128,               # LCD panel height
 
     # Pixel size and coordinates of the 'Weight' display
-    "DISPLAY_WEIGHT_HEIGHT": 40,
-    "DISPLAY_WEIGHT_WIDTH": 160,
-    "DISPLAY_WEIGHT_COLOR_FG": "WHITE",
-    "DISPLAY_WEIGHT_COLOR_BG": "BLACK",
-    "DISPLAY_WEIGHT_X": 0,
-    "DISPLAY_WEIGHT_Y": 60,
-    "DISPLAY_WEIGHT_RIGHT_MARGIN": 10
+    "WEIGHT_HEIGHT": 40,
+    "WEIGHT_WIDTH": 160,
+    "WEIGHT_COLOR_FG": "WHITE",
+    "WEIGHT_COLOR_BG": "BLACK",
+    "WEIGHT_X": 0,
+    "WEIGHT_Y": 60,
+    "WEIGHT_RIGHT_MARGIN": 10
     }
 
 FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
@@ -58,7 +54,7 @@ DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 def load_config():
     filename = CONFIG_FILENAME
     try:
-        if len(sys.argv) > 0 and sys.argv[1]:
+        if len(sys.argv) > 1 and sys.argv[1]:
             filename = sys.argv[1]
 
         if DEBUG_LOG:
@@ -66,7 +62,9 @@ def load_config():
 
         read_config_file(filename)
 
-    except:
+    except Exception as e:
+        print("load_config exception {}".format(filename))
+        print(e)
         pass
 
 def read_config_file(filename):
@@ -81,8 +79,10 @@ def read_config_file(filename):
         config_file_handle.close()
         # here's the clever bit... merge entries from file in to CONFIG dictionary
         CONFIG = { **CONFIG, **config_dictionary }
-    except:
+        print("LOADED CONFIG FILE {} {}".format(filename, CONFIG["WEIGHT_COLOR_BG"]))
+    except Exception as e:
         print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(filename))
+        print(e)
 
 
 def init_lcd():
@@ -125,8 +125,8 @@ def init_scales():
     hx_1.set_reading_format("MSB", "MSB")
     hx_2.set_reading_format("MSB", "MSB")
 
-    hx_1.set_reference_unit_A(SCALE_REF_1)
-    hx_2.set_reference_unit_A(SCALE_REF_2)
+    hx_1.set_reference_unit_A(1)
+    hx_2.set_reference_unit_A(1)
 
     hx_1.reset()
     hx_2.reset()
@@ -139,42 +139,71 @@ def init_scales():
 # Find the 'tare' for load cell 1 & 2
 def tare_scales(hx):
 
+    # if there is an existing tare file, previous values will be read from that
+    if DEBUG_LOG:
+        print("reading tare file {}".format(CONFIG["TARE_FILENAME"]))
+
+    try:
+        tare_file_handle = open(CONFIG["TARE_FILENAME"], "r")
+        file_text = tare_file_handle.read()
+        tare_dictionary = json.loads(file_text)
+        tare_file_handle.close()
+        print("LOADED TARE FILE {}".format(CONFIG["TARE_FILENAME"]))
+    except Exception as e:
+        print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(CONFIG["TARE_FILENAME"]))
+        print(e)
+
     t_start = time.process_time()
 
     # Here we initialize the 'empty weight' settings
     tare_1 = hx[0].tare_A()
 
     if DEBUG_LOG:
-        print("init_scales tare 1 {:.1f} completed at {:.3f} secs.".format(tare_1, time.process_time() - t_start))
+        print("tare_scales tare 1 {:.1f} completed at {:.3f} secs.".format(tare_1, time.process_time() - t_start))
 
     tare_2 = hx[1].tare_A()
 
     if DEBUG_LOG:
-        print("init_scales tare 2 {:.1f} completed at {:.3f} secs.".format(tare_2, time.process_time() - t_start))
+        print("tare_scales tare 2 {:.1f} completed at {:.3f} secs.".format(tare_2, time.process_time() - t_start))
+
+    acp_ts = time.time() # epoch time in floating point seconds
+
+    tare_json = """
+       {{ "acp_ts": {:.3f},
+          "tares": [ {:.1f}, {:.1f} ]
+       }}
+       """.format(acp_ts, tare_1, tare_2)
+
+    try:
+        tare_file_handle = open(CONFIG["TARE_FILENAME"], "w")
+        tare_file_handle.write(tare_json)
+        tare_file_handle.close()
+    except:
+        print("tare scales filed write to tare json file {}".format(CONFIG["TARE_FILENAME"]))
 
     return [ tare_1, tare_2 ]
 
 # Return the weight in grams, combined from both load cells
 def get_weight():
     global hx # hx is [ hx_1, hx_2 ]
-    global debug_weight1, debug_weight2
+    global debug1, debug2
 
     t_start = time.process_time()
 
     # get_weight accepts a parameter 'number of times to sample weight and then average'
-    weight_1 = hx[0].get_weight_A(1)
-    debug_weight1 = weight_1 # store weight for debug display
+    reading_1 = hx[0].get_weight_A(1)
+    debug1 = reading_1 # store weight for debug display
 
     if DEBUG_LOG:
-        print("get_weight weight_1 {:5.1f} completed at {:.3f} secs.".format(weight_1, time.process_time() - t_start))
+        print("get_weight reading_1 {:5.1f} completed at {:.3f} secs.".format(reading_1, time.process_time() - t_start))
 
-    weight_2 = hx[1].get_weight_A(1)
-    debug_weight2 = weight_2 # store weight for debug display
+    reading_2 = hx[1].get_weight_A(1)
+    debug2 = reading_2 # store weight for debug display
 
     if DEBUG_LOG:
-        print("get_weight weight_2 {:5.1f} completed at {:.3f} secs.".format(weight_2, time.process_time() - t_start))
+        print("get_weight reading_2 {:5.1f} completed at {:.3f} secs.".format(reading_2, time.process_time() - t_start))
 
-    return weight_1  + weight_2 # grams
+    return (reading_1  + reading_2) / CONFIG["WEIGHT_FACTOR"] # grams
 
 # Update a PIL image with the weight, and send to LCD
 # Note we are creating an image smaller than the screen size, and only updating a part of the display
@@ -185,9 +214,9 @@ def update_lcd(weight_g):
 
     # create a blank image to write the weight on
     image = Image.new( "RGB",
-                       ( CONFIG["DISPLAY_WEIGHT_WIDTH"],
-                         CONFIG["DISPLAY_WEIGHT_HEIGHT"]),
-                       CONFIG["DISPLAY_WEIGHT_COLOR_BG"])
+                       ( CONFIG["WEIGHT_WIDTH"],
+                         CONFIG["WEIGHT_HEIGHT"]),
+                       CONFIG["WEIGHT_COLOR_BG"])
     draw = ImageDraw.Draw(image)
 
     # convert weight to string with fixed 5 digits including 1 decimal place, max 9999.9
@@ -203,25 +232,25 @@ def update_lcd(weight_g):
     string_width, string_height = draw.textsize(draw_string, font=FONT)
 
     # embed this number into the blank image we created earlier
-    draw.text((CONFIG["DISPLAY_WEIGHT_WIDTH"]-string_width-CONFIG["DISPLAY_WEIGHT_RIGHT_MARGIN"],0),
+    draw.text((CONFIG["WEIGHT_WIDTH"]-string_width-CONFIG["WEIGHT_RIGHT_MARGIN"],0),
               draw_string,
-              fill = CONFIG["DISPLAY_WEIGHT_COLOR_FG"],
+              fill = CONFIG["WEIGHT_COLOR_FG"],
               font=FONT)
 
     # display image on screen at coords x,y. (0,0)=top left.
     LCD.display_window(image,
-                      CONFIG["DISPLAY_WEIGHT_X"],
-                      CONFIG["DISPLAY_WEIGHT_Y"],
-                      CONFIG["DISPLAY_WEIGHT_WIDTH"],
-                      CONFIG["DISPLAY_WEIGHT_HEIGHT"])
+                      CONFIG["WEIGHT_X"],
+                      CONFIG["WEIGHT_Y"],
+                      CONFIG["WEIGHT_WIDTH"],
+                      CONFIG["WEIGHT_HEIGHT"])
 
     # display a two-line debug display of the weights from both load cells
     if DEBUG_LOG:
         image = Image.new("RGB", (50, 40), "BLACK")
         draw = ImageDraw.Draw(image)
-        draw_string = "{:5.1f}".format(debug_weight1)
+        draw_string = "{:5.1f}".format(debug1)
         draw.text((0,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
-        draw_string = "{:5.1f}".format(debug_weight2)
+        draw_string = "{:5.1f}".format(debug2)
         draw.text((0,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
         LCD.display_window(image, 110, 5, 50, 40)
 
@@ -247,9 +276,16 @@ def init():
     global LCD
     global hx
 
-    #load_config()
+    # read the sensor_config.json file for updated config values
+    load_config()
+
+    # initialize the st7735 for LCD display
     LCD = init_lcd()
+
+    # initialize the two hx711 A/D converters
     hx = init_scales()
+
+    # find the scales 'zero' reading
     tare_scales(hx)
 
 def loop():
@@ -304,8 +340,8 @@ def loop():
 LCD = None # ST7735 LCD display chip
 hx = None # LIST of hx711 A/D chips
 
-debug_weight1 = 0.0 # weights from each load cell, for debug
-debug_weight2 = 0.0
+debug1 = 0.0 # weights from each load cell, for debug
+debug2 = 0.0
 
 # Initialize everything
 init()
