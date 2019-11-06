@@ -29,17 +29,77 @@ from 1991 to 2001.
 
 ![whiteboard sketch Ian Lewis and Brian Jones](images/whiteboard_design.jpg)
 
+## Sample data
+
+The sensor will take weight measurements as in the sample data illustrated below which was
+collected using the first prototype.
+
+The sensor will recognize events
+such as a fresh pot of coffee being placed, a cup being taken, and the pot becoming empty.
+ The objective is that these events are communicated
+to the server with the minimum latency while the periodic reporting of the weight (e.g. once a
+minute or so) is primarily a 'watchdog' message confirming the coffee pot is working.
+
+![data chart of weight load with time for full coffe pot plus pouring 1 cup](data/sample_weights_fill_plus_1_cup.png)
+
+The pot weighs ~0.5 Kg, and when full holds 2Kg of coffee. Each cup taken is ~0.25Kg.
+
+It was unexpected that the press on the plunger to pour a cup of coffee could result in
+combined downward weight >10Kg.
+
 ## Prototype
 
 2019-10-09
+
 ![William Gates Building Ian Lewis office FE11 sensor prototype](images/prototype.jpg)
 
+Note in this first prototype I'm using a *single* hx711 to A/D convert both load cells, as
+the hx711 has two channels (A & B) which are not equally accurate but both good enough for
+our application. But when reading both A/D values on the Pi from channel A followed by channel B
+a ~half second latency was required between the two readings as the hx711 is clearly multiplexing some
+of its circuitry between the two channels.
 
-It will take weight measurements as in the sample data illustrated below, and recognize events
-such as a fresh pot of coffee being placed. The objective is that these events are communicated
-to the server with the minimum latency.
+### Version with 2 x 5Kg load cells and 2 A/D converters, with a prototype housing.
 
-![data chart of weight load with time for full coffe pot plus pouring 1 cup](data/sample_weights_fill_plus_1_cup.png)
+2019-10-04
+
+![2 load cells](images/two_load_cells.jpg)
+
+In this image you can see I moved the two load cells onto two separate hx711 A/D converters
+and used the A channel of each. This reduced the single read time of both sensors to a few milliseconds. The
+A/D sample rate defined in the hx711's is defaulted to 10Hz (the alternative is 80Hz) so there is no point in
+repeating readings within 100ms.
+
+Here we hit an engineering problem. The weighing platform was reasonable stable 'fore and aft' i.e.
+along the axis the pot is placed on the sensor (as was the intention and the mountings for the two
+load cells were aligned this way). However, when the plunger is pressed
+the tilting forces *from side to side* were larger than expected and the weighing platform felt too fragile
+on that axis to survive long in production use. The considered solutions were some sliding pillar arrangement
+to keep the weighing platform from rocking, or the use of four load cells. We went with the latter.
+
+To keep the height of the housing as small as practicable the electronics are placed in a sealed separate area
+adjacent to the load cells (as opposed to beneath them). This gives the overall housing the approximate plan
+dimensions of an A4 sheet of paper. The 'landscape' arrangement of this sensor made poor use of the space available
+in the kitchen so in the next version a 'portrait' arrangement was used.
+
+### Next version with 4 x 5Kg load cells
+
+2019-10-06
+
+![4 load cells](images/four_load_cells.jpg)
+
+In addition to the four load cells, this prototype uses 4 x hx711 A/D converters to reduce latency in reading
+as with two.
+
+### Adding the LCD display
+
+2019-10-06
+
+The 'portrait' arrangement conflicts with the simple solution of putting the LCD display to the left
+or right of the load area, as was planned with the 'landscape' design.
+
+The solution was to use transparent acrylic for the weighing platform and mount the LCD *under*
+the front left corner of the weighing platform.
 
 ## Real-time events
 
@@ -51,13 +111,22 @@ few lines of code are written that actually manages to read the parameter being 
 This is understandable as often they will have spent weeks or months just trying to get the measurement sensor
 to actually work reliably.
 
-The effect of this is you end up with a 'weight sensor' that either has a built in period for repeatedly sending its reading, or it can be 'polled' by a server somewhere that periodically asks for its reading. Either
-way you end up with a sensor that doesn't really care about the thing it's measuring, and neither does the server, so long as the data flow adheres to the once-a-minute (or whatever) regular schedule.
+The effect of this is you end up with a 'weight sensor' that either has a built in period for repeatedly
+sending its reading, or it can be 'polled' by a server somewhere that periodically asks for its reading. Either
+way you end up with a sensor that doesn't really care about the thing it's measuring, and neither does the server,
+ so long as the data flow adheres to the once-a-minute (or whatever) regular schedule.
 
 Maybe someone comes along and asks for the data with less system-related latency. The sensor / system developer
-will always, and I mean always, respond with one of two answers: (1) you don't need the data more quickly, or (2) shall I send the data twice as 'fast' (i.e. every 30 seconds).
+will always, and I mean always, respond with one of two answers: (1) you don't need the data more quickly,
+or (2) shall I send the data twice as 'fast' (i.e. every 30 seconds).
 
-The truth is the required 'timeliness' (or acceptable latency) of the reading depends considerably on the state of the the thing being measured.  E.g. A traffic speed sensor on a highway that sends the prevailing traffic speed once a minute is better than no sensor, but there is no good reason it would send the readings "72,75,71,69,0" at regular intervals. Hopefully that last reading of ZERO could be sent within a millisecond of being measured, rather the possibly waiting 59 seconds to send it as a regular update. And a design that simply sends the measured speeds *every* millisecond is pretty dumb.
+The truth is the required 'timeliness' (or acceptable latency) of the reading depends considerably on the
+state of the 'thing' being measured.  E.g. A traffic speed sensor on a highway that
+sends the prevailing traffic speed once a minute is better than no sensor, but there
+is no good reason it would send the readings "72,75,71,69,0" at
+regular intervals. Hopefully that last reading of ZERO could be sent within a millisecond
+of being measured, rather the possibly waiting 59 seconds
+to send it as a regular update. And a design that simply sends the measured speeds *every* millisecond is pretty dumb.
 
 This issue regarding the timeliness of sensor data is pervasive, particularly in urban and in-building sensor systems.
 
