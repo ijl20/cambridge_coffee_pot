@@ -111,33 +111,35 @@ def init_scales():
 
     t_start = time.process_time()
 
-    hx_1 = HX711(5, 6) # first hx711, connected to load cell 1
-    hx_1.DEBUG_LOG = DEBUG_LOG
-
-    hx_2 = HX711(12, 13) # second hx711, connected to load cell 2
-    hx_2.DEBUG_LOG = DEBUG_LOG
+    # initialize HX711 objects for each of the load cells
+    hx_list = [ HX711(5, 6),
+                HX711(12, 13),
+                HX711(19, 26),
+                HX711(16, 20)
+              ]
 
     if DEBUG_LOG:
         print("init_scales HX objects created at {:.3f} secs.".format(time.process_time() - t_start))
 
-    # set_reading_format(order bytes to build the "long" value, order of the bits inside each byte) MSB | LSB
-    # According to the HX711 Datasheet, the second parameter is MSB so you shouldn't need to modify it.
-    hx_1.set_reading_format("MSB", "MSB")
-    hx_2.set_reading_format("MSB", "MSB")
 
-    hx_1.set_reference_unit_A(1)
-    hx_2.set_reference_unit_A(1)
+    for hx in hx_list:
 
-    hx_1.reset()
-    hx_2.reset()
+        hx.DEBUG_LOG = DEBUG_LOG
+        # set_reading_format(order bytes to build the "long" value, order of the bits inside each byte) MSB | LSB
+        # According to the HX711 Datasheet, the second parameter is MSB so you shouldn't need to modify it.
+        hx.set_reading_format("MSB", "MSB")
+
+        hx.set_reference_unit_A(1)
+
+        hx.reset()
 
     if DEBUG_LOG:
         print("init_scales HX objects reset at {:.3f} secs.".format(time.process_time() - t_start))
 
-    return [ hx_1, hx_2 ]
+    return hx_list
 
 # Find the 'tare' for load cell 1 & 2
-def tare_scales(hx):
+def tare_scales(hx_list):
 
     # if there is an existing tare file, previous values will be read from that
     if DEBUG_LOG:
@@ -155,24 +157,27 @@ def tare_scales(hx):
 
     t_start = time.process_time()
 
-    # Here we initialize the 'empty weight' settings
-    tare_1 = hx[0].tare_A()
+    i = 1
+    tare_list = []
 
-    if DEBUG_LOG:
-        print("tare_scales tare 1 {:.1f} completed at {:.3f} secs.".format(tare_1, time.process_time() - t_start))
+    for hx in hx_list:
+        # Here we initialize the 'empty weight' settings
+        tare_list.append( hx.tare_A() )
 
-    tare_2 = hx[1].tare_A()
+        if DEBUG_LOG:
+            print("tare_scales tare {} {:.1f} completed at {:.3f} secs.".format(i,
+                                                                                tare_list[i-1],
+                                                                                time.process_time() - t_start))
 
-    if DEBUG_LOG:
-        print("tare_scales tare 2 {:.1f} completed at {:.3f} secs.".format(tare_2, time.process_time() - t_start))
+        i = i + 1
 
     acp_ts = time.time() # epoch time in floating point seconds
 
     tare_json = """
        {{ "acp_ts": {:.3f},
-          "tares": [ {:.1f}, {:.1f} ]
+          "tares": [ {:.1f}, {:.1f}, {:.1f}, {:1f} ]
        }}
-       """.format(acp_ts, tare_1, tare_2)
+       """.format(acp_ts, *tare_list)
 
     try:
         tare_file_handle = open(CONFIG["TARE_FILENAME"], "w")
@@ -181,29 +186,28 @@ def tare_scales(hx):
     except:
         print("tare scales filed write to tare json file {}".format(CONFIG["TARE_FILENAME"]))
 
-    return [ tare_1, tare_2 ]
+    return tare_list
 
 # Return the weight in grams, combined from both load cells
 def get_weight():
-    global hx # hx is [ hx_1, hx_2 ]
-    global debug1, debug2
+    global hx_list
+    global debug_list
 
     t_start = time.process_time()
 
-    # get_weight accepts a parameter 'number of times to sample weight and then average'
-    reading_1 = hx[0].get_weight_A(1)
-    debug1 = reading_1 # store weight for debug display
+    total_reading = 0
 
-    if DEBUG_LOG:
-        print("get_weight reading_1 {:5.1f} completed at {:.3f} secs.".format(reading_1, time.process_time() - t_start))
+    i = 1
+    for hx in hx_list:
+        # get_weight accepts a parameter 'number of times to sample weight and then average'
+        reading = hx.get_weight_A(1)
+        debug_list.append(reading) # store weight for debug display
+        total_reading = total_reading + reading
 
-    reading_2 = hx[1].get_weight_A(1)
-    debug2 = reading_2 # store weight for debug display
+        if DEBUG_LOG:
+            print("get_weight reading {} {:5.1f} completed at {:.3f} secs.".format(i, reading, time.process_time() - t_start))
 
-    if DEBUG_LOG:
-        print("get_weight reading_2 {:5.1f} completed at {:.3f} secs.".format(reading_2, time.process_time() - t_start))
-
-    return (reading_1  + reading_2) / CONFIG["WEIGHT_FACTOR"] # grams
+    return total_reading / CONFIG["WEIGHT_FACTOR"] # grams
 
 # Update a PIL image with the weight, and send to LCD
 # Note we are creating an image smaller than the screen size, and only updating a part of the display
@@ -246,13 +250,22 @@ def update_lcd(weight_g):
 
     # display a two-line debug display of the weights from both load cells
     if DEBUG_LOG:
-        image = Image.new("RGB", (50, 40), "BLACK")
+        image = Image.new("RGB", (100, 40), "BLACK")
         draw = ImageDraw.Draw(image)
-        draw_string = "{:5.1f}".format(debug1)
-        draw.text((0,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
-        draw_string = "{:5.1f}".format(debug2)
+
+        draw_string = "{:5.1f}".format(debug_list[0])
+        draw.text((50,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
+
+        draw_string = "{:5.1f}".format(debug_list[1])
+        draw.text((50,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
+
+        draw_string = "{:5.1f}".format(debug_list[2])
         draw.text((0,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
-        LCD.display_window(image, 110, 5, 50, 40)
+
+        draw_string = "{:5.1f}".format(debug_list[3])
+        draw.text((0,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
+
+        LCD.display_window(image, 60, 5, 100, 40)
 
     if DEBUG_LOG:
         print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
@@ -274,7 +287,7 @@ def send_data(post_data, token):
 
 def init():
     global LCD
-    global hx
+    global hx_list
 
     # read the sensor_config.json file for updated config values
     load_config()
@@ -283,10 +296,10 @@ def init():
     LCD = init_lcd()
 
     # initialize the two hx711 A/D converters
-    hx = init_scales()
+    hx_list = init_scales()
 
     # find the scales 'zero' reading
-    tare_scales(hx)
+    tare_scales(hx_list)
 
 def loop():
     prev_time = time.time() # floating point seconds in epoch
@@ -338,10 +351,9 @@ def loop():
 
 # globals
 LCD = None # ST7735 LCD display chip
-hx = None # LIST of hx711 A/D chips
+hx_list = None # LIST of hx711 A/D chips
 
-debug1 = 0.0 # weights from each load cell, for debug
-debug2 = 0.0
+debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug
 
 # Initialize everything
 init()
