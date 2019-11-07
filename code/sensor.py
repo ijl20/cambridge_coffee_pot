@@ -6,7 +6,6 @@ DEBUG_LOG = True
 # info sent in json packet to feed handler
 SENSOR_ID = 'cambridge_coffee_pot'
 SENSOR_TYPE = 'coffee_pot'
-ACP_TOKEN = 'testtoken'
 # loads settings from sensor.json or argv[1]
 CONFIG_FILENAME = "sensor_config.json"
 
@@ -299,13 +298,19 @@ def update_lcd(weight_g):
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
-def send_data(post_data, token):
-    response = requests.post('https://tfc-app2.cl.cam.ac.uk/test/feedmaker/test/general',
-              headers={'X-Auth-Token': token },
-              json=post_data
-              )
+def send_data(post_data):
+    try:
+        print("send_data() to {}".format(CONFIG["FEEDMAKER_URL"]))
+        response = requests.post(
+                  CONFIG["FEEDMAKER_URL"],
+                  headers={ CONFIG["FEEDMAKER_HEADER_KEY"] : CONFIG["FEEDMAKER_HEADER_VALUE"] },
+                  json=post_data
+                  )
 
-    print("status code",response.status_code)
+        print("status code",response.status_code)
+    except Exception as e:
+        print("send_data() error with {}".format(post_data))
+        print(e)
 
 
 # ----------------------------------------------------------------------
@@ -377,7 +382,7 @@ def loop():
                                                  }
                                               ]
                             }
-                send_data(post_data, ACP_TOKEN)
+                send_data(post_data)
                 prev_time = now
 
                 if DEBUG_LOG:

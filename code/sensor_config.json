@@ -11,5 +11,10 @@
     "WEIGHT_COLOR_BG": "BLUE",
     "WEIGHT_X": 0,
     "WEIGHT_Y": 60,
-    "WEIGHT_RIGHT_MARGIN": 10
+    "WEIGHT_RIGHT_MARGIN": 10,
+
+    "FEEDMAKER_URL": "https://tfc-app2.cl.cam.ac.uk/test/feedmaker/test/general",
+    "FEEDMAKER_HEADER_KEY": "X-Auth-Token",
+    "FEEDMAKER_HEADER_VALUE": "testtoken"
+
 }
