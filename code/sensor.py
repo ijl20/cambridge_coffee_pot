@@ -28,6 +28,14 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Startup config
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
 CONFIG = {
     # filename to persist scales tare values
     "TARE_FILENAME": "sensor_tare.json",
@@ -85,24 +93,12 @@ def read_config_file(filename):
         print(e)
 
 
-def init_lcd():
-    t_start = time.process_time()
 
-    LCD = ST7735()
-
-    #Lcd_ScanDir = LCD_1in8.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
-    #LCD.LCD_Init(Lcd_ScanDir)
-
-    LCD.begin()
-
-    image = Image.open('pot.bmp')
-    #LCD.LCD_PageImage(image)
-    LCD.display(image)
-
-    if DEBUG_LOG:
-        print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
-
-    return LCD
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# HX711 A/D converter for load cells
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 # Initialize scales, return hx711 objects
 # Note there are TWO load cells, each with their own HX711 A/D converter.
@@ -165,11 +161,11 @@ def tare_scales(hx_list):
         tare_list.append( hx.tare_A() )
 
         if DEBUG_LOG:
-            print("tare_scales tare {} {:.1f} completed at {:.3f} secs.".format(i,
+            print("tare_scales tare[{}] {:.1f} completed at {:.3f} secs.".format(i,
                                                                                 tare_list[i-1],
                                                                                 time.process_time() - t_start))
 
-        i = i + 1
+        i = i + 1 # For debug print to include load cell number 1..max
 
     acp_ts = time.time() # epoch time in floating point seconds
 
@@ -207,9 +203,34 @@ def get_weight():
         total_reading = total_reading + reading
 
         if DEBUG_LOG:
-            print("get_weight reading {} {:5.1f} completed at {:.3f} secs.".format(i, reading, time.process_time() - t_start))
+            print("get_weight reading[{}] {:5.1f} completed at {:.3f} secs.".format(i, reading, time.process_time() - t_start))
+
+        i = i + 1 # For the debug print to show load cell number 1..max
 
     return total_reading / CONFIG["WEIGHT_FACTOR"] # grams
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# LCD code
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+def init_lcd():
+    t_start = time.process_time()
+
+    LCD = ST7735()
+
+    LCD.begin()
+
+    image = Image.open('pot.bmp')
+    #LCD.LCD_PageImage(image)
+    LCD.display(image)
+
+    if DEBUG_LOG:
+        print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
+
+    return LCD
 
 # Update a PIL image with the weight, and send to LCD
 # Note we are creating an image smaller than the screen size, and only updating a part of the display
@@ -252,14 +273,14 @@ def update_lcd(weight_g):
 
     # display a two-line debug display of the weights from both load cells
     if DEBUG_LOG:
-        image = Image.new("RGB", (100, 40), "BLACK")
+        image = Image.new("RGB", (150, 40), "BLACK")
         draw = ImageDraw.Draw(image)
 
         draw_string = "{:5.1f}".format(debug_list[0])
-        draw.text((50,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
+        draw.text((75,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
 
         draw_string = "{:5.1f}".format(debug_list[1])
-        draw.text((50,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
+        draw.text((75,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
 
         draw_string = "{:5.1f}".format(debug_list[2])
         draw.text((0,20), draw_string, fill="YELLOW", font=DEBUG_FONT)
@@ -267,17 +288,16 @@ def update_lcd(weight_g):
         draw_string = "{:5.1f}".format(debug_list[3])
         draw.text((0,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
 
-        LCD.display_window(image, 60, 5, 100, 40)
+        LCD.display_window(image, 5, 5, 150, 40)
 
     if DEBUG_LOG:
         print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
 
-def cleanAndExit():
-    print(" GPIO cleanup()...")
-
-    GPIO.cleanup()
-
-    sys.exit()
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# SEND DATA TO PLATFORM
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 def send_data(post_data, token):
     response = requests.post('https://tfc-app2.cl.cam.ac.uk/test/feedmaker/test/general',
@@ -286,6 +306,13 @@ def send_data(post_data, token):
               )
 
     print("status code",response.status_code)
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# init() called on startup
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 def init():
     global LCD
@@ -303,22 +330,41 @@ def init():
     # find the scales 'zero' reading
     tare_scales(hx_list)
 
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# loop() - main execution loop
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
 def loop():
     prev_time = time.time() # floating point seconds in epoch
 
     while True:
         try:
             t_start = time.process_time()
+
+            #----------------
+            # GET WEIGHT
+            # ---------------
+
             # get readings from A and B channels
             weight_g = get_weight()
 
             if DEBUG_LOG:
                 print("loop got weight {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
+            #----------------
+            # UPDATE LCD
+            # ---------------
+
             update_lcd(weight_g)
 
             if DEBUG_LOG:
                 print("loop update_lcd {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
+
+            #----------------------
+            # SEND DATA TO PLATFORM
+            # ---------------------
 
             now = time.time() # floating point time in seconds since epoch
             if now - prev_time > 30:
@@ -349,21 +395,43 @@ def loop():
             time.sleep(1.0)
 
         except (KeyboardInterrupt, SystemExit):
-            cleanAndExit()
+            return 0  # return exit code on interruption
 
-# globals
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# finish() - cleanup and exit if main loop is interrupted
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+def finish():
+    print("\n")
+
+    print("GPIO cleanup()...")
+
+    GPIO.cleanup()
+
+    print("Exitting")
+
+    sys.exit()
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# main code
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+# declare globals
 LCD = None # ST7735 LCD display chip
 hx_list = None # LIST of hx711 A/D chips
 
-debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug
+debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
 # Initialize everything
 init()
 
 # Infinite loop until killed, reading weight and sending data
-loop()
+interrupt_code = loop()
 
-#update_lcd(1122.3)
-#time.sleep(2.0)
-#cleanAndExit()
+# Cleanup and quit
+finish()
 

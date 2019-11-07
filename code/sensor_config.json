@@ -1,7 +1,7 @@
 
 {
     "TARE_FILENAME": "sensor_tare.json",
-    "WEIGHT_FACTOR": 375,
+    "WEIGHT_FACTOR": 365,
     "LCD_WIDTH": 160,
     "LCD_HEIGHT": 128,
 
