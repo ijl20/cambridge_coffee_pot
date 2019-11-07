@@ -193,6 +193,8 @@ def get_weight():
     global hx_list
     global debug_list
 
+    debug_list = []
+
     t_start = time.process_time()
 
     total_reading = 0
