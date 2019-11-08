@@ -66,9 +66,6 @@ def load_config():
         if len(sys.argv) > 1 and sys.argv[1]:
             filename = sys.argv[1]
 
-        if DEBUG_LOG:
-            print("Config file is {}".format(filename))
-
         read_config_file(filename)
 
     except Exception as e:
@@ -88,7 +85,6 @@ def read_config_file(filename):
         config_file_handle.close()
         # here's the clever bit... merge entries from file in to CONFIG dictionary
         CONFIG = { **CONFIG, **config_dictionary }
-        print("LOADED CONFIG FILE {} {}".format(filename, CONFIG["WEIGHT_COLOR_BG"]))
     except Exception as e:
         print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(filename))
         print(e)
@@ -177,22 +173,43 @@ def write_tare_file(tare_list):
 # This is designed to ensure we don't 'tare' with the pot sitting on the sensor.
 def tare_ok(tare_list):
     i = 0
-    ok = True
     # We compare each value in the tare_list and see if it is within the allowed TARE_WIDTH
-    # of the corresponding approximate expected reading in TARE_READINGS.
-    # We will only return True if *all* tare readings are within acceptable bounds.
+    # of the corresponding approximate expected reading in TARE_READINGS. Also the total
+    # of the readings must be within the config total +/- * TARE_WIDTH * 2.
+    # We will only return True if *all* tare readings and the tare_total are within acceptable bounds.
+    tare_delta_total = 0
+    max_delta = 0 # we track max delta for debug purposes
+    max_i = 0
     while i < len(tare_list):
-        if abs(tare_list[i] - CONFIG["TARE_READINGS"][i]) > CONFIG["TARE_WIDTH"]:
+        tare_delta = abs(tare_list[i] - CONFIG["TARE_READINGS"][i])
+        if tare_delta > max_delta:
+            max_delta = tare_delta
+            max_i = i
+        tare_delta_total += tare_delta
+        if tare_delta > CONFIG["TARE_WIDTH"]:
             if DEBUG_LOG:
                 print("tare_ok reading[{}] {} out of range vs {} +/- {}".format(i,
                     tare_list[i],
                     CONFIG["TARE_READINGS"][i],
                     CONFIG["TARE_WIDTH"]))
 
-            ok = False
-            break
+            return False
+        else:
+            i += 1
 
-    return ok
+    if tare_delta_total > CONFIG["TARE_WIDTH"] * 2:
+        if DEBUG_LOG:
+            print("tare_ok total delta {} of [{}] is out of range for [{}] +/- (2*){}".format(tare_delta_total,
+                u.list_to_string(tare_list,"{:+.0f}"),
+                u.list_to_string(CONFIG["TARE_READINGS"],"{:+.0f}"),
+                CONFIG["TARE_WIDTH"]))
+
+        return False
+
+    if DEBUG_LOG:
+        print("tare_ok is OK, max delta[{}] was {:.0f}".format(max_i, max_delta))
+
+    return True
 
 # Find the 'tare' for load cell 1 & 2
 def tare_scales(hx_list):
@@ -211,12 +228,10 @@ def tare_scales(hx_list):
 
     # If the tare_list is 'ok' (i.e. within bounds) we will write it to the tare file and return it as the result
     if tare_ok(tare_list):
-        if DEBUG_LOG:
-            print("tare_scales readings ok, writing to {}".format(CONFIG["TARE_FILENAME"]))
-
         write_tare_file(tare_list)
         return tare_list
 
+    # Otherwise.. the tare reading was NOT ok...
     # The new tare readings are out of range, so use persisted values
     tare_dictionary = read_tare_file()
 
@@ -239,17 +254,15 @@ def get_weight():
 
     total_reading = 0
 
-    i = 1
     for hx in hx_list:
         # get_weight accepts a parameter 'number of times to sample weight and then average'
         reading = hx.get_weight_A(1)
         debug_list.append(reading) # store weight for debug display
         total_reading = total_reading + reading
 
-        if DEBUG_LOG:
-            print("get_weight reading[{}] {:5.1f} completed at {:.3f} secs.".format(i, reading, time.process_time() - t_start))
-
-        i = i + 1 # For the debug print to show load cell number 1..max
+    if DEBUG_LOG:
+        output_string = "get_weight readings [ {} ] completed at {:.3f} secs."
+        print( output_string.format(u.list_to_string(debug_list, "{:+.0f}"), time.process_time() - t_start))
 
     return total_reading / CONFIG["WEIGHT_FACTOR"] # grams
 
@@ -440,7 +453,7 @@ def loop():
             #hx.power_up()
 
             if DEBUG_LOG:
-                print("loop time (before sleep) {:.3f} secs.".format(time.process_time() - t_start))
+                print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
             time.sleep(1.0)
 
