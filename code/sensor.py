@@ -426,9 +426,15 @@ def record_sample(weight_g):
 def lookup_sample(offset):
     global sample_history
     global sample_history_index
+    global SAMPLE_HISTORY_SIZE
+
+    if DEBUG_LOG:
+        print("lookup_sample current and offset",sample_history_index, offset)
     if offset >= SAMPLE_HISTORY_SIZE:
         return None
     index = (sample_history_index + SAMPLE_HISTORY_SIZE - offset) % SAMPLE_HISTORY_SIZE
+    if DEBUG_LOG:
+        print("lookup_sample using",index)
     return sample_history[index]
 
 # Calculate the average weight recorded over the previous 'duration' seconds from offset.
@@ -436,6 +442,10 @@ def lookup_sample(offset):
 # one sample earlier than the offset & duration selected.
 # E.g. weight_average(0,3) will find the average weight of the most recent 3 seconds.
 def weight_average(offset, duration):
+    global sample_history
+    global sample_history_index
+    global SAMPLE_HISTORY_SIZE
+
     # lookup the first weight to get that weight (grams) and timestamp
     sample = lookup_sample(offset)
     if sample == None:
@@ -446,7 +456,7 @@ def weight_average(offset, duration):
     sample_count = 1
     while True: # Repeat .. Until
         # select previous index in circular buffer
-        index = (index + SAMPLE_HISTORY_SIZE - 1) % SAMPLE_HISTORY_SIZE
+        index = (index + 1) % SAMPLE_HISTORY_SIZE
         if index == offset:
             # we've exhausted the full buffer
             return None
@@ -538,10 +548,10 @@ def loop():
 
                 if DEBUG_LOG:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
-                    for i in range(30):
+                    for i in range(10):
                         sample = lookup_sample(i+1)
                         print("sample", sample["ts"], sample["weight"])
-                    a = weight_average(-1,5)
+                    a = weight_average(1,5)
                     print("sample 5s average", a)
 
             elif DEBUG_LOG:
