@@ -414,6 +414,11 @@ def record_sample(weight_g):
     global sample_history_index
 
     sample_history[sample_history_index] = { 'ts': time.time(), 'weight': weight_g }
+    if DEBUG_LOG:
+        print("record sample_history[{}] {} {}".format(sample_history_index,
+                                                       sample_history[sample_history_index]["ts"],
+                                                       sample_history[sample_history_index]["weight"]))
+
     sample_history_index = (sample_history_index + 1) % SAMPLE_HISTORY_SIZE
 
 # Lookup the weight in the sample_history buffer at offset before now
@@ -423,8 +428,8 @@ def lookup_sample(offset):
     global sample_history_index
     if offset >= SAMPLE_HISTORY_SIZE:
         return None
-    index = (sample_history_index + SAMPLE_HISTORY_SIZE - i) % SAMPLE_HISTORY_SIZE
-    return sample_history(index)
+    index = (sample_history_index + SAMPLE_HISTORY_SIZE - offset) % SAMPLE_HISTORY_SIZE
+    return sample_history[index]
 
 # Calculate the average weight recorded over the previous 'duration' seconds from offset.
 # Returns a tuple of <average weight>, <index> where <index> is the sample_history offset
@@ -446,7 +451,7 @@ def weight_average(offset, duration):
             # we've exhausted the full buffer
             return None
         sample = lookup_sample(index)
-        if sample == None
+        if sample == None:
             # we've exhausted the values in the partially filled buffer
             return None
         if sample["ts"] < end_time:
@@ -534,10 +539,10 @@ def loop():
                 if DEBUG_LOG:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
                     for i in range(30):
-                        sample = lookup_sample(i)
+                        sample = lookup_sample(i+1)
                         print("sample", sample["ts"], sample["weight"])
-                    a = weight_average(0,2)
-                    print("sample 2s average", a)
+                    a = weight_average(-1,5)
+                    print("sample 5s average", a)
 
             elif DEBUG_LOG:
                 print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
@@ -585,7 +590,7 @@ event_history = [ None ] * EVENT_HISTORY_SIZE
 
 # Note sample_history is a *circular* buffer (for efficiency)
 SAMPLE_HISTORY_SIZE = 100 # store weight samples 0..99
-weight_index = 0
+sample_history_index = 0
 sample_history = [ None ] * SAMPLE_HISTORY_SIZE # buffer for 100 weight samples ~= 10 seconds
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
