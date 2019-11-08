@@ -27,7 +27,9 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
-
+# General utility function (like list_to_string)
+from sensor_utils import UTILS
+u = UTILS()
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
@@ -119,7 +121,9 @@ def init_scales():
 
     for hx in hx_list:
 
-        hx.DEBUG_LOG = DEBUG_LOG
+        # here we optionally set the hx711 library to give debug output
+        #hx.DEBUG_LOG = DEBUG_LOG
+
         # set_reading_format(order bytes to build the "long" value, order of the bits inside each byte) MSB | LSB
         # According to the HX711 Datasheet, the second parameter is MSB so you shouldn't need to modify it.
         hx.set_reading_format("MSB", "MSB")
@@ -133,9 +137,8 @@ def init_scales():
 
     return hx_list
 
-# Find the 'tare' for load cell 1 & 2
-def tare_scales(hx_list):
-
+# Read the TARE_FILENAME defined in CONFIG, return the contained json as a python dictionary
+def read_tare_file():
     # if there is an existing tare file, previous values will be read from that
     if DEBUG_LOG:
         print("reading tare file {}".format(CONFIG["TARE_FILENAME"]))
@@ -146,26 +149,15 @@ def tare_scales(hx_list):
         tare_dictionary = json.loads(file_text)
         tare_file_handle.close()
         print("LOADED TARE FILE {}".format(CONFIG["TARE_FILENAME"]))
+        return tare_dictionary
     except Exception as e:
         print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(CONFIG["TARE_FILENAME"]))
         print(e)
 
-    t_start = time.process_time()
+    return {}
 
-    i = 1
-    tare_list = []
-
-    for hx in hx_list:
-        # Here we initialize the 'empty weight' settings
-        tare_list.append( hx.tare_A() )
-
-        if DEBUG_LOG:
-            print("tare_scales tare[{}] {:.1f} completed at {:.3f} secs.".format(i,
-                                                                                tare_list[i-1],
-                                                                                time.process_time() - t_start))
-
-        i = i + 1 # For debug print to include load cell number 1..max
-
+# Write the tare_list and current timestamp as json into the file TARE_FILENAME defined in CONFIG
+def write_tare_file(tare_list):
     acp_ts = time.time() # epoch time in floating point seconds
 
     tare_json = """
@@ -179,7 +171,60 @@ def tare_scales(hx_list):
         tare_file_handle.write(tare_json)
         tare_file_handle.close()
     except:
-        print("tare scales filed write to tare json file {}".format(CONFIG["TARE_FILENAME"]))
+        print("tare scales file write to tare json file {}".format(CONFIG["TARE_FILENAME"]))
+
+# Return True if the latest tare readings are within the bounds set in CONFIG.
+# This is designed to ensure we don't 'tare' with the pot sitting on the sensor.
+def tare_ok(tare_list):
+    i = 0
+    ok = True
+    # We compare each value in the tare_list and see if it is within the allowed TARE_WIDTH
+    # of the corresponding approximate expected reading in TARE_READINGS.
+    # We will only return True if *all* tare readings are within acceptable bounds.
+    while i < len(tare_list):
+        if abs(tare_list[i] - CONFIG["TARE_READINGS"][i]) > CONFIG["TARE_WIDTH"]:
+            if DEBUG_LOG:
+                print("tare_ok reading[{}] {} out of range vs {} +/- {}".format(i,
+                    tare_list[i],
+                    CONFIG["TARE_READINGS"][i],
+                    CONFIG["TARE_WIDTH"]))
+
+            ok = False
+            break
+
+    return ok
+
+# Find the 'tare' for load cell 1 & 2
+def tare_scales(hx_list):
+
+    t_start = time.process_time()
+
+    tare_list = []
+
+    for hx in hx_list:
+        # Here we initialize the 'empty weight' settings
+        tare_list.append( hx.tare_A() )
+
+    if DEBUG_LOG:
+        print("tare_scales readings [ {} ] completed at {:.3f} secs.".format( u.list_to_string(tare_list, "{:+.0f}"),
+                                                                              time.process_time() - t_start))
+
+    # If the tare_list is 'ok' (i.e. within bounds) we will write it to the tare file and return it as the result
+    if tare_ok(tare_list):
+        if DEBUG_LOG:
+            print("tare_scales readings ok, writing to {}".format(CONFIG["TARE_FILENAME"]))
+
+        write_tare_file(tare_list)
+        return tare_list
+
+    # The new tare readings are out of range, so use persisted values
+    tare_dictionary = read_tare_file()
+
+    tare_list = tare_dictionary["tares"]
+
+    if DEBUG_LOG:
+        output_string = "tare_scales readings out of range, using persisted values [ {} ]"
+        print(output_string.format(u.list_to_string(tare_list,"{:+.0f}")))
 
     return tare_list
 
