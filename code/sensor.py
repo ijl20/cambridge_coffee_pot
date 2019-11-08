@@ -188,7 +188,7 @@ def tare_ok(tare_list):
         tare_delta_total += tare_delta
         if tare_delta > CONFIG["TARE_WIDTH"]:
             if DEBUG_LOG:
-                print("tare_ok reading[{}] {} out of range vs {} +/- {}".format(i,
+                print("tare_ok reading[{}] {:.0f} out of range vs {:.0f} +/- {}".format(i,
                     tare_list[i],
                     CONFIG["TARE_READINGS"][i],
                     CONFIG["TARE_WIDTH"]))
@@ -218,6 +218,7 @@ def tare_scales(hx_list):
 
     tare_list = []
 
+    # we 'tare' each sensor, this will also update the tare value used in each HX771 object
     for hx in hx_list:
         # Here we initialize the 'empty weight' settings
         tare_list.append( hx.tare_A() )
@@ -236,6 +237,12 @@ def tare_scales(hx_list):
     tare_dictionary = read_tare_file()
 
     tare_list = tare_dictionary["tares"]
+
+    # As the measured tare values are not acceptable, we now update the HX711 objects with the persisted values.
+    i = 0
+    for hx in hx_list:
+        hx.set_offset_A(tare_list[i])
+        i += 1
 
     if DEBUG_LOG:
         output_string = "tare_scales readings out of range, using persisted values [ {} ]"
