@@ -3,9 +3,6 @@
 # for dev / debug
 DEBUG_LOG = True
 
-# info sent in json packet to feed handler
-SENSOR_ID = 'cambridge_coffee_pot'
-SENSOR_TYPE = 'coffee_pot'
 # loads settings from sensor.json or argv[1]
 CONFIG_FILENAME = "sensor_config.json"
 
@@ -31,12 +28,16 @@ from PIL import ImageColor
 from sensor_utils import UTILS
 u = UTILS()
 
+FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
+DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
+
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 # Startup config
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
+# These config valued proved defaults, as the config file will be merged in.
 CONFIG = {
     # filename to persist scales tare values
     "TARE_FILENAME": "sensor_tare.json",
@@ -55,9 +56,6 @@ CONFIG = {
     "WEIGHT_Y": 60,
     "WEIGHT_RIGHT_MARGIN": 10
     }
-
-FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
-DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # Load sensor configuration from Json config file
 def load_config():
@@ -377,6 +375,92 @@ def send_data(post_data):
         print("send_data() error with {}".format(post_data))
         print(e)
 
+def send_weight(weight_g):
+    now = time.time()
+    post_data = {  'msg_type': 'coffee_pot_weight',
+                   'request_data': [ { 'acp_id': CONFIG["SENSOR_ID"],
+                                       'acp_type': CONFIG["SENSOR_TYPE"],
+                                       'acp_ts': now,
+                                       'weight': weight_g,
+                                       'acp_units': 'GRAMS'
+                                    }
+                                   ]
+            }
+    send_data(post_data)
+
+def send_event(event_code):
+    now = time.time()
+    post_data = {  'msg_type': 'coffee_pot_event',
+                   'request_data': [ { 'acp_id': CONFIG["SENSOR_ID"],
+                                       'acp_type': CONFIG["SENSOR_TYPE"],
+                                       'acp_ts': now,
+                                       'event_code': event_code
+                                     }
+                                   ]
+            }
+    send_data(post_data)
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Event pattern recognition
+# In general these routines look at the sample_history buffer and
+# decide if an event has just become recognizable, e.g. POT_NEW
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+# store the current weight in the sample_history circular buffer
+def record_sample(weight_g):
+    global sample_history
+    global sample_history_index
+
+    sample_history[sample_history_index] = { 'ts': time.time(), 'weight': weight_g }
+    sample_history_index = (sample_history_index + 1) % SAMPLE_HISTORY_SIZE
+
+# Lookup the weight in the sample_history buffer at offset before now
+# This returns None or an object { 'ts': <timestamp>, 'weight': <grams> }
+def lookup_sample(offset):
+    global sample_history
+    global sample_history_index
+    if offset >= SAMPLE_HISTORY_SIZE:
+        return None
+    index = (sample_history_index + SAMPLE_HISTORY_SIZE - i) % SAMPLE_HISTORY_SIZE
+    return sample_history(index)
+
+# Calculate the average weight recorded over the previous 'duration' seconds from offset.
+# Returns a tuple of <average weight>, <index> where <index> is the sample_history offset
+# one sample earlier than the offset & duration selected.
+# E.g. weight_average(0,3) will find the average weight of the most recent 3 seconds.
+def weight_average(offset, duration):
+    # lookup the first weight to get that weight (grams) and timestamp
+    sample = lookup_sample(offset)
+    if sample == None:
+        return None
+    index = offset
+    total_weight = sample["weight"]
+    end_time = sample["ts"] - duration
+    sample_count = 1
+    while True: # Repeat .. Until
+        # select previous index in circular buffer
+        index = (index + SAMPLE_HISTORY_SIZE - 1) % SAMPLE_HISTORY_SIZE
+        if index == offset:
+            # we've exhausted the full buffer
+            return None
+        sample = lookup_sample(index)
+        if sample == None
+            # we've exhausted the values in the partially filled buffer
+            return None
+        if sample["ts"] < end_time:
+            break
+        total_weight += sample["weight"]
+        sample_count += 1
+
+    return total_weight / sample_count, index
+
+# Look in the sample_history buffer (including latest) and try and spot a new event.
+# Uses the event_history buffer to avoid repeated messages for the same event
+def test_event():
+    return
+
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
@@ -423,6 +507,9 @@ def loop():
             if DEBUG_LOG:
                 print("loop got weight {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
+            # store weight and time in sample_history
+            record_sample(weight_g)
+
             #----------------
             # UPDATE LCD
             # ---------------
@@ -439,19 +526,18 @@ def loop():
             now = time.time() # floating point time in seconds since epoch
             if now - prev_time > 30:
                 print ("SENDING WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
-                post_data = { 'request_data': [ { 'acp_id': SENSOR_ID,
-                                                  'acp_type': SENSOR_TYPE,
-                                                  'acp_ts': now,
-                                                  'weight': weight_g,
-                                                  'acp_units': 'GRAMS'
-                                                 }
-                                              ]
-                            }
-                send_data(post_data)
+
+                send_weight(weight_g)
+
                 prev_time = now
 
                 if DEBUG_LOG:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
+                    for i in range(30):
+                        sample = lookup_sample(i)
+                        print("sample", sample["ts"], sample["weight"])
+                    a = weight_average(0,2)
+                    print("sample 2s average", a)
 
             elif DEBUG_LOG:
                 print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
@@ -493,6 +579,14 @@ def finish():
 # declare globals
 LCD = None # ST7735 LCD display chip
 hx_list = None # LIST of hx711 A/D chips
+
+EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
+event_history = [ None ] * EVENT_HISTORY_SIZE
+
+# Note sample_history is a *circular* buffer (for efficiency)
+SAMPLE_HISTORY_SIZE = 100 # store weight samples 0..99
+weight_index = 0
+sample_history = [ None ] * SAMPLE_HISTORY_SIZE # buffer for 100 weight samples ~= 10 seconds
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
