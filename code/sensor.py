@@ -12,6 +12,7 @@ import sys
 import RPi.GPIO as GPIO
 import simplejson as json
 import requests
+import math
 
 # D to A converter libs
 from hx711_ijl20.hx711 import HX711
@@ -361,6 +362,8 @@ def update_lcd(weight_g):
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
+# Post data to platform as json.
+# post_data is a python dictionary to be converted to json.
 def send_data(post_data):
     try:
         print("send_data() to {}".format(CONFIG["FEEDMAKER_URL"]))
@@ -370,7 +373,12 @@ def send_data(post_data):
                   json=post_data
                   )
 
-        print("status code",response.status_code)
+        debug_str = json.dumps( post_data,
+                                sort_keys=True,
+                                indent=4,
+                                separators=(',', ': '))
+        print("sent:\n {}".format(debug_str))
+        print("status code:",response.status_code)
     except Exception as e:
         print("send_data() error with {}".format(post_data))
         print(e)
@@ -381,7 +389,7 @@ def send_weight(weight_g):
                    'request_data': [ { 'acp_id': CONFIG["SENSOR_ID"],
                                        'acp_type': CONFIG["SENSOR_TYPE"],
                                        'acp_ts': now,
-                                       'weight': weight_g,
+                                       'weight': math.floor(weight_g+0.5),
                                        'acp_units': 'GRAMS'
                                     }
                                    ]
@@ -428,13 +436,18 @@ def lookup_sample(offset):
     global sample_history_index
     global SAMPLE_HISTORY_SIZE
 
-    if DEBUG_LOG:
-        print("lookup_sample current and offset",sample_history_index, offset)
     if offset >= SAMPLE_HISTORY_SIZE:
+        if DEBUG_LOG:
+            print("lookup_sample offset too large, returning None")
         return None
-    index = (sample_history_index + SAMPLE_HISTORY_SIZE - offset) % SAMPLE_HISTORY_SIZE
+    index = (sample_history_index + SAMPLE_HISTORY_SIZE - offset - 1) % SAMPLE_HISTORY_SIZE
     if DEBUG_LOG:
-        print("lookup_sample using",index)
+        debug_str = "lookup_sample current {}, offset {} => {}: {:.2f} {:.1f}"
+        print(debug_str.format( sample_history_index,
+                                offset,
+                                index,
+                                sample_history[index]["ts"],
+                                sample_history[index]["weight"]))
     return sample_history[index]
 
 # Calculate the average weight recorded over the previous 'duration' seconds from offset.
@@ -549,9 +562,8 @@ def loop():
                 if DEBUG_LOG:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
                     for i in range(10):
-                        sample = lookup_sample(i+1)
-                        print("sample", sample["ts"], sample["weight"])
-                    a = weight_average(1,5)
+                        sample = lookup_sample(i)
+                    a = weight_average(0,5) # from NOW, back 5 seconds
                     print("sample 5s average", a)
 
             elif DEBUG_LOG:
