@@ -555,10 +555,11 @@ class Sensor(object):
                 break
 
         # Now we have a list of samples with the required duration
+        med = median(weight_list)
         if DEBUG_LOG:
-            print("weight_median with {} samples".format(len(sample_list)))
+            print("weight_median with {} samples = {}".format(len(weight_list), med))
 
-        return median(weight_list), next_offset
+        return med, next_offset
 
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
