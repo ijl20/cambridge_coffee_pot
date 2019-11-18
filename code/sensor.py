@@ -16,12 +16,13 @@ import sys
 import simplejson as json
 import requests
 import math
+from statistics import median
 
-SIMULATION_MODE = False
+GPIO_FAIL = False
 try:
     import RPi.GPIO as GPIO
 except ImportError:
-    SIMULATION_MODE = True
+    GPIO_FAIL = True
     print("RPi.GPIO not loaded, running in SIMULATION_MODE")
 
 # D to A converter libs
@@ -47,11 +48,6 @@ hx_list = None # LIST of hx711 A/D chips
 
 EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
 event_history = [ None ] * EVENT_HISTORY_SIZE
-
-# Note sample_history is a *circular* buffer (for efficiency)
-SAMPLE_HISTORY_SIZE = 100 # store weight samples 0..99
-sample_history_index = 0
-sample_history = [ None ] * SAMPLE_HISTORY_SIZE # buffer for 100 weight samples ~= 10 seconds
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
@@ -83,9 +79,23 @@ CONFIG = {
 
 class Sensor(object):
 
+    # ----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
+    # __init__() called on startup
+    # ----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
+
     def __init__(self):
         global LCD
         global hx_list
+        global GPIO_FAIL
+
+        self.SIMULATION_MODE = GPIO_FAIL
+
+        # Note sample_history is a *circular* buffer (for efficiency)
+        self.SAMPLE_HISTORY_SIZE = 100 # store weight samples 0..99
+        self.sample_history_index = 0
+        self.sample_history = [ None ] * self.SAMPLE_HISTORY_SIZE # buffer for 100 weight samples ~= 10 seconds
 
         # read the sensor_config.json file for updated config values
         self.load_config()
@@ -128,8 +138,6 @@ class Sensor(object):
         except Exception as e:
             print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(filename))
             print(e)
-
-
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -408,18 +416,19 @@ class Sensor(object):
     def send_data(self, post_data):
         try:
             print("send_data() to {}".format(CONFIG["FEEDMAKER_URL"]))
-            response = requests.post(
-                    CONFIG["FEEDMAKER_URL"],
-                    headers={ CONFIG["FEEDMAKER_HEADER_KEY"] : CONFIG["FEEDMAKER_HEADER_VALUE"] },
-                    json=post_data
-                    )
+            if not self.SIMULATION_MODE:
+                response = requests.post(
+                        CONFIG["FEEDMAKER_URL"],
+                        headers={ CONFIG["FEEDMAKER_HEADER_KEY"] : CONFIG["FEEDMAKER_HEADER_VALUE"] },
+                        json=post_data
+                        )
+                print("status code:",response.status_code)
 
             debug_str = json.dumps( post_data,
                                     sort_keys=True,
                                     indent=4,
                                     separators=(',', ': '))
             print("sent:\n {}".format(debug_str))
-            print("status code:",response.status_code)
         except Exception as e:
             print("send_data() error with {}".format(post_data))
             print(e)
@@ -465,58 +474,47 @@ class Sensor(object):
 
     # store the current weight in the sample_history circular buffer
     def record_sample(self, weight_g):
-        global sample_history
-        global sample_history_index
-
-        sample_history[sample_history_index] = { 'ts': time.time(), 'weight': weight_g }
+        self.sample_history[self.sample_history_index] = { 'ts': time.time(), 'weight': weight_g }
         if DEBUG_LOG:
-            print("record sample_history[{}] {} {}".format(sample_history_index,
-                                                        sample_history[sample_history_index]["ts"],
-                                                        sample_history[sample_history_index]["weight"]))
+            print("record sample_history[{}]:\n{},{}".format(self.sample_history_index,
+                                                        self.sample_history[self.sample_history_index]["ts"],
+                                                        self.sample_history[self.sample_history_index]["weight"]))
 
-        sample_history_index = (sample_history_index + 1) % SAMPLE_HISTORY_SIZE
+        self.sample_history_index = (self.sample_history_index + 1) % self.SAMPLE_HISTORY_SIZE
 
     # Lookup the weight in the sample_history buffer at offset before now (offset ZERO = latest weight)
     # This returns None or an object { 'ts': <timestamp>, 'weight': <grams> }
     def lookup_sample(self, offset):
-        global sample_history
-        global sample_history_index
-        global SAMPLE_HISTORY_SIZE
-
-        if offset >= SAMPLE_HISTORY_SIZE:
+        if offset >= self.SAMPLE_HISTORY_SIZE:
             if DEBUG_LOG:
                 print("lookup_sample offset too large, returning None")
             return None
-        index = (sample_history_index + SAMPLE_HISTORY_SIZE - offset - 1) % SAMPLE_HISTORY_SIZE
+        index = (self.sample_history_index + self.SAMPLE_HISTORY_SIZE - offset - 1) % self.SAMPLE_HISTORY_SIZE
         if DEBUG_LOG:
             debug_str = "lookup_sample current {}, offset {} => {}: {:.2f} {:.1f}"
-            print(debug_str.format( sample_history_index,
+            print(debug_str.format( self.sample_history_index,
                                     offset,
                                     index,
-                                    sample_history[index]["ts"],
-                                    sample_history[index]["weight"]))
-        return sample_history[index]
+                                    self.sample_history[index]["ts"],
+                                    self.sample_history[index]["weight"]))
+        return self.sample_history[index]
 
     # Calculate the average weight recorded over the previous 'duration' seconds from offset.
     # Returns a tuple of <average weight>, <index> where <index> is the sample_history offset
     # one sample earlier than the offset & duration selected.
     # E.g. weight_average(0,3) will find the average weight of the most recent 3 seconds.
     def weight_average(self, offset, duration):
-        global sample_history
-        global sample_history_index
-        global SAMPLE_HISTORY_SIZE
-
         # lookup the first weight to get that weight (grams) and timestamp
         sample = self.lookup_sample(offset)
         if sample == None:
-            return None
+            return None, offset
         index = offset
         total_weight = sample["weight"]
         end_time = sample["ts"] - duration
         sample_count = 1
         while True: # Repeat .. Until
             # select previous index in circular buffer
-            index = (index + 1) % SAMPLE_HISTORY_SIZE
+            index = (index + 1) % self.SAMPLE_HISTORY_SIZE
             if index == offset:
                 # we've exhausted the full buffer
                 return None
@@ -531,17 +529,41 @@ class Sensor(object):
 
         return total_weight / sample_count, index
 
+    # Similar to weight_average but return the median weight
+    # Returns a tuple of <median weight>, <index> where <index> is the sample_history offset
+    def weight_median(self, offset, duration):
+        sample = self.lookup_sample(offset)
+        if sample == None:
+            return None, offset
+        next_offset = offset
+        end_time = sample["ts"] - duration
+        weight_list = [ sample["weight"] ]
+        while True: # Repeat .. Until
+            # select previous index in circular buffer
+            next_offset = (next_offset + 1) % self.SAMPLE_HISTORY_SIZE
+            if next_offset == offset:
+                # we've exhausted the full buffer
+                return None, offset
+            sample = self.lookup_sample(next_offset)
+            if sample == None:
+                # we've exhausted the values in the partially filled buffer
+                return None, offset
+
+            weight_list.append(sample["weight"])
+
+            if sample["ts"] < end_time:
+                break
+
+        # Now we have a list of samples with the required duration
+        if DEBUG_LOG:
+            print("weight_median with {} samples".format(len(sample_list)))
+
+        return median(weight_list), next_offset
+
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
     def test_event(self):
         return
-
-
-    # ----------------------------------------------------------------------
-    # ----------------------------------------------------------------------
-    # init() called on startup
-    # ----------------------------------------------------------------------
-    # ----------------------------------------------------------------------
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -550,7 +572,9 @@ class Sensor(object):
     # ----------------------------------------------------------------------
 
     def loop(self):
-        prev_time = time.time() # floating point seconds in epoch
+        now = time.time()  # floating point seconds in epoch
+        prev_send_time = now
+        prev_lcd_time = now
 
         while True:
             try:
@@ -560,7 +584,7 @@ class Sensor(object):
                 # GET WEIGHT
                 # ---------------
 
-                # get readings from A and B channels
+                # get readings from all load cells
                 weight_g = self.get_weight()
 
                 if DEBUG_LOG:
@@ -573,10 +597,13 @@ class Sensor(object):
                 # UPDATE LCD
                 # ---------------
 
-                self.update_lcd(weight_g)
+                now = time.time()
+                if now - prev_lcd_time > 1:
+                    self.update_lcd(weight_g)
+                    prev_lcd_time = now
 
-                if DEBUG_LOG:
-                    print("loop update_lcd {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
+                    if DEBUG_LOG:
+                        print("loop update_lcd {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
                 # ----------------------
                 # SEND EVENT TO PLATFORM
@@ -589,19 +616,17 @@ class Sensor(object):
                 # ---------------------
 
                 now = time.time() # floating point time in seconds since epoch
-                if now - prev_time > 30:
+                if now - prev_send_time > 30:
                     print ("SENDING WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
 
                     self.send_weight(weight_g)
 
-                    prev_time = now
+                    prev_send_time = now
 
                     if DEBUG_LOG:
                         print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
-                        for i in range(10):
-                            sample = self.lookup_sample(i)
-                        a = self.weight_average(0,5) # from NOW, back 5 seconds
-                        print("sample 5s average", a)
+                        a = self.weight_median(0,2) # from NOW, back 2 seconds
+                        print("sample 2s average", a)
 
                 elif DEBUG_LOG:
                     print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
@@ -612,7 +637,7 @@ class Sensor(object):
                 if DEBUG_LOG:
                     print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
-                time.sleep(1.0)
+                time.sleep(0.1)
 
             except (KeyboardInterrupt, SystemExit):
                 return 0  # return exit code on interruption
@@ -628,7 +653,7 @@ class Sensor(object):
 
         print("GPIO cleanup()...")
 
-        if not SIMULATION_MODE:
+        if not self.SIMULATION_MODE:
             GPIO.cleanup()
 
             print("Exitting")
@@ -641,11 +666,12 @@ class Sensor(object):
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
-s = Sensor()
+if __name__ == "__main__":
+    s = Sensor()
 
-# Infinite loop until killed, reading weight and sending data
-interrupt_code = s.loop()
+    # Infinite loop until killed, reading weight and sending data
+    interrupt_code = s.loop()
 
-# Cleanup and quit
-s.finish()
+    # Cleanup and quit
+    s.finish()
 
