@@ -1,28 +1,24 @@
+# Various utility functions
 
-class UTILS(object):
+# Convert [1,2,3] to "1, 2, 3" using optional format string e.g "{:.1f}"
+def list_to_string(input_list, format_string="{}"):
+    output_string = ""
 
-    def __init__(self):
-        print("init utils")
+    first_separator = ""
 
-    # Convert [1,2,3] to "1, 2, 3" using optional format string e.g "{:.1f}"
-    def list_to_string(self, input_list, format_string="{}"):
-        output_string = ""
+    separator = ", " ## added *before* each element except first
 
-        first_separator = ""
+    first_added = False # flag to detect whether we are currently adding first element
 
-        separator = ", " ## added *before* each element except first
+    for element in input_list:
+        if not first_added:
+            output_string = output_string + first_separator
+            first_added = True
+        else:
+            output_string = output_string + separator
 
-        first_added = False # flag to detect whether we are currently adding first element
+        # add the formatted element
+        output_string = output_string + format_string.format(element)
 
-        for element in input_list:
-            if not first_added:
-                output_string = output_string + first_separator
-                first_added = True
-            else:
-                output_string = output_string + separator
-
-            # add the formatted element
-            output_string = output_string + format_string.format(element)
-
-        return output_string
+    return output_string
 

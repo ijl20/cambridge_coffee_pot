@@ -1,7 +1,5 @@
 # Raspberry Pi LCD support via ST7735 control chip
 
-import RPi.GPIO as GPIO
-import spidev
 import time
 import numbers
 import time
@@ -9,6 +7,14 @@ import numpy as np
 
 from PIL import Image
 from PIL import ImageDraw
+
+SIMULATION_MODE = False
+
+try:
+    import RPi.GPIO as GPIO
+    import spidev
+except:
+    SIMULATION_MODE = True
 
 SPI_CLOCK_HZ = 9000000 # 9 MHz
 
@@ -121,7 +127,8 @@ SCAN_DIR_DFT = U2D_R2L
 
 # SPI device, bus = 0, device = 0
 
-SPI = spidev.SpiDev(0, 0)
+if not SIMULATION_MODE:
+    SPI = spidev.SpiDev(0, 0)
 
 def epd_digital_write(pin, value):
     GPIO.output(pin, value)
@@ -164,6 +171,8 @@ class ST7735(object):
         self.buffer = Image.new('RGB', (width, height))
 
     def GPIO_init(self):
+        if SIMULATION_MODE:
+            return
         """Initialize GPIO pins for ST7735 comms"""
 
         GPIO.setmode(GPIO.BCM)
@@ -197,6 +206,9 @@ class ST7735(object):
         data (False).  Chunk_size is an optional size of bytes to write in a
         single SPI transaction, with a default of 4096.
         """
+        if SIMULATION_MODE:
+            return
+
         # Set DC low for command, high for data.
         GPIO.output(self._dc, is_data)
         # Convert scalar argument to list so either can be passed as parameter.
@@ -216,6 +228,8 @@ class ST7735(object):
         self.send(data, True)
 
     def send_byte(self, byte):
+        if SIMULATION_MODE:
+            return
         GPIO.output(self._dc, True)
         SPI.writebytes([byte])
 

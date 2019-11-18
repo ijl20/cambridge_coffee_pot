@@ -1,14 +1,25 @@
 #
 
-import RPi.GPIO as GPIO
 import time
 import threading
 
+SIMULATION_MODE = False
+
+try:
+    import RPi.GPIO as GPIO
+except:
+    SIMULATION_MODE = True
 
 
 class HX711:
 
     def __init__(self, dout, pd_sck, gain=128):
+
+        self.DEBUG_LOG = False
+
+        if SIMULATION_MODE:
+            return
+
         self.PD_SCK = pd_sck
 
         self.DOUT = dout
@@ -31,8 +42,6 @@ class HX711:
         self.OFFSET = 1
         self.OFFSET_B = 1
         self.lastVal = int(0)
-
-        self.DEBUG_LOG = False
 
         self.byte_format = 'MSB'
         self.bit_format = 'MSB'
@@ -107,6 +116,8 @@ class HX711:
 
 
     def readRawBytes(self):
+        if SIMULATION_MODE:
+            return [1,2,3]
 
         t_start = time.process_time()
 
@@ -148,6 +159,9 @@ class HX711:
 
     def read_long(self):
         # Get a sample from the HX711 in the form of raw bytes.
+        if SIMULATION_MODE:
+            return 7
+
         dataBytes = self.readRawBytes()
 
 
@@ -388,6 +402,9 @@ class HX711:
     def power_down(self):
         # Wait for and get the Read Lock, incase another thread is already
         # driving the HX711 serial interface.
+        if SIMULATION_MODE:
+            return
+
         self.readLock.acquire()
 
         # Cause a rising edge on HX711 Digital Serial Clock (PD_SCK).  We then
@@ -406,6 +423,9 @@ class HX711:
     def power_up(self):
         # Wait for and get the Read Lock, incase another thread is already
         # driving the HX711 serial interface.
+        if SIMULATION_MODE:
+            return
+
         self.readLock.acquire()
 
         # Lower the HX711 Digital Serial Clock (PD_SCK) line.
