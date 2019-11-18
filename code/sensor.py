@@ -600,11 +600,12 @@ class Sensor(object):
 
                 now = time.time()
                 if now - prev_lcd_time > 1:
-                    self.update_lcd(weight_g)
+                    median_g = self.weight_median(0,1) # get median weight value for 1 second
+                    self.update_lcd(median_g)
                     prev_lcd_time = now
 
                     if DEBUG_LOG:
-                        print("loop update_lcd {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
+                        print("loop update_lcd {:.1f} at {:.3f} secs.".format(median_g, time.process_time() - t_start))
 
                 # ----------------------
                 # SEND EVENT TO PLATFORM
@@ -618,18 +619,17 @@ class Sensor(object):
 
                 now = time.time() # floating point time in seconds since epoch
                 if now - prev_send_time > 30:
-                    print ("SENDING WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
+                    median_g = self.weight_median(0,2) # from NOW, back 2 seconds
+                    print ("SENDING WEIGHT {:5.1f}, {}".format(median_g, time.ctime(now)))
 
-                    self.send_weight(weight_g)
+                    self.send_weight(median_g)
 
                     prev_send_time = now
 
                     if DEBUG_LOG:
                         print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
-                        a = self.weight_median(0,2) # from NOW, back 2 seconds
-                        print("sample 2s average", a)
 
-                elif DEBUG_LOG:
+                if DEBUG_LOG:
                     print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
 
                 #hx.power_down()
