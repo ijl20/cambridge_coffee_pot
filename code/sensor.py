@@ -543,16 +543,21 @@ class Sensor(object):
             next_offset = (next_offset + 1) % self.SAMPLE_HISTORY_SIZE
             if next_offset == offset:
                 # we've exhausted the full buffer
-                return None, offset
+                break
+
             sample = self.lookup_sample(next_offset)
             if sample == None:
                 # we've exhausted the values in the partially filled buffer
-                return None, offset
+                break
 
             weight_list.append(sample["weight"])
 
             if sample["ts"] < end_time:
                 break
+
+        # If we didn't get enough samples, return with error
+        if len(weight_list) < 3:
+            return None, None
 
         # Now we have a list of samples with the required duration
         med = median(weight_list)
