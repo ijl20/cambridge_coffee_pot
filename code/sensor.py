@@ -1,11 +1,8 @@
 #! /usr/bin/python3
 
-# for dev / debug
-DEBUG_LOG = True
-
 # code version
 
-VERSION = "0.10"
+VERSION = "0.20"
 
 # loads settings from sensor.json or argv[1]
 CONFIG_FILENAME = "sensor_config.json"
@@ -59,6 +56,7 @@ debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on L
 
 # These config valued proved defaults, as the config file will be merged in.
 CONFIG = {
+    "LOG_LEVEL": 1, # 1 = debug, 2 = info
     # filename to persist scales tare values
     "TARE_FILENAME": "sensor_tare.json",
     "WEIGHT_FACTOR": 412, # reading per gram
@@ -125,7 +123,7 @@ class Sensor(object):
 
     def read_config_file(self, filename):
         global CONFIG
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("reading config file {}".format(filename))
 
         try:
@@ -159,7 +157,7 @@ class Sensor(object):
                     HX711(16, 20)
                 ]
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("init_scales HX objects created at {:.3f} secs.".format(time.process_time() - t_start))
 
 
@@ -176,7 +174,7 @@ class Sensor(object):
 
             hx.reset()
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("init_scales HX objects reset at {:.3f} secs.".format(time.process_time() - t_start))
 
         return hx_list
@@ -184,7 +182,7 @@ class Sensor(object):
     # Read the TARE_FILENAME defined in CONFIG, return the contained json as a python dictionary
     def read_tare_file(self):
         # if there is an existing tare file, previous values will be read from that
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("reading tare file {}".format(CONFIG["TARE_FILENAME"]))
 
         try:
@@ -235,7 +233,7 @@ class Sensor(object):
                 max_i = i
             tare_delta_total += tare_delta
             if tare_delta > CONFIG["TARE_WIDTH"]:
-                if DEBUG_LOG:
+                if CONFIG["LOG_LEVEL"] == 1:
                     print("tare_ok reading[{}] {:.0f} out of range vs {:.0f} +/- {}".format(i,
                         tare_list[i],
                         CONFIG["TARE_READINGS"][i],
@@ -246,7 +244,7 @@ class Sensor(object):
                 i += 1
 
         if tare_delta_total > CONFIG["TARE_WIDTH"] * 2:
-            if DEBUG_LOG:
+            if CONFIG["LOG_LEVEL"] == 1:
                 print("tare_ok total delta {} of [{}] is out of range for [{}] +/- (2*){}".format(tare_delta_total,
                     list_to_string(tare_list,"{:+.0f}"),
                     list_to_string(CONFIG["TARE_READINGS"],"{:+.0f}"),
@@ -254,7 +252,7 @@ class Sensor(object):
 
             return False
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("tare_ok is OK, max delta[{}] was {:.0f}".format(max_i, max_delta))
 
         return True
@@ -271,7 +269,7 @@ class Sensor(object):
             # Here we initialize the 'empty weight' settings
             tare_list.append( hx.tare_A() )
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("tare_scales readings [ {} ] completed at {:.3f} secs.".format( list_to_string(tare_list, "{:+.0f}"),
                                                                                 time.process_time() - t_start))
 
@@ -292,7 +290,7 @@ class Sensor(object):
             hx.set_offset_A(tare_list[i])
             i += 1
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             output_string = "tare_scales readings out of range, using persisted values [ {} ]"
             print(output_string.format(list_to_string(tare_list,"{:+.0f}")))
 
@@ -315,7 +313,7 @@ class Sensor(object):
             debug_list.append(reading) # store weight for debug display
             total_reading = total_reading + reading
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             output_string = "get_weight readings [ {} ] completed at {:.3f} secs."
             print( output_string.format(list_to_string(debug_list, "{:+.0f}"), time.process_time() - t_start))
 
@@ -339,7 +337,7 @@ class Sensor(object):
         #LCD.LCD_PageImage(image)
         LCD.display(image)
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
         return LCD
@@ -384,7 +382,7 @@ class Sensor(object):
                         CONFIG["WEIGHT_HEIGHT"])
 
         # display a two-line debug display of the weights from both load cells
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             image = Image.new("RGB", (150, 40), "BLACK")
             draw = ImageDraw.Draw(image)
 
@@ -402,7 +400,7 @@ class Sensor(object):
 
             LCD.display_window(image, 5, 5, 150, 40)
 
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
 
     # ----------------------------------------------------------------------
@@ -475,7 +473,7 @@ class Sensor(object):
     # store the current weight in the sample_history circular buffer
     def record_sample(self, weight_g):
         self.sample_history[self.sample_history_index] = { 'ts': time.time(), 'weight': weight_g }
-        if DEBUG_LOG:
+        if CONFIG["LOG_LEVEL"] == 1:
             print("record sample_history[{}]:\n{},{}".format(self.sample_history_index,
                                                         self.sample_history[self.sample_history_index]["ts"],
                                                         self.sample_history[self.sample_history_index]["weight"]))
@@ -486,17 +484,23 @@ class Sensor(object):
     # This returns None or an object { 'ts': <timestamp>, 'weight': <grams> }
     def lookup_sample(self, offset):
         if offset >= self.SAMPLE_HISTORY_SIZE:
-            if DEBUG_LOG:
+            if CONFIG["LOG_LEVEL"] == 1:
                 print("lookup_sample offset too large, returning None")
             return None
         index = (self.sample_history_index + self.SAMPLE_HISTORY_SIZE - offset - 1) % self.SAMPLE_HISTORY_SIZE
-        if DEBUG_LOG:
-            debug_str = "lookup_sample current {}, offset {} => {}: {:.2f} {:.1f}"
-            print(debug_str.format( self.sample_history_index,
-                                    offset,
-                                    index,
-                                    self.sample_history[index]["ts"],
-                                    self.sample_history[index]["weight"]))
+        if CONFIG["LOG_LEVEL"] == 1:
+            if self.sample_history[index] is not None:
+                debug_str = "lookup_sample current {}, offset {} => {}: {:.2f} {:.1f}"
+                print(debug_str.format( self.sample_history_index,
+                                        offset,
+                                        index,
+                                        self.sample_history[index]["ts"],
+                                        self.sample_history[index]["weight"]))
+            else:
+                debug_str = "lookup_sample None @ current {}, offset {} => {}"
+                print(debug_str.format( self.sample_history_index,
+                                        offset,
+                                        index))
         return self.sample_history[index]
 
     # Calculate the average weight recorded over the previous 'duration' seconds from offset.
@@ -510,7 +514,7 @@ class Sensor(object):
             return None, offset
         index = offset
         total_weight = sample["weight"]
-        end_time = sample["ts"] - duration
+        begin_time = sample["ts"] - duration
         sample_count = 1
         while True: # Repeat .. Until
             # select previous index in circular buffer
@@ -522,7 +526,7 @@ class Sensor(object):
             if sample == None:
                 # we've exhausted the values in the partially filled buffer
                 return None
-            if sample["ts"] < end_time:
+            if sample["ts"] < begin_time:
                 break
             total_weight += sample["weight"]
             sample_count += 1
@@ -536,7 +540,14 @@ class Sensor(object):
         if sample == None:
             return None, offset
         next_offset = offset
-        end_time = sample["ts"] - duration
+
+        begin_limit = sample["ts"] - duration
+        begin_time = sample["ts"] # this will be updated as we loop, to find duration available
+        end_time = sample["ts"]
+
+        #if CONFIG["LOG_LEVEL"] == 1:
+        #    print("weight_median begin_time {:.3f}".format(begin_time))
+
         weight_list = [ sample["weight"] ]
         while True: # Repeat .. Until
             # select previous index in circular buffer
@@ -546,13 +557,18 @@ class Sensor(object):
                 break
 
             sample = self.lookup_sample(next_offset)
+
             if sample == None:
                 # we've exhausted the values in the partially filled buffer
                 break
 
+            begin_time = sample["ts"]
+            #if CONFIG["LOG_LEVEL"] == 1:
+            #    print("weight_median end_time {:.3f}".format(begin_time))
+
             weight_list.append(sample["weight"])
 
-            if sample["ts"] < end_time:
+            if sample["ts"] < begin_limit:
                 break
 
         # If we didn't get enough samples, return with error
@@ -561,8 +577,9 @@ class Sensor(object):
 
         # Now we have a list of samples with the required duration
         med = median(weight_list)
-        if DEBUG_LOG:
-            print("weight_median with {} samples = {}".format(len(weight_list), med))
+
+        if CONFIG["LOG_LEVEL"] == 1:
+            print("weight_median for {:.3f} seconds with {} samples = {}".format(end_time - begin_time, len(weight_list), med))
 
         return med, next_offset
 
@@ -593,7 +610,7 @@ class Sensor(object):
                 # get readings from all load cells
                 weight_g = self.get_weight()
 
-                if DEBUG_LOG:
+                if CONFIG["LOG_LEVEL"] == 1:
                     print("loop got weight {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
                 # store weight and time in sample_history
@@ -605,11 +622,11 @@ class Sensor(object):
 
                 now = time.time()
                 if now - prev_lcd_time > 1:
-                    median_g = self.weight_median(0,1) # get median weight value for 1 second
+                    median_g, offset = self.weight_median(0,2) # get median weight value for 1 second
                     self.update_lcd(median_g)
                     prev_lcd_time = now
 
-                    if DEBUG_LOG:
+                    if CONFIG["LOG_LEVEL"] == 1:
                         print("loop update_lcd {:.1f} at {:.3f} secs.".format(median_g, time.process_time() - t_start))
 
                 # ----------------------
@@ -624,23 +641,23 @@ class Sensor(object):
 
                 now = time.time() # floating point time in seconds since epoch
                 if now - prev_send_time > 30:
-                    median_g = self.weight_median(0,2) # from NOW, back 2 seconds
+                    median_g, offset = self.weight_median(0,2) # from NOW, back 2 seconds
                     print ("SENDING WEIGHT {:5.1f}, {}".format(median_g, time.ctime(now)))
 
                     self.send_weight(median_g)
 
                     prev_send_time = now
 
-                    if DEBUG_LOG:
+                    if CONFIG["LOG_LEVEL"] == 1:
                         print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
 
-                if DEBUG_LOG:
+                if CONFIG["LOG_LEVEL"] == 1:
                     print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
 
                 #hx.power_down()
                 #hx.power_up()
 
-                if DEBUG_LOG:
+                if CONFIG["LOG_LEVEL"] == 1:
                     print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
                 time.sleep(0.1)

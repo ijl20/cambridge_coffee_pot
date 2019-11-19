@@ -1,6 +1,6 @@
 
 {
-    "LOG_LEVEL": 2,
+    "LOG_LEVEL": 1,
 
     "SENSOR_ID": "cambridge_coffee_pot",
     "SENSOR_TYPE": "coffee_pot",
