@@ -506,8 +506,8 @@ class Sensor(object):
     # Calculate the average weight recorded over the previous 'duration' seconds from offset.
     # Returns a tuple of <average weight>, <index> where <index> is the sample_history offset
     # one sample earlier than the offset & duration selected.
-    # E.g. weight_average(0,3) will find the average weight of the most recent 3 seconds.
-    def weight_average(self, offset, duration):
+    # E.g. weight_average_duration(0,3) will find the average weight of the most recent 3 seconds.
+    def weight_average_duration(self, offset, duration):
         # lookup the first weight to get that weight (grams) and timestamp
         sample = self.lookup_sample(offset)
         if sample == None:
@@ -535,7 +535,7 @@ class Sensor(object):
 
     # Similar to weight_average but return the median weight
     # Returns a tuple of <median weight>, <index> where <index> is the sample_history offset
-    def weight_median(self, offset, duration):
+    def weight_median_duration(self, offset, duration):
         sample = self.lookup_sample(offset)
         if sample == None:
             return None, offset
@@ -622,7 +622,7 @@ class Sensor(object):
 
                 now = time.time()
                 if now - prev_lcd_time > 1:
-                    median_g, offset = self.weight_median(0,2) # get median weight value for 1 second
+                    median_g, offset = self.weight_median_duration(0,2) # get median weight value for 1 second
                     self.update_lcd(median_g)
                     prev_lcd_time = now
 
@@ -641,7 +641,7 @@ class Sensor(object):
 
                 now = time.time() # floating point time in seconds since epoch
                 if now - prev_send_time > 30:
-                    median_g, offset = self.weight_median(0,2) # from NOW, back 2 seconds
+                    median_g, offset = self.weight_median_duration(0,2) # from NOW, back 2 seconds
                     print ("SENDING WEIGHT {:5.1f}, {}".format(median_g, time.ctime(now)))
 
                     self.send_weight(median_g)

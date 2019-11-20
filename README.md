@@ -178,7 +178,7 @@ For this one-off experimental sensor we used a Raspberry Pi 3B+, using the GPIO 
 connect the LCD display (via SPI) and the two load cell A/D converters (each needing +Vcc, GND and two data
 pins)
 
-![Pi 3 B+ GPIO pinout](images/pi_3_gpio.png)
+![Pi 3 B+ GPIO pinout with LCD and 4 load cells](images/pi_3_gpio_4_load_cells.png)
 
 
 ## LCD Display - Waveshare 1.8inch color LCD module
