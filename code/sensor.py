@@ -2,7 +2,7 @@
 
 # code version
 
-VERSION = "0.20"
+VERSION = "0.21"
 
 # loads settings from sensor.json or argv[1]
 CONFIG_FILENAME = "sensor_config.json"
@@ -351,9 +351,10 @@ class Sensor(object):
 
         # create a blank image to write the weight on
         image = Image.new( "RGB",
-                        ( CONFIG["WEIGHT_WIDTH"],
-                            CONFIG["WEIGHT_HEIGHT"]),
-                        CONFIG["WEIGHT_COLOR_BG"])
+                           ( CONFIG["WEIGHT_WIDTH"],
+                             CONFIG["WEIGHT_HEIGHT"]),
+                           CONFIG["WEIGHT_COLOR_BG"])
+
         draw = ImageDraw.Draw(image)
 
         # convert weight to string with fixed 5 digits including 1 decimal place, max 9999.9
@@ -503,39 +504,81 @@ class Sensor(object):
                                         index))
         return self.sample_history[index]
 
-    # Calculate the average weight recorded over the previous 'duration' seconds from offset.
+    # Iterate backwards through sample_history buffer to find index
+    def time_to_offset(self,time_offset):
+        if CONFIG["LOG_LEVEL"] == 1:
+            print("time_to_offset",time_offset)
+
+        sample = self.lookup_sample(0)
+        if sample == None:
+            return None
+
+        sample_time = sample["ts"]
+
+        time_limit = sample["ts"] - time_offset
+
+        offset = 0
+
+        while sample_time > time_limit:
+            offset += 1
+            if offset >= self.SAMPLE_HISTORY_SIZE:
+                print("time_to_offset ({}) exceeded buffer size")
+                return None
+            sample = self.lookup_sample(offset)
+            if sample == None:
+                return None
+            sample_time = sample["ts"]
+
+        return offset
+
+    # Calculate the average weight recorded over the previous 'duration' seconds from time_offset seconds.
     # Returns a tuple of <average weight>, <index> where <index> is the sample_history offset
     # one sample earlier than the offset & duration selected.
-    # E.g. weight_average_duration(0,3) will find the average weight of the most recent 3 seconds.
-    def weight_average_duration(self, offset, duration):
+    # E.g. average_time(0,3) will find the average weight of the most recent 3 seconds.
+    def average_time(self, time_offset, duration):
+        if CONFIG["LOG_LEVEL"] == 1:
+            print("average_time time_offset={}, duration={}".format(time_offset, duration))
+
+        offset = self.time_to_offset(time_offset)
+
         # lookup the first weight to get that weight (grams) and timestamp
         sample = self.lookup_sample(offset)
         if sample == None:
             return None, offset
-        index = offset
+
+        next_offset = offset
         total_weight = sample["weight"]
-        begin_time = sample["ts"] - duration
+        begin_limit = sample["ts"] - duration
         sample_count = 1
         while True: # Repeat .. Until
             # select previous index in circular buffer
-            index = (index + 1) % self.SAMPLE_HISTORY_SIZE
-            if index == offset:
+            next_offset = (next_offset + 1) % self.SAMPLE_HISTORY_SIZE
+            if next_offset == offset:
                 # we've exhausted the full buffer
                 return None
-            sample = self.lookup_sample(index)
+            sample = self.lookup_sample(next_offset)
             if sample == None:
                 # we've exhausted the values in the partially filled buffer
                 return None
-            if sample["ts"] < begin_time:
+            if sample["ts"] < begin_limit:
                 break
             total_weight += sample["weight"]
             sample_count += 1
 
-        return total_weight / sample_count, index
+        return total_weight / sample_count, next_offset
 
-    # Similar to weight_average but return the median weight
-    # Returns a tuple of <median weight>, <index> where <index> is the sample_history offset
-    def weight_median_duration(self, offset, duration):
+    # Return the median sample value for a time period.
+    # The period is from (latest sample time - time_offset) to (latest sample time - time_offset - duration)
+    # All time values are in seconds.
+    # Returns a tuple of <median sensor reading>, <index> where <index> is the sample_history offset
+    def median_time(self, time_offset, duration):
+
+        if CONFIG["LOG_LEVEL"] == 1:
+            print("median_time time_offset={}, duration={}".format(time_offset, duration))
+
+        # Convert time (e.g. 3 seconds) to an index offset from latest reading in sample_history
+        offset = self.time_to_offset(time_offset)
+
         sample = self.lookup_sample(offset)
         if sample == None:
             return None, offset
@@ -559,6 +602,7 @@ class Sensor(object):
             sample = self.lookup_sample(next_offset)
 
             if sample == None:
+                print("median_time looked back to None value")
                 # we've exhausted the values in the partially filled buffer
                 break
 
@@ -573,6 +617,7 @@ class Sensor(object):
 
         # If we didn't get enough samples, return with error
         if len(weight_list) < 3:
+            print("median_time not enough samples ({})".format(len(weight_list)))
             return None, None
 
         # Now we have a list of samples with the required duration
@@ -622,12 +667,17 @@ class Sensor(object):
 
                 now = time.time()
                 if now - prev_lcd_time > 1:
-                    median_g, offset = self.weight_median_duration(0,2) # get median weight value for 1 second
-                    self.update_lcd(median_g)
+                    sample_value, offset = self.median_time(0,1) # get median weight value for 1 second
+                    if not sample_value == None:
+                        self.update_lcd(sample_value)
+
                     prev_lcd_time = now
 
                     if CONFIG["LOG_LEVEL"] == 1:
-                        print("loop update_lcd {:.1f} at {:.3f} secs.".format(median_g, time.process_time() - t_start))
+                        if sample_value == None:
+                            print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
+                        else:
+                            print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
 
                 # ----------------------
                 # SEND EVENT TO PLATFORM
@@ -641,15 +691,19 @@ class Sensor(object):
 
                 now = time.time() # floating point time in seconds since epoch
                 if now - prev_send_time > 30:
-                    median_g, offset = self.weight_median_duration(0,2) # from NOW, back 2 seconds
-                    print ("SENDING WEIGHT {:5.1f}, {}".format(median_g, time.ctime(now)))
+                    sample_value, offset = self.median_time(0,2) # from NOW, back 2 seconds
 
-                    self.send_weight(median_g)
+                    if not sample_value == None:
+                        print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(now)))
 
-                    prev_send_time = now
+                        self.send_weight(sample_value)
 
-                    if CONFIG["LOG_LEVEL"] == 1:
-                        print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
+                        prev_send_time = now
+
+                        if CONFIG["LOG_LEVEL"] == 1:
+                            print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
+                    else:
+                        print("loop send data NOT SENT as data value None")
 
                 if CONFIG["LOG_LEVEL"] == 1:
                     print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
