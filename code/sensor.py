@@ -69,6 +69,12 @@ class Sensor(object):
 
         self.setting = config.setting
 
+        now = time.time()  # floating point seconds in epoch
+
+        # times to control update of LCD and watchdog sends to platform
+        self.prev_send_time = now
+        self.prev_lcd_time = now
+
         # initialize the st7735 for LCD display
         LCD = self.init_lcd()
 
@@ -446,9 +452,6 @@ class Sensor(object):
     def process_sample(self, ts, value):
 
         t_start = time.process_time()
-        now = time.time()  # floating point seconds in epoch
-        prev_send_time = now
-        prev_lcd_time = now
 
 
         if self.setting["LOG_LEVEL"] == 1:
@@ -462,12 +465,12 @@ class Sensor(object):
         # ---------------
 
         now = time.time()
-        if now - prev_lcd_time > 1:
+        if now - self.prev_lcd_time > 1:
             sample_value, offset = self.reading_buffer.median(0,1) # get median weight value for 1 second
             if not sample_value == None:
                 self.update_lcd(sample_value)
 
-            prev_lcd_time = now
+            self.prev_lcd_time = now
 
             if self.setting["LOG_LEVEL"] == 1:
                 if sample_value == None:
@@ -486,7 +489,7 @@ class Sensor(object):
         # ---------------------
 
         now = time.time() # floating point time in seconds since epoch
-        if now - prev_send_time > 30:
+        if now - self.prev_send_time > 30:
             sample_value, offset = self.reading_buffer.median(0,2) # from NOW, back 2 seconds
 
             if not sample_value == None:
@@ -494,7 +497,7 @@ class Sensor(object):
 
                 self.send_weight(sample_value)
 
-                prev_send_time = now
+                self.prev_send_time = now
 
                 if self.setting["LOG_LEVEL"] == 1:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
