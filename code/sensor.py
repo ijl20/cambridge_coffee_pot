@@ -2,6 +2,8 @@
 
 # code version
 
+VERSION = "0.40"
+
 # Python libs
 import time
 import sys
