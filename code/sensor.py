@@ -2,11 +2,6 @@
 
 # code version
 
-VERSION = "0.30"
-
-# loads settings from sensor.json or argv[1]
-CONFIG_FILENAME = "sensor_config.json"
-
 # Python libs
 import time
 import sys
@@ -50,33 +45,6 @@ event_history = [ None ] * EVENT_HISTORY_SIZE
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-# Startup config
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-
-# These config valued proved defaults, as the config file will be merged in.
-CONFIG = {
-    "LOG_LEVEL": 1, # 1 = debug, 2 = info
-    # filename to persist scales tare values
-    "TARE_FILENAME": "sensor_tare.json",
-    "WEIGHT_FACTOR": 412, # reading per gram
-
-    # LCD panel size in pixels (0,0) is top left
-    "LCD_WIDTH": 160,                # LCD panel width in pixels
-    "LCD_HEIGHT": 128,               # LCD panel height
-
-    # Pixel size and coordinates of the 'Weight' display
-    "WEIGHT_HEIGHT": 40,
-    "WEIGHT_WIDTH": 160,
-    "WEIGHT_COLOR_FG": "WHITE",
-    "WEIGHT_COLOR_BG": "BLACK",
-    "WEIGHT_X": 0,
-    "WEIGHT_Y": 60,
-    "WEIGHT_RIGHT_MARGIN": 10
-    }
-
 class Sensor(object):
 
     # ----------------------------------------------------------------------
@@ -85,15 +53,14 @@ class Sensor(object):
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
 
-    def __init__(self):
+    def __init__(self, config):
         global LCD
         global hx_list
         global GPIO_FAIL
 
         self.SIMULATION_MODE = GPIO_FAIL
 
-        # read the sensor_config.json file for updated config values
-        self.load_config()
+        self.setting = config.setting
 
         # initialize the st7735 for LCD display
         LCD = self.init_lcd()
@@ -105,36 +72,6 @@ class Sensor(object):
         self.tare_scales(hx_list)
 
         self.time_buffer = TimeBuffer(SAMPLE_BUFFER_SIZE)
-
-    # Load sensor configuration from Json config file
-    def load_config(self):
-        filename = CONFIG_FILENAME
-        try:
-            if len(sys.argv) > 1 and sys.argv[1]:
-                filename = sys.argv[1]
-
-            self.read_config_file(filename)
-
-        except Exception as e:
-            print("load_config exception {}".format(filename))
-            print(e)
-            pass
-
-    def read_config_file(self, filename):
-        global CONFIG
-        if CONFIG["LOG_LEVEL"] == 1:
-            print("reading config file {}".format(filename))
-
-        try:
-            config_file_handle = open(filename, "r")
-            file_text = config_file_handle.read()
-            config_dictionary = json.loads(file_text)
-            config_file_handle.close()
-            # here's the clever bit... merge entries from file in to CONFIG dictionary
-            CONFIG = { **CONFIG, **config_dictionary }
-        except Exception as e:
-            print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(filename))
-            print(e)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -156,7 +93,7 @@ class Sensor(object):
                     HX711(16, 20)
                 ]
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             print("init_scales HX objects created at {:.3f} secs.".format(time.process_time() - t_start))
 
 
@@ -173,7 +110,7 @@ class Sensor(object):
 
             hx.reset()
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             print("init_scales HX objects reset at {:.3f} secs.".format(time.process_time() - t_start))
 
         return hx_list
@@ -181,18 +118,18 @@ class Sensor(object):
     # Read the TARE_FILENAME defined in CONFIG, return the contained json as a python dictionary
     def read_tare_file(self):
         # if there is an existing tare file, previous values will be read from that
-        if CONFIG["LOG_LEVEL"] == 1:
-            print("reading tare file {}".format(CONFIG["TARE_FILENAME"]))
+        if self.setting["LOG_LEVEL"] == 1:
+            print("reading tare file {}".format(self.setting["TARE_FILENAME"]))
 
         try:
-            tare_file_handle = open(CONFIG["TARE_FILENAME"], "r")
+            tare_file_handle = open(self.setting["TARE_FILENAME"], "r")
             file_text = tare_file_handle.read()
             tare_dictionary = json.loads(file_text)
             tare_file_handle.close()
-            print("LOADED TARE FILE {}".format(CONFIG["TARE_FILENAME"]))
+            print("LOADED TARE FILE {}".format(self.setting["TARE_FILENAME"]))
             return tare_dictionary
         except Exception as e:
-            print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(CONFIG["TARE_FILENAME"]))
+            print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(self.setting["TARE_FILENAME"]))
             print(e)
 
         return {}
@@ -208,11 +145,11 @@ class Sensor(object):
         """.format(acp_ts, *tare_list)
 
         try:
-            tare_file_handle = open(CONFIG["TARE_FILENAME"], "w")
+            tare_file_handle = open(self.setting["TARE_FILENAME"], "w")
             tare_file_handle.write(tare_json)
             tare_file_handle.close()
         except:
-            print("tare scales file write to tare json file {}".format(CONFIG["TARE_FILENAME"]))
+            print("tare scales file write to tare json file {}".format(self.setting["TARE_FILENAME"]))
 
     # Return True if the latest tare readings are within the bounds set in CONFIG.
     # This is designed to ensure we don't 'tare' with the pot sitting on the sensor.
@@ -226,32 +163,32 @@ class Sensor(object):
         max_delta = 0 # we track max delta for debug purposes
         max_i = 0
         while i < len(tare_list):
-            tare_delta = abs(tare_list[i] - CONFIG["TARE_READINGS"][i])
+            tare_delta = abs(tare_list[i] - self.setting["TARE_READINGS"][i])
             if tare_delta > max_delta:
                 max_delta = tare_delta
                 max_i = i
             tare_delta_total += tare_delta
-            if tare_delta > CONFIG["TARE_WIDTH"]:
-                if CONFIG["LOG_LEVEL"] == 1:
+            if tare_delta > self.setting["TARE_WIDTH"]:
+                if self.setting["LOG_LEVEL"] == 1:
                     print("tare_ok reading[{}] {:.0f} out of range vs {:.0f} +/- {}".format(i,
                         tare_list[i],
-                        CONFIG["TARE_READINGS"][i],
-                        CONFIG["TARE_WIDTH"]))
+                        self.setting["TARE_READINGS"][i],
+                        self.setting["TARE_WIDTH"]))
 
                 return False
             else:
                 i += 1
 
-        if tare_delta_total > CONFIG["TARE_WIDTH"] * 2:
-            if CONFIG["LOG_LEVEL"] == 1:
+        if tare_delta_total > self.setting["TARE_WIDTH"] * 2:
+            if self.setting["LOG_LEVEL"] == 1:
                 print("tare_ok total delta {} of [{}] is out of range for [{}] +/- (2*){}".format(tare_delta_total,
                     list_to_string(tare_list,"{:+.0f}"),
-                    list_to_string(CONFIG["TARE_READINGS"],"{:+.0f}"),
-                    CONFIG["TARE_WIDTH"]))
+                    list_to_string(self.setting["TARE_READINGS"],"{:+.0f}"),
+                    self.setting["TARE_WIDTH"]))
 
             return False
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             print("tare_ok is OK, max delta[{}] was {:.0f}".format(max_i, max_delta))
 
         return True
@@ -268,7 +205,7 @@ class Sensor(object):
             # Here we initialize the 'empty weight' settings
             tare_list.append( hx.tare_A() )
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             print("tare_scales readings [ {} ] completed at {:.3f} secs.".format( list_to_string(tare_list, "{:+.0f}"),
                                                                                 time.process_time() - t_start))
 
@@ -289,7 +226,7 @@ class Sensor(object):
             hx.set_offset_A(tare_list[i])
             i += 1
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             output_string = "tare_scales readings out of range, using persisted values [ {} ]"
             print(output_string.format(list_to_string(tare_list,"{:+.0f}")))
 
@@ -312,11 +249,11 @@ class Sensor(object):
             debug_list.append(reading) # store weight for debug display
             total_reading = total_reading + reading
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             output_string = "get_weight readings [ {} ] completed at {:.3f} secs."
             print( output_string.format(list_to_string(debug_list, "{:+.0f}"), time.process_time() - t_start))
 
-        return total_reading / CONFIG["WEIGHT_FACTOR"] # grams
+        return total_reading / self.setting["WEIGHT_FACTOR"] # grams
 
 
     # ----------------------------------------------------------------------
@@ -336,7 +273,7 @@ class Sensor(object):
         #LCD.LCD_PageImage(image)
         LCD.display(image)
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
         return LCD
@@ -350,9 +287,9 @@ class Sensor(object):
 
         # create a blank image to write the weight on
         image = Image.new( "RGB",
-                           ( CONFIG["WEIGHT_WIDTH"],
-                             CONFIG["WEIGHT_HEIGHT"]),
-                           CONFIG["WEIGHT_COLOR_BG"])
+                           ( self.setting["WEIGHT_WIDTH"],
+                             self.setting["WEIGHT_HEIGHT"]),
+                           self.setting["WEIGHT_COLOR_BG"])
 
         draw = ImageDraw.Draw(image)
 
@@ -369,20 +306,20 @@ class Sensor(object):
         string_width, string_height = draw.textsize(draw_string, font=FONT)
 
         # embed this number into the blank image we created earlier
-        draw.text((CONFIG["WEIGHT_WIDTH"]-string_width-CONFIG["WEIGHT_RIGHT_MARGIN"],0),
+        draw.text((self.setting["WEIGHT_WIDTH"]-string_width-self.setting["WEIGHT_RIGHT_MARGIN"],0),
                 draw_string,
-                fill = CONFIG["WEIGHT_COLOR_FG"],
+                fill = self.setting["WEIGHT_COLOR_FG"],
                 font=FONT)
 
         # display image on screen at coords x,y. (0,0)=top left.
         LCD.display_window(image,
-                        CONFIG["WEIGHT_X"],
-                        CONFIG["WEIGHT_Y"],
-                        CONFIG["WEIGHT_WIDTH"],
-                        CONFIG["WEIGHT_HEIGHT"])
+                        self.setting["WEIGHT_X"],
+                        self.setting["WEIGHT_Y"],
+                        self.setting["WEIGHT_WIDTH"],
+                        self.setting["WEIGHT_HEIGHT"])
 
         # display a two-line debug display of the weights from both load cells
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             image = Image.new("RGB", (150, 40), "BLACK")
             draw = ImageDraw.Draw(image)
 
@@ -400,7 +337,7 @@ class Sensor(object):
 
             LCD.display_window(image, 5, 5, 150, 40)
 
-        if CONFIG["LOG_LEVEL"] == 1:
+        if self.setting["LOG_LEVEL"] == 1:
             print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
 
     # ----------------------------------------------------------------------
@@ -413,11 +350,11 @@ class Sensor(object):
     # post_data is a python dictionary to be converted to json.
     def send_data(self, post_data):
         try:
-            print("send_data() to {}".format(CONFIG["FEEDMAKER_URL"]))
+            print("send_data() to {}".format(self.setting["FEEDMAKER_URL"]))
             if not self.SIMULATION_MODE:
                 response = requests.post(
-                        CONFIG["FEEDMAKER_URL"],
-                        headers={ CONFIG["FEEDMAKER_HEADER_KEY"] : CONFIG["FEEDMAKER_HEADER_VALUE"] },
+                        self.setting["FEEDMAKER_URL"],
+                        headers={ self.setting["FEEDMAKER_HEADER_KEY"] : self.setting["FEEDMAKER_HEADER_VALUE"] },
                         json=post_data
                         )
                 print("status code:",response.status_code)
@@ -434,8 +371,8 @@ class Sensor(object):
     def send_weight(self, weight_g):
         now = time.time()
         post_data = {  'msg_type': 'coffee_pot_weight',
-                    'request_data': [ { 'acp_id': CONFIG["SENSOR_ID"],
-                                        'acp_type': CONFIG["SENSOR_TYPE"],
+                    'request_data': [ { 'acp_id': self.setting["SENSOR_ID"],
+                                        'acp_type': self.setting["SENSOR_TYPE"],
                                         'acp_ts': now,
                                         'acp_units': 'GRAMS',
                                         'weight': math.floor(weight_g+0.5), # rounded to integer grams
@@ -448,8 +385,8 @@ class Sensor(object):
     def send_event(self, event_code):
         now = time.time()
         post_data = {  'msg_type': 'coffee_pot_event',
-                    'request_data': [ { 'acp_id': CONFIG["SENSOR_ID"],
-                                        'acp_type': CONFIG["SENSOR_TYPE"],
+                    'request_data': [ { 'acp_id': self.setting["SENSOR_ID"],
+                                        'acp_type': self.setting["SENSOR_TYPE"],
                                         'acp_ts': now,
                                         'event_code': event_code,
                                         'version': VERSION
@@ -494,7 +431,7 @@ class Sensor(object):
                 # get readings from all load cells
                 weight_g = self.get_weight()
 
-                if CONFIG["LOG_LEVEL"] == 1:
+                if self.setting["LOG_LEVEL"] == 1:
                     print("loop got weight {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
 
                 # store weight and time in sample_history
@@ -512,7 +449,7 @@ class Sensor(object):
 
                     prev_lcd_time = now
 
-                    if CONFIG["LOG_LEVEL"] == 1:
+                    if self.setting["LOG_LEVEL"] == 1:
                         if sample_value == None:
                             print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
                         else:
@@ -539,18 +476,18 @@ class Sensor(object):
 
                         prev_send_time = now
 
-                        if CONFIG["LOG_LEVEL"] == 1:
+                        if self.setting["LOG_LEVEL"] == 1:
                             print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
                     else:
                         print("loop send data NOT SENT as data value None")
 
-                if CONFIG["LOG_LEVEL"] == 1:
+                if self.setting["LOG_LEVEL"] == 1:
                     print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
 
                 #hx.power_down()
                 #hx.power_up()
 
-                if CONFIG["LOG_LEVEL"] == 1:
+                if self.setting["LOG_LEVEL"] == 1:
                     print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
                 time.sleep(0.1)
@@ -575,19 +512,4 @@ class Sensor(object):
             print("Exitting")
 
             sys.exit()
-
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-# main code
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-
-if __name__ == "__main__":
-    s = Sensor()
-
-    # Infinite loop until killed, reading weight and sending data
-    interrupt_code = s.loop()
-
-    # Cleanup and quit
-    s.finish()
 

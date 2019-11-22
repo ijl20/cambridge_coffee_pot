@@ -63,10 +63,10 @@ def list_to_string(input_list, format_string="{}"):
 
 class TimeBuffer(object):
 
-    def __init__(self, size):
+    def __init__(self, size=1000):
         print("TimeBuffer init size={}".format(size))
 
-                # Note sample_history is a *circular* buffer (for efficiency)
+        # Note sample_history is a *circular* buffer (for efficiency)
         self.SAMPLE_HISTORY_SIZE = size # store value samples 0..(size-1)
         self.sample_history_index = 0
         self.sample_history = [ None ] * self.SAMPLE_HISTORY_SIZE # buffer for 100 value samples ~= 10 seconds
@@ -85,7 +85,7 @@ class TimeBuffer(object):
         self.sample_history_index = (self.sample_history_index + 1) % self.SAMPLE_HISTORY_SIZE
 
     # load timestamp,reading values from a CSV file
-    def load_readings_file(self, filename):
+    def load(self, filename):
         global CONFIG
         if CONFIG["LOG_LEVEL"] == 1:
             print("loading readings file {}".format(filename))
@@ -95,13 +95,17 @@ class TimeBuffer(object):
 
         try:
             with open(filename, "r") as fp:
+                # read line from file
                 line = fp.readline()
                 while line:
-                    print("line: ",line)
                     line_values = line.split(',')
+                    # skip lines (e.g. blank lines) that don't seem to have readings
                     if len(line_values) == 2:
-                        self.sample_history[self.sample_history_index] = { "ts": float(line_values[0]),
-                                                                        "value": float(line_values[1]) }
+                        ts = float(line_values[0])
+                        value = float(line_values[1])
+                        self.sample_history[self.sample_history_index] = { "ts": ts,
+                                                                        "value": value }
+                        print("{: >5} {:10.3f} {: >8}".format(self.sample_history_index,ts,value))
                         self.sample_history_index = (self.sample_history_index + 1) % self.SAMPLE_HISTORY_SIZE
                     line = fp.readline()
 
