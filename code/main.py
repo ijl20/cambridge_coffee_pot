@@ -5,6 +5,7 @@
 # -------------------------------------------------------------------
 
 import sys
+import time
 
 from sensor import Sensor
 
@@ -39,7 +40,24 @@ if __name__ == "__main__":
     s = Sensor(config)
 
     # Infinite loop until killed, reading weight and sending data
-    interrupt_code = s.loop()
+    try:
+        while True:
+            #----------------
+            # GET READING
+            # ---------------
+
+            # get readings from all load cells
+            value = s.get_weight()
+
+            # ---------------
+            # PROCESS READING
+            # ---------------
+            s.process_sample(time.time(), value)
+
+            time.sleep(0.1)
+
+    except (KeyboardInterrupt, SystemExit):
+        pass
 
     # Cleanup and quit
     s.finish()

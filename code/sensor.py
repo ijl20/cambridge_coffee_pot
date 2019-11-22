@@ -40,6 +40,13 @@ hx_list = None # LIST of hx711 A/D chips
 
 SAMPLE_BUFFER_SIZE = 100
 
+# COFFEE POT EVENTS
+
+EVENT_NEW = "COFFEE_NEW"
+EVENT_EMPTY = "COFFEE_EMPTY"
+EVENT_TAKEN = "COFFEE_TAKEN"
+EVENT_REMOVED = "COFFEE_REMOVED"
+
 EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
 event_history = [ None ] * EVENT_HISTORY_SIZE
 
@@ -71,7 +78,7 @@ class Sensor(object):
         # find the scales 'zero' reading
         self.tare_scales(hx_list)
 
-        self.time_buffer = TimeBuffer(SAMPLE_BUFFER_SIZE)
+        self.reading_buffer = TimeBuffer(SAMPLE_BUFFER_SIZE)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -404,96 +411,104 @@ class Sensor(object):
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
 
+    # Test if pot is FULL
+    # True if median for 1 second is 3400 grams +/- 400
+    # Returns tuple <Test true/false>, < next offset >
+    def test_full(self,offset):
+        m, next_offset = self.reading_buffer.median(offset, 1)
+        if not m == None:
+            return (abs(m - 3400) < 400), next_offset
+        else:
+            return None, None
+
+    # Test if pot is REMOVED
+    # True if median for 3 seconds is 0 grams +/- 100
+    # Returns tuple <Test true/false>, < next offset >
+    def test_removed(self,offset):
+        m, next_offset = self.reading_buffer.median(offset, 3)
+        if not m == None:
+            return (abs(m) < 100), next_offset
+        else:
+            return None, None
+
+    def test_new(self):
+        full, offset = self.test_full(0)
+        removed, new_offset = self.test_removed(offset)
+        if removed and full:
+            print("NEW POT EVENT")
+
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
     def test_event(self):
+        self.test_new()
         return
 
-    # ----------------------------------------------------------------------
-    # ----------------------------------------------------------------------
-    # loop() - main execution loop
-    # ----------------------------------------------------------------------
-    # ----------------------------------------------------------------------
+    def process_sample(self, ts, value):
 
-    def loop(self):
+        t_start = time.process_time()
         now = time.time()  # floating point seconds in epoch
         prev_send_time = now
         prev_lcd_time = now
 
-        while True:
-            try:
-                t_start = time.process_time()
 
-                #----------------
-                # GET WEIGHT
-                # ---------------
+        if self.setting["LOG_LEVEL"] == 1:
+            print("loop got weight {:.1f} at {:.3f} secs.".format(value, time.process_time() - t_start))
 
-                # get readings from all load cells
-                weight_g = self.get_weight()
+        # store weight and time in sample_history
+        self.reading_buffer.put(ts, value)
 
-                if self.setting["LOG_LEVEL"] == 1:
-                    print("loop got weight {:.1f} at {:.3f} secs.".format(weight_g, time.process_time() - t_start))
+        #----------------
+        # UPDATE LCD
+        # ---------------
 
-                # store weight and time in sample_history
-                self.time_buffer.record_sample(weight_g)
+        now = time.time()
+        if now - prev_lcd_time > 1:
+            sample_value, offset = self.reading_buffer.median(0,1) # get median weight value for 1 second
+            if not sample_value == None:
+                self.update_lcd(sample_value)
 
-                #----------------
-                # UPDATE LCD
-                # ---------------
+            prev_lcd_time = now
 
-                now = time.time()
-                if now - prev_lcd_time > 1:
-                    sample_value, offset = self.time_buffer.median_time(0,1) # get median weight value for 1 second
-                    if not sample_value == None:
-                        self.update_lcd(sample_value)
+            if self.setting["LOG_LEVEL"] == 1:
+                if sample_value == None:
+                    print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
+                else:
+                    print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
 
-                    prev_lcd_time = now
+        # ----------------------
+        # SEND EVENT TO PLATFORM
+        # ----------------------
 
-                    if self.setting["LOG_LEVEL"] == 1:
-                        if sample_value == None:
-                            print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
-                        else:
-                            print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
+        self.test_event()
 
-                # ----------------------
-                # SEND EVENT TO PLATFORM
-                # ----------------------
+        # ---------------------
+        # SEND DATA TO PLATFORM
+        # ---------------------
 
-                self.test_event()
+        now = time.time() # floating point time in seconds since epoch
+        if now - prev_send_time > 30:
+            sample_value, offset = self.reading_buffer.median(0,2) # from NOW, back 2 seconds
 
-                # ---------------------
-                # SEND DATA TO PLATFORM
-                # ---------------------
+            if not sample_value == None:
+                print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(now)))
 
-                now = time.time() # floating point time in seconds since epoch
-                if now - prev_send_time > 30:
-                    sample_value, offset = self.time_buffer.median_time(0,2) # from NOW, back 2 seconds
+                self.send_weight(sample_value)
 
-                    if not sample_value == None:
-                        print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(now)))
-
-                        self.send_weight(sample_value)
-
-                        prev_send_time = now
-
-                        if self.setting["LOG_LEVEL"] == 1:
-                            print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
-                    else:
-                        print("loop send data NOT SENT as data value None")
+                prev_send_time = now
 
                 if self.setting["LOG_LEVEL"] == 1:
-                    print ("WEIGHT {:5.1f}, {}".format(weight_g, time.ctime(now)))
+                    print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
+            else:
+                print("loop send data NOT SENT as data value None")
 
-                #hx.power_down()
-                #hx.power_up()
+        if self.setting["LOG_LEVEL"] == 1:
+            print ("WEIGHT {:5.1f}, {}".format(value, time.ctime(now)))
 
-                if self.setting["LOG_LEVEL"] == 1:
-                    print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
+        #hx.power_down()
+        #hx.power_up()
 
-                time.sleep(0.1)
-
-            except (KeyboardInterrupt, SystemExit):
-                return 0  # return exit code on interruption
+        if self.setting["LOG_LEVEL"] == 1:
+            print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------

@@ -47,9 +47,9 @@ def list_to_string(input_list, format_string="{}"):
 #
 # Initialize with e.g. 'b = TimeBuffer(100)' where 100 is desired size of buffer.
 #
-# b.record_sample(value): add {"ts": <now>, "value": value } to buffer
+# b.put(ts, value): add {"ts": ts, "value": value } to buffer
 #
-# b.lookup_sample(offset): lookup entry at buffer index offset from now (now = offset ZERO).
+# b.get(offset): lookup entry at buffer index offset from now (now = offset ZERO).
 #
 # b.load_readings_file(filename): will reset buffer and load ts,value data from CSV file.
 #
@@ -75,8 +75,8 @@ class TimeBuffer(object):
     # sample_history_index: global giving INDEX into buffer for NEXT datapoint
 
     # store the current value in the sample_history circular buffer
-    def record_sample(self, value_g):
-        self.sample_history[self.sample_history_index] = { 'ts': time.time(), 'value': value_g }
+    def put(self, ts, value):
+        self.sample_history[self.sample_history_index] = { 'ts': ts, 'value': value }
         if CONFIG["LOG_LEVEL"] == 1:
             print("record sample_history[{}]:\n{},{}".format(self.sample_history_index,
                                                         self.sample_history[self.sample_history_index]["ts"],
@@ -110,27 +110,73 @@ class TimeBuffer(object):
                     line = fp.readline()
 
         except Exception as e:
-            print("READINGS FILE ERROR. Can't read supplied filename {}".format(filename))
+            print("LOAD FILE ERROR. Can't read supplied filename {}".format(filename))
             print(e)
+
+    # Save the buffer contents to a file as <ts>,<value> CSV records, oldest to newest
+    def save(self, filename):
+        index = self.sample_history_index # index of oldest entry (could be None if buffer not wrapped)
+        finish_index = self.sample_history_index
+        finished = False
+        try:
+            with open(filename,"w+") as fp:
+                # we will loop through the buffer until at latest value at sample_history_index-1
+                while not finished:
+                    sample = self.sample_history[index]
+                    # skip None samples
+                    if sample != None:
+                        sample_value = sample["value"]
+                        # Add quotes for CSV if necessary
+                        if isinstance(sample_value, str):
+                            sample_value = '"'+sample_value+'"'
+                        fp.write("{},{}\n".format(sample["ts"], sample_value))
+                    index = (index + 1) % self.SAMPLE_HISTORY_SIZE
+                    if index == finish_index:
+                        finished = True
+
+        except Exception as e:
+            print("SAVE FILE ERROR {}".format(filename))
+            print(e)
+
+    # Pump all the <time, value> buffer samples through a provided processing function.
+    # I.e. will call 'process_sample(ts, value)' for each sample in the buffer.
+    def play(self, process_sample):
+        index = self.sample_history_index # index of oldest entry (could be None if buffer not wrapped)
+        finish_index = self.sample_history_index
+        finished = False
+        # we will loop through the buffer until at latest value at sample_history_index-1
+        while not finished:
+            sample = self.sample_history[index]
+
+            # process 'not None' samples
+            if sample != None:
+                # HERE WE CALL THE PROVIDED FUNCTION
+                process_sample(sample["ts"], sample["value"])
+
+            index = (index + 1) % self.SAMPLE_HISTORY_SIZE
+            if index == finish_index:
+                finished = True
 
     # Lookup the value in the sample_history buffer at offset before now (offset ZERO = latest value)
     # This returns None or an object { 'ts': <timestamp>, 'value': <grams> }
-    def lookup_sample(self, offset):
+    def get(self, offset=0):
+        if offset == None:
+            return None
         if offset >= self.SAMPLE_HISTORY_SIZE:
             if CONFIG["LOG_LEVEL"] == 1:
-                print("lookup_sample offset too large, returning None")
+                print("get offset too large, returning None")
             return None
         index = (self.sample_history_index + self.SAMPLE_HISTORY_SIZE - offset - 1) % self.SAMPLE_HISTORY_SIZE
         if CONFIG["LOG_LEVEL"] == 1:
             if self.sample_history[index] is not None:
-                debug_str = "lookup_sample current {}, offset {} => {}: {:.2f} {:.1f}"
+                debug_str = "get current {}, offset {} => {}: {:.2f} {}"
                 print(debug_str.format( self.sample_history_index,
                                         offset,
                                         index,
                                         self.sample_history[index]["ts"],
                                         self.sample_history[index]["value"]))
             else:
-                debug_str = "lookup_sample None @ current {}, offset {} => {}"
+                debug_str = "get None @ current {}, offset {} => {}"
                 print(debug_str.format( self.sample_history_index,
                                         offset,
                                         index))
@@ -141,7 +187,7 @@ class TimeBuffer(object):
         if CONFIG["LOG_LEVEL"] == 1:
             print("time_to_offset",time_offset)
 
-        sample = self.lookup_sample(0)
+        sample = self.get(0)
         if sample == None:
             return None
 
@@ -156,7 +202,7 @@ class TimeBuffer(object):
             if offset >= self.SAMPLE_HISTORY_SIZE:
                 print("time_to_offset ({}) exceeded buffer size")
                 return None
-            sample = self.lookup_sample(offset)
+            sample = self.get(offset)
             if sample == None:
                 return None
             sample_time = sample["ts"]
@@ -174,8 +220,12 @@ class TimeBuffer(object):
 
         offset = self.time_to_offset(time_offset)
 
+        return self.average(offset, duration)
+
+    # average() is like average_time() but uses an INDEX offset rather than time offset
+    def average(self, offset, duration):
         # lookup the first value to get that value (grams) and timestamp
-        sample = self.lookup_sample(offset)
+        sample = self.get(offset)
         if sample == None:
             return None, offset
 
@@ -189,7 +239,7 @@ class TimeBuffer(object):
             if next_offset == offset:
                 # we've exhausted the full buffer
                 return None
-            sample = self.lookup_sample(next_offset)
+            sample = self.get(next_offset)
             if sample == None:
                 # we've exhausted the values in the partially filled buffer
                 return None
@@ -199,7 +249,7 @@ class TimeBuffer(object):
             sample_count += 1
 
         if CONFIG["LOG_LEVEL"] == 1:
-            print("average_time total {} average {} with {} samples".format(total_value,
+            print("average total {} average {} with {} samples".format(total_value,
                                                                             total_value/sample_count,
                                                                             sample_count))
         return total_value / sample_count, next_offset
@@ -207,7 +257,9 @@ class TimeBuffer(object):
     # Return the median sample value for a time period.
     # The period is from (latest sample time - time_offset) to (latest sample time - time_offset - duration)
     # All time values are in seconds.
-    # Returns a tuple of <median sensor reading>, <index> where <index> is the sample_history offset
+    # Returns a tuple of <median sensor value>, <index> where
+    # <index> is the sample_history offset of the NEXT sample after the given duration
+    # so can be used on a subsequent call)
     def median_time(self, time_offset, duration):
 
         if CONFIG["LOG_LEVEL"] == 1:
@@ -216,14 +268,20 @@ class TimeBuffer(object):
         # Convert time (e.g. 3 seconds) to an index offset from latest reading in sample_history
         offset = self.time_to_offset(time_offset)
 
-        sample = self.lookup_sample(offset)
+        return self.median(offset, duration)
+
+    # median() is like median_time but uses an INDEX offset rather than a TIME offset.
+    # Duration (the length of time to include samples) is still in seconds
+    def median(self, offset, duration):
+
+        sample = self.get(offset)
         if sample == None:
             return None, offset
         next_offset = offset
 
         begin_limit = sample["ts"] - duration
         if CONFIG["LOG_LEVEL"] == 1:
-            print("median_time begin_limit={}".format(begin_limit))
+            print("median begin_limit={}".format(begin_limit))
 
         begin_time = sample["ts"] # this will be updated as we loop, to find duration available
         end_time = sample["ts"]
@@ -239,10 +297,10 @@ class TimeBuffer(object):
                 # we've exhausted the full buffer
                 break
 
-            sample = self.lookup_sample(next_offset)
+            sample = self.get(next_offset)
 
             if sample == None:
-                print("median_time looked back to None value")
+                print("median looked back to None value")
                 # we've exhausted the values in the partially filled buffer
                 break
 
@@ -256,14 +314,14 @@ class TimeBuffer(object):
 
         # If we didn't get enough samples, return with error
         if len(value_list) < 3:
-            print("median_time not enough samples ({})".format(len(value_list)))
+            print("median not enough samples ({})".format(len(value_list)))
             return None, None
 
         # Now we have a list of samples with the required duration
         median_value = median(value_list)
 
         if CONFIG["LOG_LEVEL"] == 1:
-            print("value_median for {:.3f} seconds with {} samples = {}".format(end_time - begin_time,
+            print("median_value for {:.3f} seconds with {} samples = {}".format(end_time - begin_time,
                                                                                 len(value_list),
                                                                                 median_value))
 
