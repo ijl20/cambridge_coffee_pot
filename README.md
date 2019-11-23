@@ -1,4 +1,5 @@
 # Cambridge Coffee Pot
+<img align="right" src="images/cambridge_logo.png"/>
 
 Back in the day (1991) we had this coffee pot with a low-res monochrome camera connected to
 a frame-grabber and a server in the Computer Laboratory, then in the Austin Building in central
