@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python3 sensor.py
+python3 main.py

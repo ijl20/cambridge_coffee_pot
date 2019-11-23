@@ -44,7 +44,7 @@ also some range of previous values to decide whether an EVENT has occurred.
 
 ## sensor_utils.py
 
-Contains generally useful functions and classes, particularly TimeBuffer, see below.
+Contains generally useful functions and classes, such as `string = list_to_string(list)`.
 
 ## TimeBuffer
 
@@ -204,7 +204,7 @@ Python 3.6.8 (default, Oct  7 2019, 12:59:55)
 [GCC 8.3.0] on linux
 Type "help", "copyright", "credits" or "license" for more information.
 
->>> from sensor_utils import TimeBuffer
+>>> from time_buffer import TimeBuffer
 
 >>> t = TimeBuffer()
 TimeBuffer init size=1000
