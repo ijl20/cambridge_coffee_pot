@@ -34,7 +34,8 @@ DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # General utility function (like list_to_string)
 from sensor_utils import list_to_string
-from sensor_utils import TimeBuffer
+
+from time_buffer import TimeBuffer
 
 # declare globals
 LCD = None # ST7735 LCD display chip

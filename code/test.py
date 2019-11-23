@@ -1,5 +1,5 @@
 
-from sensor_utils import TimeBuffer
+from time_buffer import TimeBuffer
 
 from config import Config
 
