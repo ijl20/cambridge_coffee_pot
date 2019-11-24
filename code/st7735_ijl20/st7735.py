@@ -141,7 +141,7 @@ def MSB(x):
     return (x >> 8) & 0xff
 
 # Least significant byte
-def LSB(x)
+def LSB(x):
     return x & 0xff
 
 class ST7735(object):
@@ -571,9 +571,9 @@ class Bar(object):
     # Display an image in the bar.
     # It must be exactly bar w x h
     def display(self, img):
-        lcd.display_window( img, 
-                            self.setting["x"], 
-                            self.setting["y"], 
+        lcd.display_window( img,
+                            self.setting["x"],
+                            self.setting["y"],
                             self.setting["w"],
                             self.setting["h"]
                           )
@@ -605,7 +605,7 @@ class Bar(object):
         # Send the pixelbytes to the LCD
         lcd.send_data(pixelbytes)
 
-    # Add an incremental column and shift 
+    # Add an incremental column and shift
     def next(by):
         # Add bar to display
         add(self.next_bx, by)
