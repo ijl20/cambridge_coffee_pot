@@ -136,6 +136,14 @@ def epd_digital_write(pin, value):
 def delay_ms(xms):
     time.sleep(xms / 1000.0)
 
+# Most significant byte of a 16-bit value
+def MSB(x):
+    return (x >> 8) & 0xff
+
+# Least significant byte
+def LSB(x)
+    return x & 0xff
+
 class ST7735(object):
     """Representation of an ST7735 TFT LCD."""
 
@@ -514,4 +522,99 @@ class ST7735(object):
         pixelbytes = list(self.image_to_data(image))
         # Write data to hardware.
         self.send_data(pixelbytes)
+
+# ---------------------------
+# Bar graph
+# ---------------------------
+
+# Draw a bar chart across the LCD
+# For each value will draw a vertical bar plus a blank vertical margin to the right of it, as the
+# use-case is expected to be a horizontal scroll of new bars.
+class Bar(object):
+    DEFAULT_SETTING = { "x": 0, "y": 0, "w": 160, "h": 40, # top-left coords and width, height.
+                "y_max": 5000, # max value for bar, will be scaled to h pixels
+                "step": 1      # how many pixels to step in x direction for next()
+              }
+
+    # Initialization for bar object
+    def __init__(self, lcd, config=None):
+        if config == None:
+            self.setting = DEFAULT_SETTING
+        else:
+            self.setting = config
+
+        # pixel byte patterns of horizontal rows of a new column
+        # The width of the column in *pixels* is half the length of bar_on (each pixel is 2 bytes)
+        self.bar_on = [ 0xFF, 0xE0, # yellow
+                        0x00, 0x00, # black
+                        0x00, 0x00  # black
+                      ]
+        self.bar_off = [ 0x00, 0x1F, # blue
+                         0x00, 0x00, # black
+                         0x00, 0x00  # black
+                      ]
+        # calculate the width in pixels of drawing for each bar
+        self.bar_width = len(self.bar_on) / 2 # bar_on is in bytes, width is pixels (= 2 bytes each)
+        # Initial x offset for next() column
+        self.next_bx = 0
+
+    # Clear the bar to all black
+    def clear(self):
+        pixelbytes = [ 0x00 ] * 2 * self.setting["w"] * self.setting["h"]
+        x1 = self.setting["x"]
+        y1 = self.setting["y"]
+        x2 = x1 + self.setting["w"] - 1
+        y2 = y1 + self.setting["h"] - 1
+        lcd.set_window( x1, y1, x2, y2 )
+        lcd.send_data(pixelbytes)
+
+    # Display an image in the bar.
+    # It must be exactly bar w x h
+    def display(self, img):
+        lcd.display_window( img, 
+                            self.setting["x"], 
+                            self.setting["y"], 
+                            self.setting["w"],
+                            self.setting["h"]
+                          )
+
+    # Add a column to the bar chart
+    # We set a window for just this new column, and fill it with pixels
+    def add(bx, by):
+        # Do nothing if added bar would overspill area
+        if bx + self.bar_width > self.setting["w"]:
+            return
+
+        # Define a small window to contain just this column
+        # The width is defined as the length the "bar_on" pixel bytes / 2
+        x1 = self.setting["x"] + bx
+        y1 = self.setting["y"]
+        x2 = x1 + self.bar_width - 1
+        y2 = y1 + self.setting["h"] - 1
+        lcd.set_window( x+x1, y1, x2, y2 )
+
+        # Build a list containing all the pixelbytes
+        pixelbytes = []
+        # For h rows, we first add 'bar_off' horizontal slices, then 'bar_on' slices.
+        for row in range(self.setting["h"]):
+            if row < self.setting["h"] - by:
+                pixelbytes.extend(bar_off)
+            else:
+                pixelbytes.extend(bar_on)
+
+        # Send the pixelbytes to the LCD
+        lcd.send_data(pixelbytes)
+
+    # Add an incremental column and shift 
+    def next(by):
+        # Add bar to display
+        add(self.next_bx, by)
+        # Increment the position for the next bar
+        self.next_bx = (self.next_bx + self.settings["step"]) % self.setting("w")
+        # If next_bx is less than a bar width then reset to zero
+        if self.next_bx < self.bar_width:
+            self.next_bx = 0
+
+
+
 
