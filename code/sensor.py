@@ -495,6 +495,15 @@ class Sensor(object):
         self.test_new()
         return
 
+    # --------------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------------------
+    #
+    # process_sample(timestamp, value)
+    #
+    # Here is where we process each sensor sample, updating the LCD and checking for events
+    #
+    # --------------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------------------
     def process_sample(self, ts, value):
 
         t_start = time.process_time()
@@ -559,6 +568,9 @@ class Sensor(object):
         print("GPIO cleanup()...")
 
         if not self.SIMULATION_MODE:
+
+            LCD.cleanup()
+
             GPIO.cleanup()
 
             print("Exitting")
