@@ -180,14 +180,14 @@ class Sensor(object):
         max_delta = 0 # we track max delta for debug purposes
         max_i = 0
         while i < len(tare_list):
-            tare_delta = abs(tare_list[i] - self.setting["TARE_READINGS"][i])
-            if tare_delta > max_delta:
+            tare_delta = tare_list[i] - self.setting["TARE_READINGS"][i]
+            if abs(tare_delta) > max_delta:
                 max_delta = tare_delta
                 max_i = i
             tare_delta_total += tare_delta
-            if tare_delta > self.setting["TARE_WIDTH"]:
-                if self.setting["LOG_LEVEL"] == 1:
-                    print("tare_ok reading[{}] {:.0f} out of range vs {:.0f} +/- {}".format(i,
+            if abs(tare_delta) > self.setting["TARE_WIDTH"]:
+                if self.setting["LOG_LEVEL"] <= 2:
+                    print("tare_ok FAIL reading[{}] {:.0f} out of range vs {:.0f} +/- {}".format(i,
                         tare_list[i],
                         self.setting["TARE_READINGS"][i],
                         self.setting["TARE_WIDTH"]))
@@ -196,9 +196,9 @@ class Sensor(object):
             else:
                 i += 1
 
-        if tare_delta_total > self.setting["TARE_WIDTH"] * 2:
+        if tare_delta_total > self.setting["TARE_WIDTH"]:
             if self.setting["LOG_LEVEL"] == 1:
-                print("tare_ok total delta {} of [{}] is out of range for [{}] +/- (2*){}".format(tare_delta_total,
+                print("tare_ok total delta {} of [{}] is out of range for [{}] +/- {}".format(tare_delta_total,
                     list_to_string(tare_list,"{:+.0f}"),
                     list_to_string(self.setting["TARE_READINGS"],"{:+.0f}"),
                     self.setting["TARE_WIDTH"]))

@@ -5,7 +5,7 @@
     "SENSOR_ID": "cambridge_coffee_pot",
     "SENSOR_TYPE": "coffee_pot",
     "TARE_FILENAME": "sensor_tare.json",
-    "WEIGHT_FACTOR": 365,
+    "WEIGHT_FACTOR": 374,
     "LCD_WIDTH": 160,
     "LCD_HEIGHT": 128,
 
