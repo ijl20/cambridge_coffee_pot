@@ -387,9 +387,9 @@ class ST7735(object):
                     (self.scan_direction == L2R_D2U) or
                     (self.scan_direction == R2L_U2D) or
                     (self.scan_direction == R2L_D2U)) :
-            self.LCD_SetArealColor(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , Color = 0xFFFF)#white
+            self.LCD_SetArealColor(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , color = 0xFFFF)#white
         else:
-            self.LCD_SetArealColor(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , Color = 0xFFFF)#white
+            self.LCD_SetArealColor(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , color = 0xFFFF)#white
 
     #/********************************************************************************
     #function:
