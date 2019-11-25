@@ -538,11 +538,12 @@ class ST7735(object):
         global DEFAULT_BAR
 
         if config == None:
-            self.bar = Bar(self, DEFAULT_BAR)
+            bar = Bar(self, DEFAULT_BAR)
         else:
-            self.bar = Bar(self, config)
+            bar = Bar(self, config)
 
-        self.bar.clear()
+        bar.clear()
+        return bar
 
 # ---------------------------
 # Bar graph
@@ -619,7 +620,6 @@ class Bar(object):
             else:
                 pixelbytes.extend(self.bar_on)
 
-        print("pixelbytes length = ",len(pixelbytes))
         # Send the pixelbytes to the LCD
         self.lcd.send_data(pixelbytes)
 

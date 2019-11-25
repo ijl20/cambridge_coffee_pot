@@ -2,7 +2,7 @@
 
 # code version
 
-VERSION = "0.40"
+VERSION = "0.45"
 
 # Python libs
 import time
@@ -293,15 +293,14 @@ class Sensor(object):
         if self.setting["LOG_LEVEL"] == 1:
             print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
+        self.bar = LCD.add_bar()
+
         return LCD
 
-    # Update a PIL image with the weight, and send to LCD
-    # Note we are creating an image smaller than the screen size, and only updating a part of the display
-    def update_lcd(self, weight_g):
-        global LCD
-
-        t_start = time.process_time()
-
+    # -------------------------------------------------------------------
+    # ------ DRAW NUMERIC VALUE ON LCD  ---------------------------------
+    # -------------------------------------------------------------------
+    def draw_value(self, value):
         # create a blank image to write the weight on
         image = Image.new( "RGB",
                            ( self.setting["WEIGHT_WIDTH"],
@@ -312,7 +311,7 @@ class Sensor(object):
 
         # convert weight to string with fixed 5 digits including 1 decimal place, max 9999.9
 
-        display_number = weight_g
+        display_number = value
 
         if display_number >= 10000:
             display_number = 9999.9
@@ -335,6 +334,10 @@ class Sensor(object):
                         self.setting["WEIGHT_WIDTH"],
                         self.setting["WEIGHT_HEIGHT"])
 
+    # -------------------------------------------------------------------
+    # ------ DRAW DEBUG READINGS ON LCD       ---------------------------
+    # -------------------------------------------------------------------
+    def draw_debug(self):
         # display a two-line debug display of the weights from both load cells
         if self.setting["LOG_LEVEL"] <= 2:
             image = Image.new("RGB", (160, 40), "BLACK")
@@ -354,8 +357,47 @@ class Sensor(object):
 
             LCD.display_window(image, 0, 40, 160, 40)
 
-        if self.setting["LOG_LEVEL"] == 1:
-            print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
+    # Update a PIL image with the weight, and send to LCD
+    # Note we are creating an image smaller than the screen size, and only updating a part of the display
+    def update_lcd(self):
+        global LCD
+
+        t_start = time.process_time()
+
+        now = time.time()
+        if now - self.prev_lcd_time > 1:
+            sample_value, offset = self.reading_buffer.median(0,1) # get median weight value for 1 second
+            if not sample_value == None:
+                self.draw_value(sample_value)
+
+            self.prev_lcd_time = now
+
+            if self.setting["LOG_LEVEL"] == 1:
+                if sample_value == None:
+                    print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
+                else:
+                    print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
+
+            self.draw_debug()
+
+        # -------------------------------------------------------------------
+        # ------ ADD CURRENT WEIGHT TO BAR CHART   --------------------------
+        # -------------------------------------------------------------------
+
+        latest_sample = self.reading_buffer.get(0)
+        if not latest_sample == None:
+            # debug: need to link these constants to the actual bar settings...
+            BAR_MAX_G = 5000
+            BAR_MAX_Y = 40
+            bar_height = math.floor(latest_sample["value"] / BAR_MAX_G * BAR_MAX_Y)
+
+            if bar_height > BAR_MAX_Y:
+                bar_height = BAR_MAX_Y
+            elif bar_height < 0:
+                bar_height = 0
+
+            # This is a bar-per-sample. Could use time on x-axis.
+            self.bar.next(bar_height)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -468,19 +510,7 @@ class Sensor(object):
         # UPDATE LCD
         # ---------------
 
-        now = time.time()
-        if now - self.prev_lcd_time > 1:
-            sample_value, offset = self.reading_buffer.median(0,1) # get median weight value for 1 second
-            if not sample_value == None:
-                self.update_lcd(sample_value)
-
-            self.prev_lcd_time = now
-
-            if self.setting["LOG_LEVEL"] == 1:
-                if sample_value == None:
-                    print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
-                else:
-                    print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
+        self.update_lcd()
 
         # ----------------------
         # SEND EVENT TO PLATFORM
