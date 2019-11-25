@@ -47,8 +47,9 @@ SAMPLE_BUFFER_SIZE = 100
 
 EVENT_NEW = "COFFEE_NEW"
 EVENT_EMPTY = "COFFEE_EMPTY"
-EVENT_TAKEN = "COFFEE_TAKEN"
+EVENT_POURED = "COFFEE_POURED"
 EVENT_REMOVED = "COFFEE_REMOVED"
+EVENT_GROUND = "COFFEE_GROUND"
 
 EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
 event_history = [ None ] * EVENT_HISTORY_SIZE
@@ -335,8 +336,8 @@ class Sensor(object):
                         self.setting["WEIGHT_HEIGHT"])
 
         # display a two-line debug display of the weights from both load cells
-        if self.setting["LOG_LEVEL"] == 1:
-            image = Image.new("RGB", (150, 40), "BLACK")
+        if self.setting["LOG_LEVEL"] <= 2:
+            image = Image.new("RGB", (160, 40), "BLACK")
             draw = ImageDraw.Draw(image)
 
             draw_string = "{:5.1f}".format(debug_list[0])
@@ -351,7 +352,7 @@ class Sensor(object):
             draw_string = "{:5.1f}".format(debug_list[3])
             draw.text((0,0), draw_string, fill="YELLOW", font=DEBUG_FONT)
 
-            LCD.display_window(image, 5, 5, 150, 40)
+            LCD.display_window(image, 0, 40, 160, 40)
 
         if self.setting["LOG_LEVEL"] == 1:
             print("LCD updated with weight {:.1f} in {:.3f} secs.".format(display_number, time.process_time() - t_start))
