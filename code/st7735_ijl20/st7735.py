@@ -24,8 +24,8 @@ DEFAULT_BAR = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords an
                 "step": 1,             # 'pixels': how many pixels to step in x direction for next()
                 "time_step": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
                 "bar_width": 1,        # 'pixels', width of value column
-                "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
-                "cursor_width": 2,     # 'pixels', width of scrolling cursor
+                "point_height": 2,  # 'pixels', will display point of this height, not column to x-axis
+                "cursor_width": 4,     # 'pixels', width of scrolling cursor
                 "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
                 "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
                 "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
@@ -576,7 +576,7 @@ class Bar(object):
 
         # make horizontal stripe of color bytes for column or point
         # i.e. background bytes followed by foreground bytes followed by cursor bytes.
-        bar_bytes = (bg * width - bar_width - cursor_width)
+        bar_bytes = bg * (width - bar_width - cursor_width)
         bar_bytes.extend(fg * bar_width)
         bar_bytes.extend(cursor_bytes)
 
@@ -621,21 +621,20 @@ class Bar(object):
     # Add a column to the bar chart
     # We set a window for just this new column, and fill it with pixels
     def add(self, bx, by):
+        area_width = self.setting["bar_width"]+self.setting["cursor_width"]
         # Do nothing if added bar would overspill area
-        if bx + self.bar_width > self.setting["w"]:
+        if bx + area_width > self.setting["w"]:
             return
 
         # Define a small window to contain just this column
-        # The width is defined as the length the "bar_on" pixel bytes / 2
         x1 = self.setting["x"] + bx
         y1 = self.setting["y"]
-        x2 = x1 + self.bar_width
+        x2 = x1 + area_width
         y2 = y1 + self.setting["h"]
         self.lcd.set_window( x1, y1, x2, y2 )
 
         # Build a list containing all the pixelbytes
-        area_width = self.setting["bar_width"]+self.setting["cursor_width"]
-        pixelbytes = make_bar(area_width, self.setting["h"], by)
+        pixelbytes = self.make_bar(area_width, self.setting["h"], by)
 
         # Send the pixelbytes to the LCD
         self.lcd.send_data(pixelbytes)
