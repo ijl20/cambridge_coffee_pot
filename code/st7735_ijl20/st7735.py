@@ -19,10 +19,16 @@ except:
 
 SPI_CLOCK_HZ = 9000000 # 9 MHz
 
-# parameters for a default bar chart on display
-DEFAULT_BAR = { "x": 0, "y": 0, "w": 160, "h": 40, # top-left coords and width, height.
-                "y_max": 5000, # max value for bar, will be scaled to h pixels
-                "step": 1      # how many pixels to step in x direction for next()
+# Default settings for Bar object
+DEFAULT_BAR = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords and width, height.
+                "step": 1,             # 'pixels': how many pixels to step in x direction for next()
+                "time_step": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
+                "bar_width": 1,        # 'pixels', width of value column
+                "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
+                "cursor_width": 2,     # 'pixels', width of scrolling cursor
+                "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
+                "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
+                "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
               }
 
 # ------------------------------------------
@@ -88,7 +94,7 @@ ST7735_GMCTRN1     = 0xE1
 
 ST7735_PWCTR6      = 0xFC
 
-# Colours for convenience
+# Colours for convenience         5xR   6xG    5xB
 ST7735_BLACK       = 0x0000 # 0b 00000 000000 00000
 ST7735_BLUE        = 0x001F # 0b 00000 000000 11111
 ST7735_GREEN       = 0x07E0 # 0b 00000 111111 00000
@@ -539,20 +545,57 @@ class Bar(object):
 
         self.setting = config
 
-        # pixel byte patterns of horizontal rows of a new column
-        # The width of the column in *pixels* is half the length of bar_on (each pixel is 2 bytes)
-        self.bar_on = [ 0xFF, 0xE0, # yellow
-                        0x00, 0x00, # black
-                        0x00, 0x00  # black
-                      ]
-        self.bar_off = [ 0x00, 0x1F, # blue
-                         0x00, 0x00, # black
-                         0x00, 0x00  # black
-                      ]
-        # calculate the width in pixels of drawing for each bar (use math.floor to ensure int value)
-        self.bar_width = math.floor(len(self.bar_on) / 2 + 0.5) # bar_on is in bytes, width is pixels (= 2 bytes each)
         # Initial x offset for next() column
         self.next_bx = 0
+
+    # Build a list of RGB 565 color byte pairs designed to fill an area of the chart
+    # e.g with width = 12, height = 7, bar_width = 2, cursor_width = 3, point_height = 2, by (value) = 4
+    # if b = bg_color, F = fg_color and C = cursor_color, each pixel as *pair* of bytes
+    # b b b b b b b b b b C C C
+    # b b b b b b b b b b C C C
+    # b b b b b b b b b b C C C
+    # b b b b b b b b F F C C C
+    # b b b b b b b b F F C C C
+    # b b b b b b b b b b C C C
+    # b b b b b b b b b b C C C
+    # Entire array is returned as list of bytes, left-to-right, top-to-bottom.
+    def make_bar(self, width, height, by):
+        # convenient short names
+        bg = self.setting["bg_color"]
+        fg = self.setting["fg_color"]
+        bar_width = self.setting["bar_width"]
+        cursor_width = self.setting["cursor_width"]
+
+        # make short horizontal stripe of bytes for cursor
+        cursor_bytes = self.setting["cursor_color"] * cursor_width
+
+        # make horizontal stripe for 'blank' rows (i.e. above column or below point)
+        # i.e. background bytes followed by cursor bytes.
+        blank_bytes = bg * (width - cursor_width)
+        blank_bytes.extend(cursor_bytes)
+
+        # make horizontal stripe of color bytes for column or point
+        # i.e. background bytes followed by foreground bytes followed by cursor bytes.
+        bar_bytes = (bg * width - bar_width - cursor_width)
+        bar_bytes.extend(fg * bar_width)
+        bar_bytes.extend(cursor_bytes)
+
+        # iterate rows of area from top to bottom,
+        # appending appropriate list of pixels for each row
+        pixelbytes = []
+        for row in range(height):
+            if height - row > by:
+                pixelbytes.extend(blank_bytes)
+            elif self.setting["point_height"] is None:
+                pixelbytes.extend(bar_bytes)
+            else:
+                if height - row > by - self.setting["point_height"]:
+                    pixelbytes.extend(bar_bytes)
+                else:
+                    pixelbytes.extend(blank_bytes)
+
+        return pixelbytes
+
 
     # Clear the bar to all black
     def clear(self):
@@ -591,22 +634,16 @@ class Bar(object):
         self.lcd.set_window( x1, y1, x2, y2 )
 
         # Build a list containing all the pixelbytes
-        pixelbytes = []
-        # For h rows, we first add 'bar_off' horizontal slices, then 'bar_on' slices.
-        for row in range(self.setting["h"]):
-            if row < self.setting["h"] - by:
-                pixelbytes.extend(self.bar_off)
-            else:
-                pixelbytes.extend(self.bar_on)
+        area_width = self.setting["bar_width"]+self.setting["cursor_width"]
+        pixelbytes = make_bar(area_width, self.setting["h"], by)
 
         # Send the pixelbytes to the LCD
         self.lcd.send_data(pixelbytes)
 
-    # Add an incremental column and shift
+    # 'Samples' on x-axis Add an incremental column and shift
     def next(self, by):
         # Add bar to display
         self.add(self.next_bx, by)
         # Increment the position for the next bar
         self.next_bx = (self.next_bx + self.setting["step"]) % self.setting["w"]
-
 
