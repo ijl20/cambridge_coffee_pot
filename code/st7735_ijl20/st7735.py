@@ -9,7 +9,7 @@ import math
 from PIL import Image
 from PIL import ImageDraw
 
-from chart import Chart
+from st7735_ijl20.chart import Chart
 
 SIMULATION_MODE = False
 
