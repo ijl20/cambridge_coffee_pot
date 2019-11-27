@@ -9,6 +9,8 @@ import math
 from PIL import Image
 from PIL import ImageDraw
 
+from chart import Chart
+
 SIMULATION_MODE = False
 
 try:
@@ -18,18 +20,6 @@ except:
     SIMULATION_MODE = True
 
 SPI_CLOCK_HZ = 9000000 # 9 MHz
-
-# Default settings for Bar object
-DEFAULT_BAR = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords and width, height.
-                "step": 1,             # 'pixels': how many pixels to step in x direction for next()
-                "time_step": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
-                "bar_width": 1,        # 'pixels', width of value column
-                "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
-                "cursor_width": 2,     # 'pixels', width of scrolling cursor
-                "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
-                "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
-                "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
-              }
 
 # ------------------------------------------
 # ST7735 display controller chip command set
@@ -367,7 +357,7 @@ class ST7735(object):
     #********************************************************************************/
     def set_pixel_color(self,  x,  y, color ):
         if ( ( x <= self.width ) and ( y <= self.height ) ):
-            self.set_window(x, y, x, y)
+            self.set_window(x, y, 1, 1)
             self.send_color_pixels( color , 1 , 1)
 
     #/********************************************************************************
@@ -379,10 +369,11 @@ class ST7735(object):
     #       Yend   :   End point coordinates
     #       color  :   565 RGB 16-bit value
     #********************************************************************************/
-    def LCD_SetArealColor (self, Xstart, Ystart, Xend, Yend, color):
-        if (Xend > Xstart) and (Yend > Ystart):
-            self.set_window( Xstart , Ystart , Xend , Yend  )
-            self.send_color_pixels( color ,Xend - Xstart , Yend - Ystart )
+    def set_rectangle_color(self, x, y, w, h, color):
+        Xend = x + w
+        Yend = y + h
+        self.set_window( x, y, w, h )
+        self.send_color_pixels( color, w ,h )
 
     #/********************************************************************************
     #function:
@@ -393,9 +384,9 @@ class ST7735(object):
                     (self.scan_direction == L2R_D2U) or
                     (self.scan_direction == R2L_U2D) or
                     (self.scan_direction == R2L_D2U)) :
-            self.LCD_SetArealColor(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , color = 0xFFFF)#white
+            self.set_rectangle_color(0,0, LCD_X_MAXPIXEL , LCD_Y_MAXPIXEL  , color = 0xFFFF)#white
         else:
-            self.LCD_SetArealColor(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , color = 0xFFFF)#white
+            self.set_rectangle_color(0,0, LCD_Y_MAXPIXEL , LCD_X_MAXPIXEL  , color = 0xFFFF)#white
 
     #/********************************************************************************
     #function:
@@ -430,12 +421,13 @@ class ST7735(object):
     #/********************************************************************************
     #function:  Sets the start position and size of the display area
     #parameter:
-    #   Xstart  :   X direction Start coordinates
-    #   Ystart  :   Y direction Start coordinates
-    #   Xend    :   X direction end coordinates
-    #   Yend    :   Y direction end coordinates
+    #   x,y  :   coordinates of top-left corner of area
+    #   w,h  :   width, height of area
     #********************************************************************************/
-    def set_window(self, Xstart, Ystart, Xend, Yend ): # was LCD_SetWindows
+    def set_window(self, x, y, w, h ): # was LCD_SetWindows
+        x_end = x + w
+        y_end = y + h
+
         # set the X coordinates
         self.send_command( ST7735_CASET )
 
@@ -443,18 +435,18 @@ class ST7735(object):
         self.send_byte( 0x00 )
 
                 # Set the horizontal starting point to the low octet
-        self.send_byte( (Xstart & 0xff) + self.LCD_X_Adjust)
+        self.send_byte( (x & 0xff) + self.LCD_X_Adjust)
 
                 # Set the horizontal end to the high octet
         self.send_byte( 0x00 )
 
                 # Set the horizontal end to the low octet
-        self.send_byte( (( Xend - 1 ) & 0xff) + self.LCD_X_Adjust)
+        self.send_byte( (( x_end - 1 ) & 0xff) + self.LCD_X_Adjust)
 
         #set the Y coordinates
         self.send_command( ST7735_RASET )
-        self.send_data([ 0x00, (Ystart & 0xff) + self.LCD_Y_Adjust,
-                         0x00, ( (Yend - 1) & 0xff )+ self.LCD_Y_Adjust ])
+        self.send_data([ 0x00, (y & 0xff) + self.LCD_Y_Adjust,
+                         0x00, ( (y_end - 1) & 0xff )+ self.LCD_Y_Adjust ])
 
         self.send_command( ST7735_RAMWR )
 
@@ -503,7 +495,7 @@ class ST7735(object):
          w pixels x h pixels
         """
         # Set address bounds to entire display.
-        self.set_window( x, y, x+w, y+h)
+        self.set_window( x, y, w, h)
         # Convert image to array of 16bit 565 RGB data bytes.
         # Unfortunate that this copy has to occur, but the SPI byte writing
         # function needs to take an array of bytes and PIL doesn't natively
@@ -513,137 +505,16 @@ class ST7735(object):
         self.send_data(pixelbytes)
 
     # -----------------------------------------------------------------------
-    # Add a bar chart to the display
+    # Add a scrolling chart to the display
     # -----------------------------------------------------------------------
 
-    # Initialize a 'Bar' object, and return object when created.
-    def add_bar(self, config=None):
-        global DEFAULT_BAR
+    # Initialize a 'Chart' object, and return object when created.
+    def add_chart(self, config=None):
+        global DEFAULT_CHART
 
-        # Note this ST7735 object (self) is passed to the Bar() as a parameter.
-        if config == None:
-            bar = Bar(self, DEFAULT_BAR)
-        else:
-            bar = Bar(self, config)
+        # Note this ST7735 object (self) is passed to the Chart() as a parameter.
+        chart = Chart(self, config)
 
-        bar.clear()
-        return bar
-
-# ---------------------------
-# Bar graph
-# ---------------------------
-
-# Draw a bar chart across the LCD
-# For each value will draw a vertical bar plus a blank vertical margin to the right of it, as the
-# use-case is expected to be a horizontal scroll of new bars.
-class Bar(object):
-
-    # Initialization for bar object
-    def __init__(self, lcd, config):
-
-        self.lcd = lcd
-
-        self.setting = config
-
-        # Initial x offset for next() column
-        self.next_bx = 0
-
-    # Build a list of RGB 565 color byte pairs designed to fill an area of the chart
-    # e.g with width = 12, height = 7, bar_width = 2, cursor_width = 3, point_height = 2, by (value) = 4
-    # if b = bg_color, F = fg_color and C = cursor_color, each pixel as *pair* of bytes
-    # b b b b b b b b b b C C C
-    # b b b b b b b b b b C C C
-    # b b b b b b b b b b C C C
-    # b b b b b b b b F F C C C
-    # b b b b b b b b F F C C C
-    # b b b b b b b b b b C C C
-    # b b b b b b b b b b C C C
-    # Entire array is returned as list of bytes, left-to-right, top-to-bottom.
-    def make_bar(self, width, height, by):
-        # convenient short names
-        bg = self.setting["bg_color"]
-        fg = self.setting["fg_color"]
-        bar_width = self.setting["bar_width"]
-        cursor_width = self.setting["cursor_width"]
-
-        # make short horizontal stripe of bytes for cursor
-        cursor_bytes = self.setting["cursor_color"] * cursor_width
-
-        # make horizontal stripe for 'blank' rows (i.e. above column or below point)
-        # i.e. background bytes followed by cursor bytes.
-        blank_bytes = bg * (width - cursor_width)
-        blank_bytes.extend(cursor_bytes)
-
-        # make horizontal stripe of color bytes for column or point
-        # i.e. background bytes followed by foreground bytes followed by cursor bytes.
-        bar_bytes = (bg * width - bar_width - cursor_width)
-        bar_bytes.extend(fg * bar_width)
-        bar_bytes.extend(cursor_bytes)
-
-        # iterate rows of area from top to bottom,
-        # appending appropriate list of pixels for each row
-        pixelbytes = []
-        for row in range(height):
-            if height - row > by:
-                pixelbytes.extend(blank_bytes)
-            elif self.setting["point_height"] is None:
-                pixelbytes.extend(bar_bytes)
-            else:
-                if height - row > by - self.setting["point_height"]:
-                    pixelbytes.extend(bar_bytes)
-                else:
-                    pixelbytes.extend(blank_bytes)
-
-        return pixelbytes
-
-
-    # Clear the bar to all black
-    def clear(self):
-        # Build list of required number of bytes (2 bytes = 1 pixel in 565 RGB)
-        pixelbytes = [ 0x00 ] * 2 * self.setting["w"] * self.setting["h"]
-        x1 = self.setting["x"]
-        y1 = self.setting["y"]
-        x2 = x1 + self.setting["w"]
-        y2 = y1 + self.setting["h"]
-        self.lcd.set_window( x1, y1, x2, y2 )
-        self.lcd.send_data(pixelbytes)
-
-    # Display an image in the bar.
-    # It must be exactly bar w x h
-    def display(self, img):
-        self.lcd.display_window( img,
-                            self.setting["x"],
-                            self.setting["y"],
-                            self.setting["w"],
-                            self.setting["h"]
-                          )
-
-    # Add a column to the bar chart
-    # We set a window for just this new column, and fill it with pixels
-    def add(self, bx, by):
-        # Do nothing if added bar would overspill area
-        if bx + self.bar_width > self.setting["w"]:
-            return
-
-        # Define a small window to contain just this column
-        # The width is defined as the length the "bar_on" pixel bytes / 2
-        x1 = self.setting["x"] + bx
-        y1 = self.setting["y"]
-        x2 = x1 + self.bar_width
-        y2 = y1 + self.setting["h"]
-        self.lcd.set_window( x1, y1, x2, y2 )
-
-        # Build a list containing all the pixelbytes
-        area_width = self.setting["bar_width"]+self.setting["cursor_width"]
-        pixelbytes = make_bar(area_width, self.setting["h"], by)
-
-        # Send the pixelbytes to the LCD
-        self.lcd.send_data(pixelbytes)
-
-    # 'Samples' on x-axis Add an incremental column and shift
-    def next(self, by):
-        # Add bar to display
-        self.add(self.next_bx, by)
-        # Increment the position for the next bar
-        self.next_bx = (self.next_bx + self.setting["step"]) % self.setting["w"]
+        chart.clear()
+        return chart
 

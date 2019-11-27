@@ -27,15 +27,18 @@
 import time
 from statistics import median
 
-CONFIG = { "LOG_LEVEL": 3} # we need to pass this in the instantiation...
-
+DEFAULT_CONFIG = { "LOG_LEVEL": 3} # we need to pass this in the instantiation...
 
 class TimeBuffer(object):
 
-    def __init__(self, size=1000):
+    def __init__(self, size=1000, config=None):
         print("TimeBuffer init size={}".format(size))
 
-        self.setting = CONFIG
+        if config is None:
+            self.setting = DEFAULT_CONFIG
+        else:
+            self.setting = config
+
         # Note sample_history is a *circular* buffer (for efficiency)
         self.SAMPLE_HISTORY_SIZE = size # store value samples 0..(size-1)
         self.sample_history_index = 0
@@ -139,22 +142,43 @@ class TimeBuffer(object):
 
     # Pump all the <time, value> buffer samples through a provided processing function.
     # I.e. will call 'process_sample(ts, value)' for each sample in the buffer.
-    def play(self, process_sample):
+    def play(self, process_sample, sleep=None, realtime=False):
+        if self.setting["LOG_LEVEL"] <= 2:
+            print("TimeBuffer.play() from buffer index:", self.sample_history_index)
         index = self.sample_history_index # index of oldest entry (could be None if buffer not wrapped)
         finish_index = self.sample_history_index
         finished = False
+        prev_ts = None # used to calculate realtime delay between playback of samples
+
         # we will loop through the buffer until at latest value at sample_history_index-1
         while not finished:
+
+            if self.setting["LOG_LEVEL"] == 1:
+                print("TimeBuffer play index", index)
+
             sample = self.sample_history[index]
 
             # process 'not None' samples
             if sample != None:
                 # HERE WE CALL THE PROVIDED FUNCTION
                 process_sample(sample["ts"], sample["value"])
+                # And sleep() if we want realistic animation
+                # if realtime then sleep for period between samples
+                if realtime:
+                    if not prev_ts is None:
+                        time.sleep(sample["ts"] - prev_ts)
+                    prev_ts = sample["ts"]
+                # of if sleep value is provided then sleep that long
+                elif not sleep is None:
+                    time.sleep(0.1)
+                # otherwise we will not sleep at all, and process the data without delay
 
             index = (index + 1) % self.SAMPLE_HISTORY_SIZE
             if index == finish_index:
                 finished = True
+
+        if self.setting["LOG_LEVEL"] <= 2:
+            print("TimeBuffer play finished")
 
     # Iterate backwards through sample_history buffer to find index of reading at a given time offset
     def time_to_offset(self,time_offset):

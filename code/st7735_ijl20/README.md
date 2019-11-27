@@ -125,20 +125,20 @@ draw.text((WIDTH - string_width-RIGHT_MARGIN, 0),
 LCD.display_window(image, X, Y, WIDTH, HEIGHT)
 ```
 
-### Using a bar chart
+### Using a chart
 
 ```
 from st7735_ijl20.st7735 import ST7735
 lcd = ST7735()
 
 # parameters for a 160x40 bar chart on display
-BAR_CONFIG = { "x": 0, "y": 0, "w": 160, "h": 40, # top-left coords and width, height.
+CHART_CONFIG = { "x": 0, "y": 0, "w": 160, "h": 40, # top-left coords and width, height.
                 "step": 1                         # how many pixels to step in x direction for next()
               }
 
-bar = lcd.add_bar(BAR_CONFIG)
+chart = lcd.add_chart(CHART_CONFIG)
 
 for i in range(200):
-    bar.next(i % 30)
+    chart.next(i % 30)
 
 ```

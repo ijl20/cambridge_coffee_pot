@@ -22,7 +22,10 @@ except ImportError:
 from hx711_ijl20.hx711 import HX711
 
 # LCD display libs
-from st7735_ijl20.st7735 import ST7735
+if not GPIO_FAIL:
+    from st7735_ijl20.st7735 import ST7735
+else:
+    from st7735_ijl20.st7735_emulator import ST7735_EMULATOR as ST7735
 
 from PIL import Image
 from PIL import ImageDraw
@@ -88,7 +91,7 @@ class Sensor(object):
         # find the scales 'zero' reading
         self.tare_scales(hx_list)
 
-        self.reading_buffer = TimeBuffer(SAMPLE_BUFFER_SIZE)
+        self.reading_buffer = TimeBuffer(size=SAMPLE_BUFFER_SIZE, config=self.setting)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -293,7 +296,7 @@ class Sensor(object):
         if self.setting["LOG_LEVEL"] == 1:
             print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
-        self.bar = LCD.add_bar()
+        self.bar = LCD.add_chart()
 
         return LCD
 
@@ -359,13 +362,12 @@ class Sensor(object):
 
     # Update a PIL image with the weight, and send to LCD
     # Note we are creating an image smaller than the screen size, and only updating a part of the display
-    def update_lcd(self):
+    def update_lcd(self, ts):
         global LCD
 
         t_start = time.process_time()
 
-        now = time.time()
-        if now - self.prev_lcd_time > 1:
+        if ts - self.prev_lcd_time > 1:
             sample_value, offset = self.reading_buffer.median(0,1) # get median weight value for 1 second
             if not sample_value == None:
                 self.draw_value(sample_value)
@@ -483,7 +485,7 @@ class Sensor(object):
         else:
             return None, None
 
-    def test_new(self):
+    def test_new(self, ts):
         full, offset = self.test_full(0)
         removed, new_offset = self.test_removed(offset)
         if removed and full:
@@ -491,8 +493,8 @@ class Sensor(object):
 
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
-    def test_event(self):
-        self.test_new()
+    def test_event(self, ts):
+        self.test_new(ts)
         return
 
     # --------------------------------------------------------------------------------------
@@ -505,6 +507,8 @@ class Sensor(object):
     # --------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------
     def process_sample(self, ts, value):
+
+        print("process_sample",ts, value)
 
         t_start = time.process_time()
 
@@ -519,28 +523,27 @@ class Sensor(object):
         # UPDATE LCD
         # ---------------
 
-        self.update_lcd()
+        self.update_lcd(ts)
 
         # ----------------------
         # SEND EVENT TO PLATFORM
         # ----------------------
 
-        self.test_event()
+        self.test_event(ts)
 
         # ---------------------
         # SEND DATA TO PLATFORM
         # ---------------------
 
-        now = time.time() # floating point time in seconds since epoch
-        if now - self.prev_send_time > 30:
-            sample_value, offset = self.reading_buffer.median(0,2) # from NOW, back 2 seconds
+        if ts - self.prev_send_time > 30:
+            sample_value, offset = self.reading_buffer.median(0,2) # from latest ts, back 2 seconds
 
             if not sample_value == None:
                 print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(now)))
 
                 self.send_weight(sample_value)
 
-                self.prev_send_time = now
+                self.prev_send_time = ts
 
                 if self.setting["LOG_LEVEL"] == 1:
                     print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
@@ -548,7 +551,7 @@ class Sensor(object):
                 print("loop send data NOT SENT as data value None")
 
         if self.setting["LOG_LEVEL"] == 1:
-            print ("WEIGHT {:5.1f}, {}".format(value, time.ctime(now)))
+            print ("WEIGHT {:5.1f}, {}".format(value, time.ctime(ts)))
 
         #hx.power_down()
         #hx.power_up()
@@ -565,11 +568,11 @@ class Sensor(object):
     def finish(self):
         print("\n")
 
-        print("GPIO cleanup()...")
-
         if not self.SIMULATION_MODE:
 
             LCD.cleanup()
+
+            print("GPIO cleanup()...")
 
             GPIO.cleanup()
 

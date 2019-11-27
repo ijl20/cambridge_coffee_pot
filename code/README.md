@@ -72,7 +72,7 @@ contain the latest `buffer_size` (or fewer) entries).
 buffer.put(timestamp, value)
 ```
 
-`timestamp` is a *float* unix timestamp, e.g. 1574506065.345123 where the integer part is seconds since the 
+`timestamp` is a *float* unix timestamp, e.g. 1574506065.345123 where the integer part is seconds since the
 beginning of time (which Computer Scientists believe was 1st Jan 1970).
 
 `value` can be any value although methods such as `median` (see below) will assume the value is a number.
@@ -85,11 +85,11 @@ foo = buffer.get(index_offset)
 
 `index_offset` is a positive index in the buffer where `0` means the latest reading, `1` means the
 penultimate reading and so on. The index_offset may refer to a buffer position outside the currently
-stored set of readings or is outside the range of the buffer (e.g. you `buffer.get(100)` when you 
+stored set of readings or is outside the range of the buffer (e.g. you `buffer.get(100)` when you
 have only stored 50 readings so far, or the buffer size is less than 100) in which case the method
 will return `None`.
 
-For a successful `get`, the returned value will be a Python `<time, value>` dictionary e.g. 
+For a successful `get`, the returned value will be a Python `<time, value>` dictionary e.g.
 
 ```
 { "ts": 1574506065.345123, "value": 42.0 }
@@ -150,7 +150,7 @@ sensor.
 offset = buffer.time_to_offset(time_offset)
 ```
 
-Will return the index offset for the newest reading in the TimeBuffer that is *older* than the time of the 
+Will return the index offset for the newest reading in the TimeBuffer that is *older* than the time of the
 latest sample minus the `time_offset` in seconds.
 
 Will return `None` if no reading is found (i.e. the `time_offset` is before the earliest reading in the TimeBuffer)
@@ -200,36 +200,41 @@ Similar functions to `median` above, but returning the average value.
 See `test.py`
 
 ```
-Python 3.6.8 (default, Oct  7 2019, 12:59:55)
-[GCC 8.3.0] on linux
-Type "help", "copyright", "credits" or "license" for more information.
+import sys
 
->>> from time_buffer import TimeBuffer
+from time_buffer import TimeBuffer
 
->>> t = TimeBuffer()
-TimeBuffer init size=1000
+from config import Config
 
->>> from sensor import Sensor
-RPi.GPIO not loaded, running in SIMULATION_MODE
+from sensor import Sensor
 
->>> from config import Config
+from sensor_utils import list_to_string
 
->>> c = Config('sensor_debug.json')
-Config loaded sensor_debug.json LOG_LEVEL=1
+t = TimeBuffer()
 
->>> s = Sensor(c)
-initializing LCD_ST7735
-init_lcd in 0.011 sec.
-init_scales HX objects created at 0.000 secs.
-init_scales HX objects reset at 0.000 secs.
-tare_scales readings [ +7, +7, +7, +7 ] completed at 0.000 secs.
-tare_ok reading[0] 7 out of range vs -504000 +/- 100000
-reading tare file sensor_tare.json
-LOADED TARE FILE sensor_tare.json
-tare_scales readings out of range, using persisted values [ -503886, +430966, -213330, +568053 ]
-TimeBuffer init size=100
+t.load('../data/2019-11-22_readings.csv')
 
->>> t.load('../data/2019-11-22_readings.csv')
+# loads settings from sensor.json or argv[1]
+CONFIG_FILENAME = "sensor_config.json"
 
->>> t.play(s.process_sample)
+# Use default filename OR one given as argument
+filename = CONFIG_FILENAME
+
+print("test.py started with {} arguments: [{}]".format(len(sys.argv), list_to_string(sys.argv)))
+
+if len(sys.argv) > 1 :
+    filename = sys.argv[1]
+
+config = Config(filename)
+
+s = Sensor(config)
+
+# for playback we can specify
+#   sleep=0.1 for a fixed period between samples
+# or
+#   realtime=True which will pause the time between recorded sample timestamps.
+# otherwise the playback will be as fast as possible.
+
+t.play(s.process_sample, realtime=True)
+
 ```
