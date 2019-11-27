@@ -21,7 +21,7 @@ if len(sys.argv) > 1 :
 
 config = Config(filename)
 
-s = Sensor(config)
+s = Sensor(settings = config.settings)
 
 # for playback we can specify
 #   sleep=0.1 for a fixed period between samples
@@ -29,7 +29,7 @@ s = Sensor(config)
 #   realtime=True which will pause the time between recorded sample timestamps.
 # otherwise the playback will be as fast as possible.
 
-t = TimeBuffer()
+t = TimeBuffer(settings=config.settings)
 
 t.load('../data/2019-11-22_readings.csv')
 

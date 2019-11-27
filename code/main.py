@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     config = Config(filename)
 
-    s = Sensor(config)
+    s = Sensor(settings = config.settings)
 
     # Infinite loop until killed, reading weight and sending data
     try:

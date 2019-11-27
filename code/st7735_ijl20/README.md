@@ -1,6 +1,6 @@
 # Raspberry Pi LCD support via ST7735
 
-![image of LCD 1.8in display](../../images/lcd_1.8in_128x160.jpg)
+![image of LCD 1.8in display](chart.jpg)
 
 This library provides the ST7735 class allowing the initialization and reset of the LCD display, and
 sending image data.
@@ -17,10 +17,13 @@ at a time.
 3. Using numpy to convert a normal Python '888' 3-bytes-per-pixel RGB image to the '565' 16-bit format used by
 the LCD. This is faster than the 'for loop' iterate-and-convert method common elsewhere.
 
-4. A 'Bar' (for bar chart) object is provided which can very efficiently add columns to a horizontal bar chart using
+4. A 'Chart' (line or bar chart) object is provided which can very efficiently add columns
+or points to a horizontal bar chart using
 narrow vertical windows on the LCD. This can easily keep up with data sampled at e.g. 10 times/second where the
 full LCD width will represent 16 seconds.
 
+5. Provides a ST7735_EMULATOR() object which provides the same methods as the ST7735 object but renders the
+data into a window on your development desktop rather than an actual 1.8in LCD display.
 
 ## Sources
 
@@ -132,8 +135,18 @@ from st7735_ijl20.st7735 import ST7735
 lcd = ST7735()
 
 # parameters for a 160x40 bar chart on display
-CHART_CONFIG = { "x": 0, "y": 0, "w": 160, "h": 40, # top-left coords and width, height.
-                "step": 1                         # how many pixels to step in x direction for next()
+CHART_CONFIG = { "x": 0,  # 'pixels' top-left x,y coords and width, height.
+                 "y": 0,
+                 "w": 160,
+                 "h": 40,
+                "step": 1,             # 'pixels': how many pixels to step in x direction for next()
+                "time_scale": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
+                "bar_width": 1,        # 'pixels', width of value column
+                "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
+                "cursor_width": 2,     # 'pixels', width of scrolling cursor
+                "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
+                "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
+                "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
               }
 
 chart = lcd.add_chart(CHART_CONFIG)

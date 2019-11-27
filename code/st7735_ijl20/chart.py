@@ -8,7 +8,7 @@ DEFAULT_CHART = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords 
                 "time_scale": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
                 "bar_width": 1,        # 'pixels', width of value column
                 "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
-                "cursor_width": 4,     # 'pixels', width of scrolling cursor
+                "cursor_width": 2,     # 'pixels', width of scrolling cursor
                 "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
                 "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
                 "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
@@ -20,14 +20,14 @@ DEFAULT_CHART = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords 
 class Chart(object):
 
     # Initialization for bar object
-    def __init__(self, lcd, config = None):
+    def __init__(self, lcd, settings = None):
 
         self.lcd = lcd
 
-        if config is None:
-            self.setting = DEFAULT_CHART
+        if settings is None:
+            self.settings = DEFAULT_CHART
         else:
-            self.setting = config
+            self.settings = settings
 
         self.prev_time = None # will hold timestamp of previous add_time() value
         self.prev_x = None    # will hold x offset (pixels) for previous add_time() value
@@ -48,13 +48,13 @@ class Chart(object):
     # Entire array is returned as list of bytes, left-to-right, top-to-bottom.
     def make_area(self, width, height, by):
         # convenient short names
-        bg = self.setting["bg_color"]
-        fg = self.setting["fg_color"]
-        bar_width = self.setting["bar_width"]
-        cursor_width = self.setting["cursor_width"]
+        bg = self.settings["bg_color"]
+        fg = self.settings["fg_color"]
+        bar_width = self.settings["bar_width"]
+        cursor_width = self.settings["cursor_width"]
 
         # make short horizontal stripe of bytes for cursor
-        cursor_bytes = self.setting["cursor_color"] * cursor_width
+        cursor_bytes = self.settings["cursor_color"] * cursor_width
 
         # make horizontal stripe for 'blank' rows (i.e. above column or below point)
         # i.e. background bytes followed by cursor bytes.
@@ -73,10 +73,10 @@ class Chart(object):
         for row in range(height):
             if height - row > by:
                 pixelbytes.extend(blank_bytes)
-            elif self.setting["point_height"] is None:
+            elif self.settings["point_height"] is None:
                 pixelbytes.extend(bar_bytes)
             else:
-                if height - row > by - self.setting["point_height"]:
+                if height - row > by - self.settings["point_height"]:
                     pixelbytes.extend(bar_bytes)
                 else:
                     pixelbytes.extend(blank_bytes)
@@ -87,36 +87,36 @@ class Chart(object):
     # Clear the bar to all black
     def clear(self):
         # Build list of required number of bytes (2 bytes = 1 pixel in 565 RGB)
-        pixelbytes = [ 0x00 ] * 2 * self.setting["w"] * self.setting["h"]
-        self.lcd.set_window( self.setting["x"], self.setting["y"], self.setting["w"], self.setting["h"] )
+        pixelbytes = [ 0x00 ] * 2 * self.settings["w"] * self.settings["h"]
+        self.lcd.set_window( self.settings["x"], self.settings["y"], self.settings["w"], self.settings["h"] )
         self.lcd.send_data(pixelbytes)
 
     # Display an image in the bar.
     # It must be exactly chart w x h
     def display(self, img):
         self.lcd.display_window( img,
-                            self.setting["x"],
-                            self.setting["y"],
-                            self.setting["w"],
-                            self.setting["h"]
+                            self.settings["x"],
+                            self.settings["y"],
+                            self.settings["w"],
+                            self.settings["h"]
                           )
 
     # Add a column (or point) to the chart, given the 'bx' offset and 'by' value.
     # We set a window area for just this new column, and fill it with pixels
     def add(self, bx, by):
-        area_width = self.setting["bar_width"]+self.setting["cursor_width"]
+        area_width = self.settings["bar_width"]+self.settings["cursor_width"]
         # Do nothing if added bar would overspill area
-        if bx + area_width > self.setting["w"]:
+        if bx + area_width > self.settings["w"]:
             return
 
         # Define a small window to contain just this column
         # Note these x,y offsets are for the *LCD* not just the barchart area
-        x1 = self.setting["x"] + bx
-        y1 = self.setting["y"]
-        self.lcd.set_window( x1, y1, area_width, self.setting["h"] )
+        x1 = self.settings["x"] + bx
+        y1 = self.settings["y"]
+        self.lcd.set_window( x1, y1, area_width, self.settings["h"] )
 
         # Build a list containing all the pixelbytes
-        pixelbytes = self.make_area(area_width, self.setting["h"], by)
+        pixelbytes = self.make_area(area_width, self.settings["h"], by)
 
         # Send the pixelbytes to the LCD
         self.lcd.send_data(pixelbytes)
@@ -126,7 +126,7 @@ class Chart(object):
         # Add bar to display
         self.add(self.next_bx, by)
         # Increment the position for the next bar
-        self.next_bx = (self.next_bx + self.setting["step"]) % self.setting["w"]
+        self.next_bx = (self.next_bx + self.settings["step"]) % self.settings["w"]
 
     # Add a column (or point) to the chart, given the timestamp and 'by' value
     def add_time(ts, by):
@@ -139,19 +139,19 @@ class Chart(object):
         # We will fill in an area from the previous point to this one.
         else:
             # calculate x-adjustment for new value as offset from previous point
-            x_adj = math.floor((ts - self.prev_ts) / self.setting["time_scale"] + 0.5)
+            x_adj = math.floor((ts - self.prev_ts) / self.settings["time_scale"] + 0.5)
 
             # convert to absolute x position of new point, even though it might overspill bar area
             x_offset = self.prev_x + x_adj
 
             # if new point is off end of bar chart, fill columns after prev_x with bg_color
             # Note coordinates for set_windor are LCD coords, not just within chart area
-            if x_offset > self.setting["w"]:
-                x = self.setting["x"] + self.prev_x + self.setting["bar_width"]
-                w = self.setting["w"] - self.prev_x - self.setting["bar_width"]
+            if x_offset > self.settings["w"]:
+                x = self.settings["x"] + self.prev_x + self.settings["bar_width"]
+                w = self.settings["w"] - self.prev_x - self.settings["bar_width"]
 
-                self.lcd.set_window( x, self.setting["y"], w, self.setting["h"] )
+                self.lcd.set_window( x, self.settings["y"], w, self.settings["h"] )
 
-                pixelbytes = self.setting["bg_color"] * (x2 - x1) *  h
+                pixelbytes = self.settings["bg_color"] * (x2 - x1) *  h
 
                 self.lcd.send_data(pixelbytes)

@@ -39,8 +39,8 @@ class Config(object):
             config_dictionary = json.loads(file_text)
             config_file_handle.close()
             # here's the clever bit... merge entries from file in to CONFIG dictionary
-            self.setting = { **DEFAULT_CONFIG, **config_dictionary }
-            print("Config loaded {} LOG_LEVEL={}".format(filename,self.setting["LOG_LEVEL"]))
+            self.settings = { **DEFAULT_CONFIG, **config_dictionary }
+            print("Config loaded {} LOG_LEVEL={}".format(filename,self.settings["LOG_LEVEL"]))
 
         except Exception as e:
             print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(filename))

@@ -27,17 +27,17 @@
 import time
 from statistics import median
 
-DEFAULT_CONFIG = { "LOG_LEVEL": 3} # we need to pass this in the instantiation...
+DEFAULT_SETTINGS = { "LOG_LEVEL": 3 } # we need to pass this in the instantiation...
 
 class TimeBuffer(object):
 
-    def __init__(self, size=1000, config=None):
+    def __init__(self, size=1000, settings=None):
         print("TimeBuffer init size={}".format(size))
 
-        if config is None:
-            self.setting = DEFAULT_CONFIG
+        if settings is None:
+            self.settings = DEFAULT_SETTINGS
         else:
-            self.setting = config
+            self.settings = settings
 
         # Note sample_history is a *circular* buffer (for efficiency)
         self.SAMPLE_HISTORY_SIZE = size # store value samples 0..(size-1)
@@ -50,7 +50,7 @@ class TimeBuffer(object):
     # store the current value in the sample_history circular buffer
     def put(self, ts, value):
         self.sample_history[self.sample_history_index] = { 'ts': ts, 'value': value }
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("record sample_history[{}]:\n{},{}".format(self.sample_history_index,
                                                         self.sample_history[self.sample_history_index]["ts"],
                                                         self.sample_history[self.sample_history_index]["value"]))
@@ -63,11 +63,11 @@ class TimeBuffer(object):
         if offset == None:
             return None
         if offset >= self.SAMPLE_HISTORY_SIZE:
-            if self.setting["LOG_LEVEL"] == 1:
+            if self.settings["LOG_LEVEL"] == 1:
                 print("get offset too large, returning None")
             return None
         index = (self.sample_history_index + self.SAMPLE_HISTORY_SIZE - offset - 1) % self.SAMPLE_HISTORY_SIZE
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             if self.sample_history[index] is not None:
                 debug_str = "get current {}, offset {} => {}: {:.2f} {}"
                 print(debug_str.format( self.sample_history_index,
@@ -84,8 +84,7 @@ class TimeBuffer(object):
 
     # load timestamp,reading values from a CSV file
     def load(self, filename):
-        global CONFIG
-        if self.setting["LOG_LEVEL"] <= 2:
+        if self.settings["LOG_LEVEL"] <= 2:
             print("loading readings file {}".format(filename))
 
         self.sample_history_index = 0
@@ -103,7 +102,7 @@ class TimeBuffer(object):
                         value = float(line_values[1])
                         self.sample_history[self.sample_history_index] = { "ts": ts,
                                                                         "value": value }
-                        if self.setting["LOG_LEVEL"] == 1:
+                        if self.settings["LOG_LEVEL"] == 1:
                             print("{: >5} {:10.3f} {: >8}".format(self.sample_history_index,ts,value))
                         self.sample_history_index = (self.sample_history_index + 1) % self.SAMPLE_HISTORY_SIZE
                     line = fp.readline()
@@ -118,7 +117,7 @@ class TimeBuffer(object):
         finish_index = self.sample_history_index
         finished = False
         try:
-            if self.setting["LOG_LEVEL"] <= 2:
+            if self.settings["LOG_LEVEL"] <= 2:
                 print("Saving TimeBuffer to {}".format(filename))
 
             with open(filename,"w+") as fp:
@@ -143,7 +142,7 @@ class TimeBuffer(object):
     # Pump all the <time, value> buffer samples through a provided processing function.
     # I.e. will call 'process_sample(ts, value)' for each sample in the buffer.
     def play(self, process_sample, sleep=None, realtime=False):
-        if self.setting["LOG_LEVEL"] <= 2:
+        if self.settings["LOG_LEVEL"] <= 2:
             print("TimeBuffer.play() from buffer index:", self.sample_history_index)
         index = self.sample_history_index # index of oldest entry (could be None if buffer not wrapped)
         finish_index = self.sample_history_index
@@ -153,7 +152,7 @@ class TimeBuffer(object):
         # we will loop through the buffer until at latest value at sample_history_index-1
         while not finished:
 
-            if self.setting["LOG_LEVEL"] == 1:
+            if self.settings["LOG_LEVEL"] == 1:
                 print("TimeBuffer play index", index)
 
             sample = self.sample_history[index]
@@ -177,12 +176,12 @@ class TimeBuffer(object):
             if index == finish_index:
                 finished = True
 
-        if self.setting["LOG_LEVEL"] <= 2:
+        if self.settings["LOG_LEVEL"] <= 2:
             print("TimeBuffer play finished")
 
     # Iterate backwards through sample_history buffer to find index of reading at a given time offset
     def time_to_offset(self,time_offset):
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("time_to_offset",time_offset)
 
         sample = self.get(0)
@@ -198,7 +197,7 @@ class TimeBuffer(object):
         while sample_time > time_limit:
             offset += 1
             if offset >= self.SAMPLE_HISTORY_SIZE:
-                if self.setting["LOG_LEVEL"] <= 2:
+                if self.settings["LOG_LEVEL"] <= 2:
                     print("time_to_offset ({}) exceeded buffer size")
                 return None
             sample = self.get(offset)
@@ -214,7 +213,7 @@ class TimeBuffer(object):
     # E.g. average_time(0,3) will find the average value of the most recent 3 seconds.
     # average_time(2,1) will find average during 1 second duration ending 2 seconds ago.
     def average_time(self, time_offset, duration):
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("average_time time_offset={}, duration={}".format(time_offset, duration))
 
         offset = self.time_to_offset(time_offset)
@@ -247,7 +246,7 @@ class TimeBuffer(object):
             total_value += sample["value"]
             sample_count += 1
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("average total {} average {} with {} samples".format(total_value,
                                                                             total_value/sample_count,
                                                                             sample_count))
@@ -261,7 +260,7 @@ class TimeBuffer(object):
     # so can be used on a subsequent call)
     def median_time(self, time_offset, duration):
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("median_time time_offset={}, duration={}".format(time_offset, duration))
 
         # Convert time (e.g. 3 seconds) to an index offset from latest reading in sample_history
@@ -279,13 +278,13 @@ class TimeBuffer(object):
         next_offset = offset
 
         begin_limit = sample["ts"] - duration
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("median begin_limit={}".format(begin_limit))
 
         begin_time = sample["ts"] # this will be updated as we loop, to find duration available
         end_time = sample["ts"]
 
-        #if self.setting["LOG_LEVEL"] == 1:
+        #if self.settings["LOG_LEVEL"] == 1:
         #    print("median_time begin_time {:.3f}".format(begin_time))
 
         value_list = [ sample["value"] ]
@@ -299,7 +298,7 @@ class TimeBuffer(object):
             sample = self.get(next_offset)
 
             if sample == None:
-                if self.setting["LOG_LEVEL"] <= 2:
+                if self.settings["LOG_LEVEL"] <= 2:
                     print("median looked back to None value")
                 # we've exhausted the values in the partially filled buffer
                 break
@@ -314,14 +313,14 @@ class TimeBuffer(object):
 
         # If we didn't get enough samples, return with error
         if len(value_list) < 3:
-            if self.setting["LOG_LEVEL"] <= 2:
+            if self.settings["LOG_LEVEL"] <= 2:
                 print("median not enough samples ({})".format(len(value_list)))
             return None, None
 
         # Now we have a list of samples with the required duration
         median_value = median(value_list)
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("median_value for {:.3f} seconds with {} samples = {}".format(end_time - begin_time,
                                                                                 len(value_list),
                                                                                 median_value))

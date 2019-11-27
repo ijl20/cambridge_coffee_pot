@@ -2,7 +2,7 @@
 
 # code version
 
-VERSION = "0.45"
+VERSION = "0.50"
 
 # Python libs
 import time
@@ -44,7 +44,7 @@ from time_buffer import TimeBuffer
 LCD = None # ST7735 LCD display chip
 hx_list = None # LIST of hx711 A/D chips
 
-SAMPLE_BUFFER_SIZE = 100
+SAMPLE_HISTORY_SIZE = 100
 
 # COFFEE POT EVENTS
 
@@ -55,7 +55,6 @@ EVENT_REMOVED = "COFFEE_REMOVED"
 EVENT_GROUND = "COFFEE_GROUND"
 
 EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
-event_history = [ None ] * EVENT_HISTORY_SIZE
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
@@ -67,20 +66,18 @@ class Sensor(object):
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
 
-    def __init__(self, config):
+    def __init__(self, settings=None):
         global LCD
         global hx_list
         global GPIO_FAIL
 
         self.SIMULATION_MODE = GPIO_FAIL
 
-        self.setting = config.setting
-
-        now = time.time()  # floating point seconds in epoch
+        self.settings = settings
 
         # times to control update of LCD and watchdog sends to platform
-        self.prev_send_time = now
-        self.prev_lcd_time = now
+        self.prev_send_time = None
+        self.prev_lcd_time = None
 
         # initialize the st7735 for LCD display
         LCD = self.init_lcd()
@@ -91,7 +88,9 @@ class Sensor(object):
         # find the scales 'zero' reading
         self.tare_scales(hx_list)
 
-        self.reading_buffer = TimeBuffer(size=SAMPLE_BUFFER_SIZE, config=self.setting)
+        self.sample_buffer = TimeBuffer(size=SAMPLE_HISTORY_SIZE, settings=self.settings)
+
+        self.event_buffer = TimeBuffer(size=EVENT_HISTORY_SIZE, settings=self.settings)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -113,7 +112,7 @@ class Sensor(object):
                     HX711(16, 20)
                 ]
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("init_scales HX objects created at {:.3f} secs.".format(time.process_time() - t_start))
 
 
@@ -130,7 +129,7 @@ class Sensor(object):
 
             hx.reset()
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("init_scales HX objects reset at {:.3f} secs.".format(time.process_time() - t_start))
 
         return hx_list
@@ -138,18 +137,18 @@ class Sensor(object):
     # Read the TARE_FILENAME defined in CONFIG, return the contained json as a python dictionary
     def read_tare_file(self):
         # if there is an existing tare file, previous values will be read from that
-        if self.setting["LOG_LEVEL"] == 1:
-            print("reading tare file {}".format(self.setting["TARE_FILENAME"]))
+        if self.settings["LOG_LEVEL"] == 1:
+            print("reading tare file {}".format(self.settings["TARE_FILENAME"]))
 
         try:
-            tare_file_handle = open(self.setting["TARE_FILENAME"], "r")
+            tare_file_handle = open(self.settings["TARE_FILENAME"], "r")
             file_text = tare_file_handle.read()
             tare_dictionary = json.loads(file_text)
             tare_file_handle.close()
-            print("LOADED TARE FILE {}".format(self.setting["TARE_FILENAME"]))
+            print("LOADED TARE FILE {}".format(self.settings["TARE_FILENAME"]))
             return tare_dictionary
         except Exception as e:
-            print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(self.setting["TARE_FILENAME"]))
+            print("READ CONFIG FILE ERROR. Can't read supplied filename {}".format(self.settings["TARE_FILENAME"]))
             print(e)
 
         return {}
@@ -165,11 +164,11 @@ class Sensor(object):
         """.format(acp_ts, *tare_list)
 
         try:
-            tare_file_handle = open(self.setting["TARE_FILENAME"], "w")
+            tare_file_handle = open(self.settings["TARE_FILENAME"], "w")
             tare_file_handle.write(tare_json)
             tare_file_handle.close()
         except:
-            print("tare scales file write to tare json file {}".format(self.setting["TARE_FILENAME"]))
+            print("tare scales file write to tare json file {}".format(self.settings["TARE_FILENAME"]))
 
     # Return True if the latest tare readings are within the bounds set in CONFIG.
     # This is designed to ensure we don't 'tare' with the pot sitting on the sensor.
@@ -183,32 +182,32 @@ class Sensor(object):
         max_delta = 0 # we track max delta for debug purposes
         max_i = 0
         while i < len(tare_list):
-            tare_delta = tare_list[i] - self.setting["TARE_READINGS"][i]
+            tare_delta = tare_list[i] - self.settings["TARE_READINGS"][i]
             if abs(tare_delta) > max_delta:
                 max_delta = tare_delta
                 max_i = i
             tare_delta_total += tare_delta
-            if abs(tare_delta) > self.setting["TARE_WIDTH"]:
-                if self.setting["LOG_LEVEL"] <= 2:
+            if abs(tare_delta) > self.settings["TARE_WIDTH"]:
+                if self.settings["LOG_LEVEL"] <= 2:
                     print("tare_ok FAIL reading[{}] {:.0f} out of range vs {:.0f} +/- {}".format(i,
                         tare_list[i],
-                        self.setting["TARE_READINGS"][i],
-                        self.setting["TARE_WIDTH"]))
+                        self.settings["TARE_READINGS"][i],
+                        self.settings["TARE_WIDTH"]))
 
                 return False
             else:
                 i += 1
 
-        if tare_delta_total > self.setting["TARE_WIDTH"]:
-            if self.setting["LOG_LEVEL"] == 1:
+        if tare_delta_total > self.settings["TARE_WIDTH"]:
+            if self.settings["LOG_LEVEL"] == 1:
                 print("tare_ok total delta {} of [{}] is out of range for [{}] +/- {}".format(tare_delta_total,
                     list_to_string(tare_list,"{:+.0f}"),
-                    list_to_string(self.setting["TARE_READINGS"],"{:+.0f}"),
-                    self.setting["TARE_WIDTH"]))
+                    list_to_string(self.settings["TARE_READINGS"],"{:+.0f}"),
+                    self.settings["TARE_WIDTH"]))
 
             return False
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("tare_ok is OK, max delta[{}] was {:.0f}".format(max_i, max_delta))
 
         return True
@@ -225,7 +224,7 @@ class Sensor(object):
             # Here we initialize the 'empty weight' settings
             tare_list.append( hx.tare_A() )
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print("tare_scales readings [ {} ] completed at {:.3f} secs.".format( list_to_string(tare_list, "{:+.0f}"),
                                                                                 time.process_time() - t_start))
 
@@ -246,7 +245,7 @@ class Sensor(object):
             hx.set_offset_A(tare_list[i])
             i += 1
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             output_string = "tare_scales readings out of range, using persisted values [ {} ]"
             print(output_string.format(list_to_string(tare_list,"{:+.0f}")))
 
@@ -269,11 +268,11 @@ class Sensor(object):
             debug_list.append(reading) # store weight for debug display
             total_reading = total_reading + reading
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             output_string = "get_weight readings [ {} ] completed at {:.3f} secs."
             print( output_string.format(list_to_string(debug_list, "{:+.0f}"), time.process_time() - t_start))
 
-        return total_reading / self.setting["WEIGHT_FACTOR"] # grams
+        return total_reading / self.settings["WEIGHT_FACTOR"] # grams
 
 
     # ----------------------------------------------------------------------
@@ -293,10 +292,9 @@ class Sensor(object):
         #LCD.LCD_PageImage(image)
         LCD.display(image)
 
-        if self.setting["LOG_LEVEL"] == 1:
-            print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
+        print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
-        self.bar = LCD.add_chart()
+        self.chart = LCD.add_chart()
 
         return LCD
 
@@ -306,9 +304,9 @@ class Sensor(object):
     def draw_value(self, value):
         # create a blank image to write the weight on
         image = Image.new( "RGB",
-                           ( self.setting["WEIGHT_WIDTH"],
-                             self.setting["WEIGHT_HEIGHT"]),
-                           self.setting["WEIGHT_COLOR_BG"])
+                           ( self.settings["WEIGHT_WIDTH"],
+                             self.settings["WEIGHT_HEIGHT"]),
+                           self.settings["WEIGHT_COLOR_BG"])
 
         draw = ImageDraw.Draw(image)
 
@@ -325,24 +323,24 @@ class Sensor(object):
         string_width, string_height = draw.textsize(draw_string, font=FONT)
 
         # embed this number into the blank image we created earlier
-        draw.text((self.setting["WEIGHT_WIDTH"]-string_width-self.setting["WEIGHT_RIGHT_MARGIN"],0),
+        draw.text((self.settings["WEIGHT_WIDTH"]-string_width-self.settings["WEIGHT_RIGHT_MARGIN"],0),
                 draw_string,
-                fill = self.setting["WEIGHT_COLOR_FG"],
+                fill = self.settings["WEIGHT_COLOR_FG"],
                 font=FONT)
 
         # display image on screen at coords x,y. (0,0)=top left.
         LCD.display_window(image,
-                        self.setting["WEIGHT_X"],
-                        self.setting["WEIGHT_Y"],
-                        self.setting["WEIGHT_WIDTH"],
-                        self.setting["WEIGHT_HEIGHT"])
+                        self.settings["WEIGHT_X"],
+                        self.settings["WEIGHT_Y"],
+                        self.settings["WEIGHT_WIDTH"],
+                        self.settings["WEIGHT_HEIGHT"])
 
     # -------------------------------------------------------------------
     # ------ DRAW DEBUG READINGS ON LCD       ---------------------------
     # -------------------------------------------------------------------
     def draw_debug(self):
         # display a two-line debug display of the weights from both load cells
-        if self.setting["LOG_LEVEL"] <= 2:
+        if self.settings["LOG_LEVEL"] <= 2:
             image = Image.new("RGB", (160, 40), "BLACK")
             draw = ImageDraw.Draw(image)
 
@@ -367,14 +365,14 @@ class Sensor(object):
 
         t_start = time.process_time()
 
-        if ts - self.prev_lcd_time > 1:
-            sample_value, offset = self.reading_buffer.median(0,1) # get median weight value for 1 second
+        if (self.prev_lcd_time is None) or (ts - self.prev_lcd_time > 1):
+            sample_value, offset = self.sample_buffer.median(0,1) # get median weight value for 1 second
             if not sample_value == None:
                 self.draw_value(sample_value)
 
-            self.prev_lcd_time = now
+            self.prev_lcd_time = ts
 
-            if self.setting["LOG_LEVEL"] == 1:
+            if self.settings["LOG_LEVEL"] == 1:
                 if sample_value == None:
                     print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
                 else:
@@ -386,20 +384,22 @@ class Sensor(object):
         # ------ ADD CURRENT WEIGHT TO BAR CHART   --------------------------
         # -------------------------------------------------------------------
 
-        latest_sample = self.reading_buffer.get(0)
+        latest_sample = self.sample_buffer.get(0)
         if not latest_sample == None:
             # debug: need to link these constants to the actual bar settings...
             BAR_MAX_G = 5000
             BAR_MAX_Y = 40
-            bar_height = math.floor(latest_sample["value"] / BAR_MAX_G * BAR_MAX_Y)
+
+            # Create a bar height proportional to the value, capped at bottom and top of chart.
+            bar_height = math.floor(latest_sample["value"] / BAR_MAX_G * BAR_MAX_Y )
 
             if bar_height > BAR_MAX_Y:
                 bar_height = BAR_MAX_Y
-            elif bar_height < 0:
-                bar_height = 0
+            elif bar_height < 1:
+                bar_height = 1
 
             # This is a bar-per-sample. Could use time on x-axis.
-            self.bar.next(bar_height)
+            self.chart.next(bar_height)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -411,11 +411,11 @@ class Sensor(object):
     # post_data is a python dictionary to be converted to json.
     def send_data(self, post_data):
         try:
-            print("send_data() to {}".format(self.setting["FEEDMAKER_URL"]))
+            print("send_data() to {}".format(self.settings["FEEDMAKER_URL"]))
             if not self.SIMULATION_MODE:
                 response = requests.post(
-                        self.setting["FEEDMAKER_URL"],
-                        headers={ self.setting["FEEDMAKER_HEADER_KEY"] : self.setting["FEEDMAKER_HEADER_VALUE"] },
+                        self.settings["FEEDMAKER_URL"],
+                        headers={ self.settings["FEEDMAKER_HEADER_KEY"] : self.settings["FEEDMAKER_HEADER_VALUE"] },
                         json=post_data
                         )
                 print("status code:",response.status_code)
@@ -429,12 +429,11 @@ class Sensor(object):
             print("send_data() error with {}".format(post_data))
             print(e)
 
-    def send_weight(self, weight_g):
-        now = time.time()
+    def send_weight(self, ts, weight_g):
         post_data = {  'msg_type': 'coffee_pot_weight',
-                    'request_data': [ { 'acp_id': self.setting["SENSOR_ID"],
-                                        'acp_type': self.setting["SENSOR_TYPE"],
-                                        'acp_ts': now,
+                    'request_data': [ { 'acp_id': self.settings["SENSOR_ID"],
+                                        'acp_type': self.settings["SENSOR_TYPE"],
+                                        'acp_ts': ts,
                                         'acp_units': 'GRAMS',
                                         'weight': math.floor(weight_g+0.5), # rounded to integer grams
                                         'version': VERSION
@@ -443,12 +442,11 @@ class Sensor(object):
                 }
         self.send_data(post_data)
 
-    def send_event(self, event_code):
-        now = time.time()
-        post_data = {  'msg_type': 'coffee_pot_event',
-                    'request_data': [ { 'acp_id': self.setting["SENSOR_ID"],
-                                        'acp_type': self.setting["SENSOR_TYPE"],
-                                        'acp_ts': now,
+    def send_event(self, ts, event_code):
+        post_data = { 'msg_type': 'coffee_pot_event',
+                    'request_data': [ { 'acp_id': self.settings["SENSOR_ID"],
+                                        'acp_type': self.settings["SENSOR_TYPE"],
+                                        'acp_ts': ts,
                                         'event_code': event_code,
                                         'version': VERSION
                                         }
@@ -469,7 +467,7 @@ class Sensor(object):
     # True if median for 1 second is 3400 grams +/- 400
     # Returns tuple <Test true/false>, < next offset >
     def test_full(self,offset):
-        m, next_offset = self.reading_buffer.median(offset, 1)
+        m, next_offset = self.sample_buffer.median(offset, 1)
         if not m == None:
             return (abs(m - 3400) < 400), next_offset
         else:
@@ -479,23 +477,34 @@ class Sensor(object):
     # True if median for 3 seconds is 0 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
     def test_removed(self,offset):
-        m, next_offset = self.reading_buffer.median(offset, 3)
+        m, next_offset = self.sample_buffer.median(offset, 3)
         if not m == None:
             return (abs(m) < 100), next_offset
         else:
             return None, None
 
-    def test_new(self, ts):
+    def test_event_new(self, ts):
         full, offset = self.test_full(0)
         removed, new_offset = self.test_removed(offset)
         if removed and full:
-            print("NEW POT EVENT")
+            latest_event = self.event_buffer.get(0)
+            if ((latest_event is None) or
+               (latest_event["value"] != EVENT_NEW) or
+               (ts - latest_event["ts"] > 600 )):
+                return EVENT_NEW
+            else:
+                return None
+        else:
+            return None
 
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
     def test_event(self, ts):
-        self.test_new(ts)
-        return
+        event = self.test_event_new(ts)
+        if not event is None:
+            self.event_buffer.put(ts, event)
+            self.send_event(ts, event)
+        return event
 
     # --------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------
@@ -508,16 +517,13 @@ class Sensor(object):
     # --------------------------------------------------------------------------------------
     def process_sample(self, ts, value):
 
-        print("process_sample",ts, value)
-
         t_start = time.process_time()
 
-
-        if self.setting["LOG_LEVEL"] == 1:
-            print("loop got weight {:.1f} at {:.3f} secs.".format(value, time.process_time() - t_start))
+        if self.settings["LOG_LEVEL"] == 1:
+            print("process_sample got value {:.1f} at {:.3f} secs.".format(value, time.process_time() - t_start))
 
         # store weight and time in sample_history
-        self.reading_buffer.put(ts, value)
+        self.sample_buffer.put(ts, value)
 
         #----------------
         # UPDATE LCD
@@ -535,29 +541,32 @@ class Sensor(object):
         # SEND DATA TO PLATFORM
         # ---------------------
 
+        if self.prev_send_time is None:
+            self.prev_send_time = ts
+
         if ts - self.prev_send_time > 30:
-            sample_value, offset = self.reading_buffer.median(0,2) # from latest ts, back 2 seconds
+            sample_value, offset = self.sample_buffer.median(0,2) # from latest ts, back 2 seconds
 
             if not sample_value == None:
-                print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(now)))
+                print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(ts)))
 
-                self.send_weight(sample_value)
+                self.send_weight(ts, sample_value)
 
                 self.prev_send_time = ts
 
-                if self.setting["LOG_LEVEL"] == 1:
-                    print("loop send data at {:.3f} secs.".format(time.process_time() - t_start))
+                if self.settings["LOG_LEVEL"] == 1:
+                    print("process_sample send data at {:.3f} secs.".format(time.process_time() - t_start))
             else:
-                print("loop send data NOT SENT as data value None")
+                print("process_sample send data NOT SENT as data value None")
 
-        if self.setting["LOG_LEVEL"] == 1:
+        if self.settings["LOG_LEVEL"] == 1:
             print ("WEIGHT {:5.1f}, {}".format(value, time.ctime(ts)))
 
         #hx.power_down()
         #hx.power_up()
 
-        if self.setting["LOG_LEVEL"] == 1:
-            print("loop time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
+        if self.settings["LOG_LEVEL"] == 1:
+            print("process_sample time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
