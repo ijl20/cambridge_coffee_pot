@@ -399,7 +399,8 @@ class Sensor(object):
                 bar_height = 1
 
             # This is a bar-per-sample. Could use time on x-axis.
-            self.chart.next(bar_height)
+            #self.chart.next(bar_height)
+            self.chart.add_time(ts, bar_height)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------

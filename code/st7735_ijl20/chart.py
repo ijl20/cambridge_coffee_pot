@@ -2,6 +2,18 @@
 # Chart - bar or points
 # ---------------------------
 
+"""
+Creates a bar chart or point plot across LCD,
+with samples or time on the x-axis.
+
+Is designed to be efficient when adding one point at a time by updating the minimum screen area.
+
+Note that variables (x,y) generally refer to DISPLAY AREA coordinates (i.e. within 160x128)
+while variables (bx,by) refer to coordinates within the CHART AREA.
+"""
+
+import math
+
 # Default settings for Bar object
 DEFAULT_CHART = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords and width, height.
                 "step": 1,             # 'pixels': how many pixels to step in x direction for next()
@@ -30,7 +42,7 @@ class Chart(object):
             self.settings = settings
 
         self.prev_time = None # will hold timestamp of previous add_time() value
-        self.prev_x = None    # will hold x offset (pixels) for previous add_time() value
+        self.prev_bx = None    # will hold x offset (pixels) for previous add_time() value
 
         # Initial x offset for next() column
         self.next_bx = 0
@@ -84,11 +96,18 @@ class Chart(object):
         return pixelbytes
 
 
-    # Clear the bar to all black
-    def clear(self):
+    # Clear the chart from bx to bx+w with bg_color
+    # Defaults to clearing whole chart area
+    def clear(self, cx=0, cw=None):
+        if cw is None:
+            cw = self.settings["w"]
+
+        # Convert chart bx coordinate to screen x coordinate:
+        x = self.settings["x"] + cx
+
         # Build list of required number of bytes (2 bytes = 1 pixel in 565 RGB)
-        pixelbytes = [ 0x00 ] * 2 * self.settings["w"] * self.settings["h"]
-        self.lcd.set_window( self.settings["x"], self.settings["y"], self.settings["w"], self.settings["h"] )
+        pixelbytes = self.settings["bg_color"] * cw * self.settings["h"]
+        self.lcd.set_window( x, self.settings["y"], cw, self.settings["h"] )
         self.lcd.send_data(pixelbytes)
 
     # Display an image in the bar.
@@ -129,12 +148,10 @@ class Chart(object):
         self.next_bx = (self.next_bx + self.settings["step"]) % self.settings["w"]
 
     # Add a column (or point) to the chart, given the timestamp and 'by' value
-    def add_time(ts, by):
+    def add_time(self, ts, by):
         # If this is the first value on the chart, start at x offset = 0.
-        if self.prev_x is None:
-            self.prev_x = 0
-            self.prev_ts = ts
-            self.add(0, by)
+        if self.prev_bx is None:
+            bx = 0
 
         # We will fill in an area from the previous point to this one.
         else:
@@ -142,16 +159,38 @@ class Chart(object):
             x_adj = math.floor((ts - self.prev_ts) / self.settings["time_scale"] + 0.5)
 
             # convert to absolute x position of new point, even though it might overspill bar area
-            x_offset = self.prev_x + x_adj
+            bx = self.prev_bx + x_adj
 
-            # if new point is off end of bar chart, fill columns after prev_x with bg_color
-            # Note coordinates for set_windor are LCD coords, not just within chart area
-            if x_offset > self.settings["w"]:
-                x = self.settings["x"] + self.prev_x + self.settings["bar_width"]
-                w = self.settings["w"] - self.prev_x - self.settings["bar_width"]
+            # we now need to clear areas, and add new point
+            if bx < self.settings["w"]:
+                # New point is a simple follow-on from prev_bx within chart width, we
+                # clear from the prev_bx to the new bx and draw new point at bx.
+                cx = self.prev_bx + self.settings["bar_width"]
+                cw = bx - self.prev_bx - self.settings["bar_width"]
+                self.clear(cx,cw)
+            else:
+                # New point has wrapped off end of chart
+                if bx - self.settings["w"] < self.prev_bx:
+                    # New point is beyond w but less than a full chart width further.
+                    # so we clear from prev_bx + bar_width to w
+                    cx = self.prev_bx + self.settings["bar_width"]
+                    cw = self.settings["w"] - self.prev_bx + self.settings["bar_width"]
+                    self.clear(cx,cw)
+                    bx = bx - self.settings["w"]
+                else:
+                    # New point is a whole chart width wrapped around from previous point.
+                    # So we clear from bx % chart width to w
+                    bx = bx % self.settings["w"]
+                    cx = bx + self.settings["bar_width"]
+                    cw = self.settings["w"] - bx - self.settings["bar_width"]
+                    self.clear(cx,cw)
 
-                self.lcd.set_window( x, self.settings["y"], w, self.settings["h"] )
+                # clear from left edge up to wrapped point
+                self.clear(0,bx)
 
-                pixelbytes = self.settings["bg_color"] * (x2 - x1) *  h
+        # add point
+        self.add(bx,by)
 
-                self.lcd.send_data(pixelbytes)
+        self.prev_bx = bx
+        self.prev_ts = ts
+

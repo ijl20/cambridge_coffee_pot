@@ -41,7 +41,7 @@ class ST7735_EMULATOR(object):
                  bl=LCD_BL_PIN,
                  width=LCD_WIDTH,
                  height=LCD_HEIGHT,
-                 scale=2):
+                 scale=4):
         """
         This emulator is suitable for display updates using the same methods as st7735_ijl20.st7735
 
