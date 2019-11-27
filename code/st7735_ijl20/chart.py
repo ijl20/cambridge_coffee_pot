@@ -7,7 +7,7 @@ DEFAULT_CHART = { "x": 0, "y": 0, "w": 160, "h": 40, # 'pixels' top-left coords 
                 "step": 1,             # 'pixels': how many pixels to step in x direction for next()
                 "time_scale": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
                 "bar_width": 1,        # 'pixels', width of value column
-                "point_height": 2,  # 'pixels', will display point of this height, not column to x-axis
+                "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
                 "cursor_width": 4,     # 'pixels', width of scrolling cursor
                 "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
                 "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
