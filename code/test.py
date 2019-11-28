@@ -8,18 +8,13 @@ from sensor import Sensor
 
 from sensor_utils import list_to_string
 
-# loads settings from sensor.json or argv[1]
-CONFIG_FILENAME = "sensor_config.json"
-
-# Use default filename OR one given as argument
-filename = CONFIG_FILENAME
-
 print("test.py started with {} arguments: [{}]".format(len(sys.argv), list_to_string(sys.argv)))
 
 if len(sys.argv) > 1 :
     filename = sys.argv[1]
-
-config = Config(filename)
+    config = Config(filename)
+else:
+    config = Config(None)
 
 s = Sensor(settings = config.settings)
 
@@ -34,3 +29,4 @@ t = TimeBuffer(settings=config.settings)
 t.load('../data/2019-11-22_readings.csv')
 
 t.play(s.process_sample, realtime=True)
+
