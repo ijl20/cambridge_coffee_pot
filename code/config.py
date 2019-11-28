@@ -7,39 +7,31 @@
 
 import simplejson as json
 
-# These config valued proved defaults, as the config file will be merged in.
-DEFAULT_CONFIG = {
-    "LOG_LEVEL": 1, # 1 = debug, 2 = info
-    # filename to persist scales tare values
-    "TARE_FILENAME": "sensor_tare.json",
-    "WEIGHT_FACTOR": 412, # reading per gram
-
-    # LCD panel size in pixels (0,0) is top left
-    "LCD_WIDTH": 160,                # LCD panel width in pixels
-    "LCD_HEIGHT": 128,               # LCD panel height
-
-    # Pixel size and coordinates of the 'Weight' display
-    "WEIGHT_HEIGHT": 40,
-    "WEIGHT_WIDTH": 160,
-    "WEIGHT_COLOR_FG": "WHITE",
-    "WEIGHT_COLOR_BG": "BLACK",
-    "WEIGHT_X": 0,
-    "WEIGHT_Y": 60,
-    "WEIGHT_RIGHT_MARGIN": 10
-    }
-
+# loads settings from sensor.json or argv[1]
+CONFIG_FILENAME = "sensor_config.json"
 
 class Config(object):
 
-    def __init__(self,filename):
+    def __init__(self,filename=None):
 
         try:
-            config_file_handle = open(filename, "r")
-            file_text = config_file_handle.read()
-            config_dictionary = json.loads(file_text)
-            config_file_handle.close()
+            # Always load "sensor_config.json"
+            prod_file_handle = open(CONFIG_FILENAME, "r")
+            prod_text = prod_file_handle.read()
+            prod_dictionary = json.loads(prod_text)
+            prod_file_handle.close()
+
+            if not filename is None:
+                # But overlay with values from given filename
+                config_file_handle = open(filename, "r")
+                file_text = config_file_handle.read()
+                config_dictionary = json.loads(file_text)
+                config_file_handle.close()
+            else:
+                config_dictionary = {}
+
             # here's the clever bit... merge entries from file in to CONFIG dictionary
-            self.settings = { **DEFAULT_CONFIG, **config_dictionary }
+            self.settings = { **prod_dictionary, **config_dictionary }
             print("Config loaded {} LOG_LEVEL={}".format(filename,self.settings["LOG_LEVEL"]))
 
         except Exception as e:

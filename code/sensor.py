@@ -224,12 +224,12 @@ class Sensor(object):
             # Here we initialize the 'empty weight' settings
             tare_list.append( hx.tare_A() )
 
-        if self.settings["LOG_LEVEL"] == 1:
-            print("tare_scales readings [ {} ] completed at {:.3f} secs.".format( list_to_string(tare_list, "{:+.0f}"),
+        print("tare_scales readings [ {} ] completed at {:.3f} secs.".format( list_to_string(tare_list, "{:+.0f}"),
                                                                                 time.process_time() - t_start))
 
         # If the tare_list is 'ok' (i.e. within bounds) we will write it to the tare file and return it as the result
         if self.tare_ok(tare_list):
+            print("tare_scales updating tare file.")
             self.write_tare_file(tare_list)
             return tare_list
 
@@ -245,9 +245,8 @@ class Sensor(object):
             hx.set_offset_A(tare_list[i])
             i += 1
 
-        if self.settings["LOG_LEVEL"] == 1:
-            output_string = "tare_scales readings out of range, using persisted values [ {} ]"
-            print(output_string.format(list_to_string(tare_list,"{:+.0f}")))
+        output_string = "tare_scales readings out of range, using persisted values [ {} ]"
+        print(output_string.format(list_to_string(tare_list,"{:+.0f}")))
 
         return tare_list
 

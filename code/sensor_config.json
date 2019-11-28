@@ -18,7 +18,7 @@
     "WEIGHT_RIGHT_MARGIN": 10,
 
     "TARE_WIDTH": 100000,
-    "TARE_READINGS": [ -504000, 431000, -213000, 568000 ],
+    "TARE_READINGS": [ -82500, 40000, 59500, 257500 ],
 
     "FEEDMAKER_URL": "https://tfc-app2.cl.cam.ac.uk/test/feedmaker/test/general",
     "FEEDMAKER_HEADER_KEY": "X-Auth-Token",
