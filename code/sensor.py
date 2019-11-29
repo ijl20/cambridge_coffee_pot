@@ -251,15 +251,19 @@ class Sensor(object):
                 }
         self.send_data(post_data)
 
-    def send_event(self, ts, event_code):
+    def send_event(self, ts, event_data):
+
+        message_data = { 'acp_id': self.settings["SENSOR_ID"],
+                         'acp_type': self.settings["SENSOR_TYPE"],
+                         'acp_ts': ts,
+                         'version': VERSION
+                       }
+
+        # merge dictionaries
+        message_data = { **message_data, **event_data }
+
         post_data = { 'msg_type': 'coffee_pot_event',
-                    'request_data': [ { 'acp_id': self.settings["SENSOR_ID"],
-                                        'acp_type': self.settings["SENSOR_TYPE"],
-                                        'acp_ts': ts,
-                                        'event_code': event_code,
-                                        'version': VERSION
-                                        }
-                                    ]
+                    'request_data': [ message_data ]
                 }
         self.send_data(post_data)
 
@@ -293,26 +297,49 @@ class Sensor(object):
             return None, None
 
     def test_event_new(self, ts):
+        # Is the pot full now ?
         full, offset = self.test_full(0)
+
+        # Was it removed before ?
         removed, new_offset = self.test_removed(offset)
+
         if removed and full:
             latest_event = self.event_buffer.get(0)
             if ((latest_event is None) or
                (latest_event["value"] != EVENT_NEW) or
                (ts - latest_event["ts"] > 600 )):
                 return EVENT_NEW
-            else:
-                return None
-        else:
-            return None
+
+        return None
+
+    def test_event_removed(self, ts):
+        # Is the pot removed now ?
+        removed_now, offset = self.test_removed(0)
+
+        # Was it removed before ?
+        removed_before, new_offset = self.test_removed(offset)
+
+        if removed_now and not removed_before:
+            latest_event = self.event_buffer.get(0)
+            if ((latest_event is None) or
+               (latest_event["value"] != EVENT_REMOVED) or
+               (ts - latest_event["ts"] > 600 )):
+                return EVENT_REMOVED
+
+        return None
 
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
-    def test_event(self, ts):
-        event = self.test_event_new(ts)
-        if not event is None:
-            self.event_buffer.put(ts, event)
-            self.send_event(ts, event)
+    def test_event(self, ts, weight_g):
+        for test in [ self.test_event_new,
+                      self.test_event_removed
+                    ]:
+            event = test(ts)
+            if not event is None:
+                self.event_buffer.put(ts, event)
+                self.send_event(ts, { "event_code": event, "weight": weight_g } )
+                break
+
         return event
 
     # --------------------------------------------------------------------------------------
@@ -344,7 +371,7 @@ class Sensor(object):
         # SEND EVENT TO PLATFORM
         # ----------------------
 
-        self.test_event(ts)
+        self.test_event(ts, value)
 
         # ---------------------
         # SEND DATA TO PLATFORM
