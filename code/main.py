@@ -9,6 +9,8 @@ import time
 
 from sensor import Sensor
 
+from weight_sensor import WeightSensor
+
 from config import Config
 
 from sensor_utils import list_to_string
@@ -33,6 +35,8 @@ if __name__ == "__main__":
 
     s = Sensor(settings = config.settings)
 
+    weight_sensor = WeightSensor(config.settings)
+
     # Infinite loop until killed, reading weight and sending data
     try:
         while True:
@@ -41,7 +45,7 @@ if __name__ == "__main__":
             # ---------------
 
             # get readings from all load cells
-            value = s.get_weight()
+            value = weight_sensor.get_value()
 
             # ---------------
             # PROCESS READING
