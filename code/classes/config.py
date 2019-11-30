@@ -8,7 +8,7 @@
 import simplejson as json
 
 # loads settings from sensor.json or argv[1]
-CONFIG_FILENAME = "sensor_config.json"
+CONFIG_FILENAME = "config/sensor_config.json"
 
 class Config(object):
 

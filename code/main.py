@@ -7,13 +7,13 @@
 import sys
 import time
 
-from sensor import Sensor
+from classes.sensor import Sensor
 
-from weight_sensor import WeightSensor
+from classes.weight_sensor import WeightSensor
 
-from config import Config
+from classes.config import Config
 
-from sensor_utils import list_to_string
+from classes.sensor_utils import list_to_string
 
 VERSION = "0.40"
 

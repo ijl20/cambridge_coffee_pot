@@ -1,12 +1,12 @@
 import sys
 
-from time_buffer import TimeBuffer
+from classes.time_buffer import TimeBuffer
 
-from config import Config
+from classes.config import Config
 
-from sensor import Sensor
+from classes.sensor import Sensor
 
-from sensor_utils import list_to_string
+from classes.sensor_utils import list_to_string
 
 print("test.py started with {} arguments: [{}]".format(len(sys.argv), list_to_string(sys.argv)))
 

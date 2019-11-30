@@ -5,11 +5,16 @@ the receiving system.
 
 ## Key concepts:
 
+*real-time*: This is the concept of processing information without delay. The typical default behaviour of sensors
+to send their data periodically, say once a minute (or whatever) automatically introduces a possible delay of, say, 59 seconds
+for an important reading. Attempting to address this problem by simply tweaking the transmit period is lazy and ultimately
+ineffective.
+
 *readings*: The actual sensor measurements, taken as frequently as is reasonable. I.e. the sensor will typically
 be able to measure stuff more frequently than it might be expected to send it back to a server. Most sensors today
 periodically (once a second, once a minute, once an hour, or whatever) send their most recent reading (or some
 average, or other derived value) back to a server where it can be stored for programs or people later to look at
-it.
+it. We can do better than that, and *immediately* send information as soon as it seems relevant
 
 *events*: This is the essential advance in the framework, with the expectation the sensor is designed to be
 smart enough to recognize meaningful situations reflected by the sensor readings. Examples for the Cambridge
@@ -24,6 +29,23 @@ query the data and process it. The vast majority of existing systems process inc
 a customer order, a traffic light failure report), with separate program periodically checking to see if any
 customers have ordered anything or any traffic lights have been reported broken.
 
+## Directories
+
+`cambridge_coffee_pot/code` contains `main.py`, the main program to run the sensor.
+
+`cambridge_coffee_pot/classes` contains the various Python classes that define the sensor, such as `WeightSensor`.
+.
+`cambridge_coffee_pot/config` contains JSON configuration files i.e. startup settings are in:
+```
+cambridge_coffee_pot/config/sensor_config.json
+```
+The sensor may persist values (like the 'tare' reading for the load cells) into the `cambridge_coffee_pot/config`
+directory.
+
+`cambridge_coffee_pot/st7735_ijl20` contains the library classes for the LCD display.
+
+`cambridge_coffee_pot/hx711_ijl20` contains the library classes for the load cells.
+
 ## main.py
 
 Provides the outermost application code which instantiates the required classes (i.e. Config, Sensor)
@@ -35,18 +57,24 @@ Creates a Config() object with a 'settings' dictionary with values loaded from a
 
 ## sensor.py
 
-Links to the required libraries and reads the data from the sensors.
-
 Stores the loaded data in a TimeBuffer.
 
 Provides the `process_sample` function to process the data, which will look at the current value and
 also some range of previous values to decide whether an EVENT has occurred.
 
+## weight_sensor.py
+
+Links to the required libraries and reads the data from the load cell sensors.
+
+## display.py
+
+Links the required libraries and writes on the LCD display (or an emulated one).
+
 ## sensor_utils.py
 
 Contains generally useful functions and classes, such as `string = list_to_string(list)`.
 
-## TimeBuffer
+## time_buffer.py
 
 Implements a circular buffer of <*time*, *value*> pairs which can be stored and retrieved with
 `put` and `get` and also useful functions are provided which operate in the time dimension, e.g.
@@ -202,13 +230,13 @@ See `test.py`
 ```
 import sys
 
-from time_buffer import TimeBuffer
+from classes.time_buffer import TimeBuffer
 
-from config import Config
+from classes.config import Config
 
-from sensor import Sensor
+from classes.sensor import Sensor
 
-from sensor_utils import list_to_string
+from classes.sensor_utils import list_to_string
 
 print("test.py started with {} arguments: [{}]".format(len(sys.argv), list_to_string(sys.argv)))
 
@@ -231,5 +259,6 @@ t = TimeBuffer(settings=config.settings)
 t.load('../data/2019-11-22_readings.csv')
 
 t.play(s.process_sample, realtime=True)
+
 ```
 

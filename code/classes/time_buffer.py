@@ -306,7 +306,7 @@ class TimeBuffer(object):
             sample = self.get(next_offset)
 
             if sample == None:
-                if self.settings["LOG_LEVEL"] <= 2:
+                if self.settings["LOG_LEVEL"] == 1:
                     print("median looked back to None value")
                 # we've exhausted the values in the partially filled buffer
                 break
@@ -321,7 +321,7 @@ class TimeBuffer(object):
 
         # If we didn't get enough samples, return with error
         if len(value_list) < 3:
-            if self.settings["LOG_LEVEL"] <= 2:
+            if self.settings["LOG_LEVEL"] == 1:
                 print("median not enough samples ({})".format(len(value_list)))
             return None, None, None
 
