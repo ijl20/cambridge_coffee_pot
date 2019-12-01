@@ -16,10 +16,10 @@
 #
 # b.load_readings_file(filename): will reset buffer and load ts,value data from CSV file.
 #
-# b.average_time(time_offset, duration): find average value for
+# b.mean_time(time_offset, duration): find mean value for
 #   'duration' seconds ending time_offset seconds before latest reading
 #
-# b.median_time(time_offset, duration): as average_time, but return median value
+# b.median_time(time_offset, duration): as mean_time, but return median value
 #
 # ---------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------
@@ -210,10 +210,10 @@ class TimeBuffer(object):
     # Calculate the average value recorded over the previous 'duration' seconds from time_offset seconds.
     # Returns a tuple of <average value>, <index> where <index> is the sample_history offset
     # one sample earlier than the offset & duration selected.
-    # E.g. average_time(0,3) will find the average value of the most recent 3 seconds.
+    # E.g. mean_time(0,3) will find the average value of the most recent 3 seconds.
     # average_time(2,1) will find average during 1 second duration ending 2 seconds ago.
     # Return value is from self.average(...)
-    def average_time(self, time_offset, duration):
+    def mean_time(self, time_offset, duration):
         if self.settings["LOG_LEVEL"] == 1:
             print("average_time time_offset={}, duration={}".format(time_offset, duration))
 
@@ -221,12 +221,12 @@ class TimeBuffer(object):
 
         return self.average(offset, duration)
 
-    # average() is like average_time() but uses an INDEX offset rather than time offset
+    # mean() is like mean_time() but uses an INDEX offset rather than time offset
     # Returns tuple (average_value, next_offset, sample_count)
     # where average_value = calculated mean
     #       next_offset = offset in buffer of 1st sample older than latest - duration
     #       sample_count = how many buffer values were used when calculating mean value
-    def average(self, offset, duration):
+    def mean(self, offset, duration):
         # lookup the first value to get that value (grams) and timestamp
         sample = self.get(offset)
         if sample == None:
@@ -335,31 +335,31 @@ class TimeBuffer(object):
 
         return median_value, next_offset, len(value_list)
 
-    # std_time() returns the standard deviation of a set of values.
+    # deviation_time() returns the deviation of a set of values.
     # Parameters:
     #       time_offset: offset in seconds from the most recent sample
     #       duration: time in seconds over which samples will be included
     #       mean: average value to use in standard deviation calculation
     # Returns:
-    #   the values provided by std()
-    def std_time(self, time_offset, duration, mean):
+    #   the values provided by deviation()
+    def deviation_time(self, time_offset, duration, mean):
         if self.settings["LOG_LEVEL"] == 1:
-            print("std_time time_offset={}, duration={}".format(time_offset, duration))
+            print("deviation_time time_offset={}, duration={}".format(time_offset, duration))
 
         offset = self.time_to_offset(time_offset)
 
-        return self.std(offset, duration, mean)
+        return self.deviation(offset, duration, mean)
 
-    # std() returns the Standard Deviation of a set of values
+    # deviation() returns the deviation of a set of values around a provided value
     # parameters:
     #       offset: index offset where latest sample = 0, previous = 1 etc
     #       duration: time in seconds over which to find the standard deviation
-    #       mean: average about which to calculate the standard deviation
-    # Returns tuple (std_value, next_offset, sample_count)
-    # where std_value = calculated mean
+    #       mean: average about which to calculate the deviation
+    # Returns tuple (deviation_value, next_offset, sample_count)
+    # where deviation_value = calculated deviation
     #       next_offset = offset in buffer of 1st sample older than latest - duration
     #       sample_count = how many buffer values were used when calculating mean value
-    def std(self, offset, duration, mean):
+    def deviation(self, offset, duration, mean):
         # lookup the first value to get that value (grams) and timestamp
         sample = self.get(offset)
         if sample == None:
@@ -385,10 +385,11 @@ class TimeBuffer(object):
             sample_count += 1
 
         # Using sample_count (not sample_count - 1) as divisor in case user wants deviation of 1 sample.
-        standard_deviation = (total_variance / sample_count) ** 0.5
+        deviation = (total_variance / sample_count) ** 0.5
 
         if self.settings["LOG_LEVEL"] == 1:
-            print("standard deviation {} with {} samples".format(standard_deviation,
+            print("standard deviation {} with {} samples".format(deviation,
                                                                  sample_count))
 
-        return standard_deviation, next_offset, sample_count
+        return deviation, next_offset, sample_count
+

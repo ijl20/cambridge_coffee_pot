@@ -8,14 +8,14 @@ def pour_test(time_buffer, offset):
     for i in range(POUR_TEST_SECONDS):
         # get one-second median
         median, next_offset, sample_count = time_buffer.median(current_offset, 1)
-        std, next_offset, sample_count = time_buffer.std(current_offset, 1, median)
+        dev, next_offset, sample_count = time_buffer.deviation(current_offset, 1, median)
         current_offset = next_offset
-        seconds.append( { "med": median, "std": std, "count": sample_count } )
+        seconds.append( { "med": median, "dev": dev, "count": sample_count } )
 
     print(seconds)
 
     # COFFEE_POURED == False if current 1 second weight not stable
-    if seconds[0]["std"] > 30:
+    if seconds[0]["dev"] > 30:
         print("not stable now")
         return None
 
@@ -28,13 +28,13 @@ def pour_test(time_buffer, offset):
             continue
 
         med_delta = seconds[i]["med"] - seconds[0]["med"]
-        if push_detected and seconds[i]["std"] < 30 and med_delta > 100 and med_delta < 500:
+        if push_detected and seconds[i]["dev"] < 30 and med_delta > 100 and med_delta < 500:
             print("EVENT POURED {:.1f} from {} at {}".format( med_delta, i, now - time_buffer.get(offset)["ts"]))
             return "EVENT_POURED"
 
     return None
 
-from time_buffer import TimeBuffer
+from classes.time_buffer import TimeBuffer
 
 t = TimeBuffer()
 
@@ -42,3 +42,4 @@ t.load('../data/2019-11-22_readings.csv')
 
 for i in range(200):
     pour_test(t, i)
+

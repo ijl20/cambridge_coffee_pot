@@ -33,18 +33,18 @@ customers have ordered anything or any traffic lights have been reported broken.
 
 `cambridge_coffee_pot/code` contains `main.py`, the main program to run the sensor.
 
-`cambridge_coffee_pot/classes` contains the various Python classes that define the sensor, such as `WeightSensor`.
+`cambridge_coffee_pot/code/classes` contains the various Python classes that define the sensor, such as `WeightSensor`.
 .
-`cambridge_coffee_pot/config` contains JSON configuration files i.e. startup settings are in:
+`cambridge_coffee_pot/code/config` contains JSON configuration files i.e. startup settings are in:
 ```
-cambridge_coffee_pot/config/sensor_config.json
+cambridge_coffee_pot/code/config/sensor_config.json
 ```
 The sensor may persist values (like the 'tare' reading for the load cells) into the `cambridge_coffee_pot/config`
 directory.
 
-`cambridge_coffee_pot/st7735_ijl20` contains the library classes for the LCD display.
+`cambridge_coffee_pot/code/st7735_ijl20` contains the library classes for the LCD display and emulator.
 
-`cambridge_coffee_pot/hx711_ijl20` contains the library classes for the load cells.
+`cambridge_coffee_pot/code/hx711_ijl20` contains the library classes for the load cells.
 
 ## main.py
 
@@ -213,15 +213,27 @@ This will provide `median_1` and `median_2` for the data samples from the most r
 buffer. For the coffee pot a transition from approximately zero to approximately 3400 would suggest a new fresh pot of coffee has
 appeared.
 
-### Find the average value of a set of values in the TimeBuffer
+### Find the mean value of a set of values in the TimeBuffer
 
 ```
-value, next_offset = buffer.average(index_offset, duration)
+value, next_offset = buffer.mean(index_offset, duration)
 
-value, next_offset = buffer.average_time(time_offset, duration)
+value, next_offset = buffer.mean_time(time_offset, duration)
 ```
 
-Similar functions to `median` above, but returning the average value.
+Similar functions to `median` above, but returning the mean value.
+
+### Find the deviation of a set of values relative to a given value
+
+Returns the square root of ( the sum of the squared differences between each sample value
+and the provided `mean_value` ). I.e. will be the Standard Deviation if the provided `mean_value` is
+the arithmetic mean.
+
+```
+value, next_offset = buffer.deviation(index_offset, duration, mean_value)
+
+value, next_offset = buffer.deviation_time(time_offset, duration, mean_value)
+```
 
 ## Sensor and TimeBuffer replay of data
 
