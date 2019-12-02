@@ -109,7 +109,7 @@ class Display(object):
         t_start = time.process_time()
 
         if (self.prev_lcd_time is None) or (ts - self.prev_lcd_time > 1):
-            sample_value, offset, sample_count = sample_buffer.median(0,1) # get median weight value for 1 second
+            sample_value, offset, duration, sample_count = sample_buffer.median(0,1) # get median weight value for 1 second
             if not sample_value == None:
                 self.draw_value(sample_value)
 

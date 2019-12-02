@@ -135,7 +135,7 @@ class Sensor(object):
     # True if median for 1 second is 3400 grams +/- 400
     # Returns tuple <Test true/false>, < next offset >
     def test_full(self,offset):
-        m, next_offset, sample_count = self.sample_buffer.median(offset, 1)
+        m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
         if not m == None:
             return (abs(m - 3400) < 400), next_offset
         else:
@@ -145,7 +145,7 @@ class Sensor(object):
     # True if median for 3 seconds is 0 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
     def test_removed(self,offset):
-        m, next_offset, sample_count = self.sample_buffer.median(offset, 3)
+        m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 3)
         if not m == None:
             return (abs(m) < 100), next_offset
         else:
@@ -236,7 +236,7 @@ class Sensor(object):
             self.prev_send_time = ts
 
         if ts - self.prev_send_time > 30:
-            sample_value, offset, sample_count = self.sample_buffer.median(0,2) # from latest ts, back 2 seconds
+            sample_value, offset, duration, sample_count = self.sample_buffer.median(0,2) # from latest ts, back 2 seconds
 
             if not sample_value == None:
                 print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(ts)))

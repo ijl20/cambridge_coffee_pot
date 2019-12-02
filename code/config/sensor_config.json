@@ -4,8 +4,12 @@
 
     "SENSOR_ID": "cambridge_coffee_pot",
     "SENSOR_TYPE": "coffee_pot",
+
     "TARE_FILENAME": "config/sensor_tare.json",
     "WEIGHT_FACTOR": 374,
+    "TARE_WIDTH": 100000,
+    "TARE_READINGS": [ -82500, 40000, 59500, 257500 ],
+
     "LCD_WIDTH": 160,
     "LCD_HEIGHT": 128,
 
@@ -17,11 +21,10 @@
     "WEIGHT_Y": 80,
     "WEIGHT_RIGHT_MARGIN": 10,
 
-    "TARE_WIDTH": 100000,
-    "TARE_READINGS": [ -82500, 40000, 59500, 257500 ],
-
     "FEEDMAKER_URL": "https://tfc-app2.cl.cam.ac.uk/test/feedmaker/test/general",
     "FEEDMAKER_HEADER_KEY": "X-Auth-Token",
-    "FEEDMAKER_HEADER_VALUE": "testtoken"
+    "FEEDMAKER_HEADER_VALUE": "testtoken",
+
+    "SAMPLE_PERIOD": 0.1
 
 }

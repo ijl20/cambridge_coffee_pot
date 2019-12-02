@@ -186,9 +186,9 @@ Will return `None` if no reading is found (i.e. the `time_offset` is before the 
 ### Find the median value of a set of values in the TimeBuffer
 
 ```
-value, next_offset = buffer.median(index_offset, duration)
+value, next_offset, actual_duration, sample_count = buffer.median(index_offset, duration)
 
-value, next_offset = buffer.median_time(time_offset, duration)
+value, next_offset, actual_duration, sample_count = buffer.median_time(time_offset, duration)
 ```
 
 Will return the median value of a set of readings in the TimeBuffer. The difference between the two versions is whether
@@ -216,9 +216,9 @@ appeared.
 ### Find the mean value of a set of values in the TimeBuffer
 
 ```
-value, next_offset = buffer.mean(index_offset, duration)
+value, next_offset, actual_duration, sample_count = buffer.mean(index_offset, duration)
 
-value, next_offset = buffer.mean_time(time_offset, duration)
+value, next_offset, actual_duration, sample_count = buffer.mean_time(time_offset, duration)
 ```
 
 Similar functions to `median` above, but returning the mean value.
@@ -230,9 +230,9 @@ and the provided `mean_value` ). I.e. will be the Standard Deviation if the prov
 the arithmetic mean.
 
 ```
-value, next_offset = buffer.deviation(index_offset, duration, mean_value)
+value, next_offset, actual_duration, sample_count = buffer.deviation(index_offset, duration, mean_value)
 
-value, next_offset = buffer.deviation_time(time_offset, duration, mean_value)
+value, next_offset, actual_duration, sample_count = buffer.deviation_time(time_offset, duration, mean_value)
 ```
 
 ## Sensor and TimeBuffer replay of data
