@@ -131,6 +131,20 @@ class Sensor(object):
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
 
+    # Test if pot is EMPTY
+    # True if median for 1 second is 1400 grams +/- 100
+    # Returns tuple <Test true/false>, < next offset >
+    def test_empty(self,offset):
+        m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
+        if not m == None:
+            EMPTY_WEIGHT = 1400
+            EMPTY_MARGIN = 100
+            empty = abs(m - EMPTY_WEIGHT) < EMPTY_MARGIN
+            confidence = 1 - abs(m - EMPTY_WEIGHT) / EMPTY_MARGIN / 2
+            return (), next_offset, m, confidence
+        else:
+            return None, None, None, None
+
     # Test if pot is FULL
     # True if median for 1 second is 3400 grams +/- 400
     # Returns tuple <Test true/false>, < next offset >
@@ -138,9 +152,9 @@ class Sensor(object):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
         if not m == None:
             FULL_WEIGHT = 3400
-            MARGIN = 400
-            full = abs(m - FULL_WEIGHT) < MARGIN
-            confidence = 1 - abs(m - FULL_WEIGHT) / MARGIN / 2
+            FULL_MARGIN = 400
+            full = abs(m - FULL_WEIGHT) < FULL_MARGIN
+            confidence = 1 - abs(m - FULL_WEIGHT) / FULL_MARGIN / 2
             return full, next_offset, m, confidence
         else:
             return None, None, None, None
@@ -151,9 +165,9 @@ class Sensor(object):
     def test_removed(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 3)
         if not m == None:
-            empty = abs(m) < 100
+            removed = abs(m) < 100
             confidence = 1 - abs(m) / 200
-            return empty, next_offset, m, confidence
+            return removed, next_offset, m, confidence
         else:
             return None, None, None, None
 
@@ -260,19 +274,38 @@ class Sensor(object):
             if ((latest_event is None) or
                (latest_event["value"]["event_code"] != EVENT_REMOVED) or
                (ts - latest_event["ts"] > 600 )):
-                med, offset, duration, count = self.sample_buffer.median(0,1)
-                weight = math.floor(med+0.5)
+                weight = math.floor(removed_now_weight+0.5)
                 confidence = removed_now_confidence
                 return { "event_code": EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
 
         return None
+
+    def test_event_empty(self, ts):
+        # Is the pot empty now ?
+        empty_now, offset, empty_weight, empty_confidence = self.test_empty(0)
+
+        # Was it empty before ?
+        empty_before, new_offset, empty_before_weight, empty_before_confidence = self.test_empty(offset)
+
+        if empty_now and not empty_before:
+            latest_event = self.event_buffer.get(0)
+            if ((latest_event is None) or
+               (latest_event["value"]["event_code"] != EVENT_EMPTY) or
+               (ts - latest_event["ts"] > 600 )):
+                weight = math.floor(empty_weight+0.5)
+                confidence = empty_confidence
+                return { "event_code": EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
+
+        return None
+
 
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
     def test_event(self, ts, weight_g):
         for test in [ self.test_event_new,
                       self.test_event_removed,
-                      self.test_event_poured
+                      self.test_event_poured,
+                      self.test_event_empty
                     ]:
             event = test(ts)
             if not event is None:

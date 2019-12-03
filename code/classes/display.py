@@ -40,6 +40,10 @@ class Display(object):
 
         print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
+    # ------------------
+    # Initial display
+    # ------------------
+    def begin(self):
         self.chart = self.LCD.add_chart()
 
     # -------------------------------------------------------------------
