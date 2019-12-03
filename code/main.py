@@ -15,7 +15,7 @@ from classes.config import Config
 
 from classes.sensor_utils import list_to_string
 
-VERSION = "0.40"
+VERSION = "0.60"
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
@@ -32,6 +32,8 @@ if __name__ == "__main__":
         config = Config(filename)
     else:
         config = Config()
+
+    config.settings["VERSION"] = VERSION
 
     s = Sensor(settings = config.settings)
 

@@ -1,9 +1,5 @@
 #! /usr/bin/python3
 
-# code version
-
-VERSION = "0.50"
-
 # Python libs
 import time
 import sys
@@ -104,7 +100,7 @@ class Sensor(object):
                                         'acp_ts': ts,
                                         'acp_units': 'GRAMS',
                                         'weight': math.floor(weight_g+0.5), # rounded to integer grams
-                                        'version': VERSION
+                                        'version': self.settings["VERSION"]
                                         }
                                     ]
                 }
@@ -115,7 +111,7 @@ class Sensor(object):
         message_data = { 'acp_id': self.settings["SENSOR_ID"],
                          'acp_type': self.settings["SENSOR_TYPE"],
                          'acp_ts': ts,
-                         'version': VERSION
+                         'version': self.settings["VERSION"]
                        }
 
         # merge dictionaries
@@ -141,9 +137,13 @@ class Sensor(object):
     def test_full(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
         if not m == None:
-            return (abs(m - 3400) < 400), next_offset
+            FULL_WEIGHT = 3400
+            MARGIN = 400
+            full = abs(m - FULL_WEIGHT) < MARGIN
+            confidence = 1 - abs(m - FULL_WEIGHT) / MARGIN / 2
+            return full, next_offset, m, confidence
         else:
-            return None, None
+            return None, None, None, None
 
     # Test if pot is REMOVED
     # True if median for 3 seconds is 0 grams +/- 100
@@ -151,9 +151,11 @@ class Sensor(object):
     def test_removed(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 3)
         if not m == None:
-            return (abs(m) < 100), next_offset
+            empty = abs(m) < 100
+            confidence = 1 - abs(m) / 200
+            return empty, next_offset, m, confidence
         else:
-            return None, None
+            return None, None, None, None
 
     # Test if cup has been POURED
     def test_event_poured(self, ts):
@@ -213,9 +215,16 @@ class Sensor(object):
             if push_detected and stats["deviation"] < 30 and med_delta > 100 and med_delta < 500:
                 latest_event = self.event_buffer.get(0)
                 if ((latest_event is None) or
-                   (latest_event["value"] != EVENT_POURED) or
+                   (latest_event["value"]["event_code"] != EVENT_POURED) or
                    (ts - latest_event["ts"] > 30 )):
-                    return EVENT_POURED
+                    weight_poured = math.floor(med_delta + 0.5)
+                    weight = math.floor(current_median + 0.5)
+                    confidence = 0.8 # we don't have much better yet
+                    return { "event_code": EVENT_POURED,
+                             "weight_poured": weight_poured,
+                             "weight": weight,
+                             "acp_confidence": confidence
+                           }
                 #print(stats)
                 #print("{} EVENT POURED amount={:.1f} from {}".format(now, med_delta, stats_record["ts"]))
 
@@ -223,33 +232,38 @@ class Sensor(object):
 
     def test_event_new(self, ts):
         # Is the pot full now ?
-        full, offset = self.test_full(0)
+        full, offset, full_weight, full_confidence = self.test_full(0)
 
         # Was it removed before ?
-        removed, new_offset = self.test_removed(offset)
+        removed, new_offset, removed_weight, removed_confidence = self.test_removed(offset)
 
         if removed and full:
             latest_event = self.event_buffer.get(0)
             if ((latest_event is None) or
-               (latest_event["value"] != EVENT_NEW) or
+               (latest_event["value"]["event_code"] != EVENT_NEW) or
                (ts - latest_event["ts"] > 600 )):
-                return EVENT_NEW
+                weight = math.floor(full_weight+0.5)
+                confidence = full_confidence * 0.7 + removed_confidence * 0.3
+                return { "event_code": EVENT_NEW, "weight": weight, "acp_confidence": confidence }
 
         return None
 
     def test_event_removed(self, ts):
         # Is the pot removed now ?
-        removed_now, offset = self.test_removed(0)
+        removed_now, offset, removed_now_weight, removed_now_confidence = self.test_removed(0)
 
         # Was it removed before ?
-        removed_before, new_offset = self.test_removed(offset)
+        removed_before, new_offset, removed_before_weight, removed_before_confidence = self.test_removed(offset)
 
         if removed_now and not removed_before:
             latest_event = self.event_buffer.get(0)
             if ((latest_event is None) or
-               (latest_event["value"] != EVENT_REMOVED) or
+               (latest_event["value"]["event_code"] != EVENT_REMOVED) or
                (ts - latest_event["ts"] > 600 )):
-                return EVENT_REMOVED
+                med, offset, duration, count = self.sample_buffer.median(0,1)
+                weight = math.floor(med+0.5)
+                confidence = removed_now_confidence
+                return { "event_code": EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
 
         return None
 
@@ -263,7 +277,7 @@ class Sensor(object):
             event = test(ts)
             if not event is None:
                 self.event_buffer.put(ts, event)
-                self.send_event(ts, { "event_code": event, "weight": weight_g } )
+                self.send_event(ts, event)
                 break
 
         return event

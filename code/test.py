@@ -16,6 +16,8 @@ if len(sys.argv) > 1 :
 else:
     config = Config(None)
 
+config.settings["VERSION"] = "TEST_0.1"
+
 s = Sensor(settings = config.settings)
 
 # for playback we can specify
