@@ -300,7 +300,7 @@ class Sensor(object):
                (ts - latest_event["ts"] > 600 )):
                 weight = math.floor(empty_weight+0.5)
                 confidence = empty_confidence
-                return { "event_code": EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
+                return { "event_code": EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
 
         return None
 
