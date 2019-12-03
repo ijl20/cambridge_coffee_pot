@@ -59,7 +59,7 @@ if __name__ == "__main__":
             s.process_sample(time.time(), value)
 
             loop_time = time.time() - loop_start_time
-            if loop_time < 0.1
+            if loop_time < 0.1:
                 time.sleep(0.1 - loop_time)
 
     except (KeyboardInterrupt, SystemExit):
