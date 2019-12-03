@@ -147,7 +147,7 @@ class Sensor(object):
             EMPTY_MARGIN = 100
             empty = abs(m - EMPTY_WEIGHT) < EMPTY_MARGIN
             confidence = 1 - abs(m - EMPTY_WEIGHT) / EMPTY_MARGIN / 2
-            return (), next_offset, m, confidence
+            return empty, next_offset, m, confidence
         else:
             return None, None, None, None
 
