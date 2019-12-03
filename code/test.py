@@ -20,6 +20,8 @@ config.settings["VERSION"] = "TEST_0.1"
 
 s = Sensor(settings = config.settings)
 
+s.begin()
+
 # for playback we can specify
 #   sleep=0.1 for a fixed period between samples
 # or

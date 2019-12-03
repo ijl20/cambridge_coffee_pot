@@ -35,11 +35,9 @@ if __name__ == "__main__":
 
     config.settings["VERSION"] = VERSION
 
-    weight_sensor = WeightSensor(config.settings)
-
     s = Sensor(settings = config.settings)
 
-    time.sleep(1)
+    weight_sensor = WeightSensor(config.settings)
 
     s.begin()
 

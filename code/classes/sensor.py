@@ -64,6 +64,12 @@ class Sensor(object):
 
         self.event_buffer = TimeBuffer(size=EVENT_HISTORY_SIZE, settings=self.settings)
 
+    # -----------------
+    # Start sensor
+    # -----------------
+
+    def begin(self):
+        self.display.begin()
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
