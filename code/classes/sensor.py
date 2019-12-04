@@ -152,8 +152,9 @@ class Sensor(object):
     # Returns tuple <Test true/false>, < next offset >
     def test_empty(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
-        if not m == None:
-            EMPTY_WEIGHT = 1400
+        d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
+        if not m is None and not sample_count is None and sample_count > 5 and not d is None and not d > 30:
+            EMPTY_WEIGHT = 1600
             EMPTY_MARGIN = 100
             empty = abs(m - EMPTY_WEIGHT) < EMPTY_MARGIN
             confidence = 1 - abs(m - EMPTY_WEIGHT) / EMPTY_MARGIN / 2
@@ -215,7 +216,7 @@ class Sensor(object):
         push_detected = False
 
         # look back 15 seconds and see if push detected AND stable prior value was 100.500g higher than latest stable value
-        POUR_TEST_SECONDS = 15
+        POUR_TEST_SECONDS = 30
         for i in range(POUR_TEST_SECONDS):
             stats_record = self.stats_buffer.get(i)
             if stats_record is None:
@@ -242,7 +243,9 @@ class Sensor(object):
             # check for higher level of coffee before push
             med_delta = stats["median"] - current_median
 
-            if push_detected and stats["deviation"] < 30 and med_delta > 100 and med_delta < 500:
+            MIN_CUP_WEIGHT = 80
+            MAX_CUP_WEIGHT = 1000
+            if push_detected and stats["deviation"] < 30 and med_delta > MIN_CUP_WEIGHT and med_delta < MAX_CUP_WEIGHT:
                 latest_event = self.event_buffer.get(0)
                 if ((latest_event is None) or
                    (latest_event["value"]["event_code"] != EVENT_POURED) or
