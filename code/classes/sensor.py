@@ -243,7 +243,7 @@ class Sensor(object):
             # check for higher level of coffee before push
             med_delta = stats["median"] - current_median
 
-            MIN_CUP_WEIGHT = 80
+            MIN_CUP_WEIGHT = 40
             MAX_CUP_WEIGHT = 1000
             if push_detected and stats["deviation"] < 30 and med_delta > MIN_CUP_WEIGHT and med_delta < MAX_CUP_WEIGHT:
                 latest_event = self.event_buffer.get(0)
@@ -378,7 +378,8 @@ class Sensor(object):
         if self.prev_send_time is None:
             self.prev_send_time = ts
 
-        if ts - self.prev_send_time > 30:
+        WATCHDOG_PERIOD = 120
+        if ts - self.prev_send_time > WATCHDOG_PERIOD:
             sample_value, offset, duration, sample_count = self.sample_buffer.median(0,2) # from latest ts, back 2 seconds
 
             if not sample_value == None:
