@@ -126,7 +126,7 @@ class TimeBuffer(object):
         finish_index = self.sample_history_index
         finished = False
         try:
-            if self.settings["LOG_LEVEL"] <= 2:
+            if self.settings["LOG_LEVEL"] <= 3:
                 print("Saving TimeBuffer to {}".format(filename))
 
             with open(filename,"w+") as fp:

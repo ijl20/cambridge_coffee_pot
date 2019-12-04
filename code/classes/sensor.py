@@ -1,5 +1,3 @@
-#! /usr/bin/python3
-
 # Python libs
 import time
 import sys
@@ -23,7 +21,7 @@ from classes.display import Display
 
 # Data for pattern recognition
 
-SAMPLE_HISTORY_SIZE = 1000
+DEFAULT_SIZE = 1000 # Sample history size if not in settings "SAMPLE_BUFFER_SIZE"
 EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
 STATS_HISTORY_SIZE = 30
 
@@ -52,6 +50,11 @@ class Sensor(object):
 
         self.settings = settings
 
+        if self.settings is None or not "SAMPLE_BUFFER_SIZE" in self.settings:
+            self.size = DEFAULT_SIZE
+        else:
+            self.size = settings["SAMPLE_BUFFER_SIZE"]
+
         # times to control watchdog sends to platform
         self.prev_send_time = None
 
@@ -60,7 +63,7 @@ class Sensor(object):
         # Create a 30-entry x 1-second stats buffer
         self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE, duration=1, settings=self.settings)
 
-        self.sample_buffer = TimeBuffer(size=SAMPLE_HISTORY_SIZE, settings=self.settings, stats_buffer=self.stats_buffer )
+        self.sample_buffer = TimeBuffer(size=self.size, settings=self.settings, stats_buffer=self.stats_buffer )
 
         self.event_buffer = TimeBuffer(size=EVENT_HISTORY_SIZE, settings=self.settings)
 
@@ -69,6 +72,13 @@ class Sensor(object):
     # -----------------
 
     def begin(self):
+        # set counter for how many samples to collect before saving
+        if self.settings is None or not "SAMPLE_SAVE_COUNT" in self.settings:
+            self.save_count = 0
+        else:
+            self.save_count = self.settings["SAMPLE_SAVE_COUNT"]
+        self.save_counter = 0 # cumulative count of how many samples we've collected
+        print("Set save_count to", self.save_count)
         self.display.begin()
 
     # ----------------------------------------------------------------------
@@ -339,6 +349,12 @@ class Sensor(object):
 
         # store weight and time in sample_history
         self.sample_buffer.put(ts, value)
+
+        if self.save_count > 0:
+            self.save_counter += 1
+            if self.save_counter >= self.save_count:
+                self.sample_buffer.save("../data/save_{:.3f}.csv".format(time.time()))
+                self.save_counter = 0
 
         #----------------
         # UPDATE DISPLAY
