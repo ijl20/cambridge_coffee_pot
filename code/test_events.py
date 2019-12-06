@@ -28,10 +28,11 @@ s.begin()
 #   realtime=True which will pause the time between recorded sample timestamps.
 # otherwise the playback will be as fast as possible.
 
-t = TimeBuffer(size=10000,settings=config.settings)
+t = TimeBuffer(size=140000,settings=config.settings)
 
 #t.load('../../cambridge_coffee_pot_data/2019-12-04_pour_missed.csv')
-t.load('../../cambridge_coffee_pot_data/2019-12-04_full_pour.csv')
+#t.load('../../cambridge_coffee_pot_data/2019-12-04_full_pour.csv')
+t.load('../../cambridge_coffee_pot_data/2019-12-04_full_day.csv')
 
 t.play(s.process_sample)
 

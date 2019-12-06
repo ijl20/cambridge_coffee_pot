@@ -12,8 +12,13 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
-FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 40)
+FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
+
+# ST7735 color mappings
+str_to_color = { "YELLOW": 0xFFE0,    # yellow 565 RGB
+                 "BLUE": 0x001F    # blue 565 RGB
+               }
 
 class Display(object):
 
@@ -52,9 +57,9 @@ class Display(object):
     def draw_value(self, value):
         # create a blank image to write the weight on
         image = Image.new( "RGB",
-                           ( self.settings["WEIGHT_WIDTH"],
-                             self.settings["WEIGHT_HEIGHT"]),
-                           self.settings["WEIGHT_COLOR_BG"])
+                           ( self.settings["VALUE_WIDTH"],
+                             self.settings["VALUE_HEIGHT"]),
+                           self.settings["VALUE_COLOR_BG"])
 
         draw = ImageDraw.Draw(image)
 
@@ -71,17 +76,17 @@ class Display(object):
         string_width, string_height = draw.textsize(draw_string, font=FONT)
 
         # embed this number into the blank image we created earlier
-        draw.text((self.settings["WEIGHT_WIDTH"]-string_width-self.settings["WEIGHT_RIGHT_MARGIN"],0),
+        draw.text((self.settings["VALUE_WIDTH"]-string_width-self.settings["VALUE_RIGHT_MARGIN"],0),
                 draw_string,
-                fill = self.settings["WEIGHT_COLOR_FG"],
+                fill = self.settings["VALUE_COLOR_FG"],
                 font=FONT)
 
         # display image on screen at coords x,y. (0,0)=top left.
         self.LCD.display_window(image,
-                        self.settings["WEIGHT_X"],
-                        self.settings["WEIGHT_Y"],
-                        self.settings["WEIGHT_WIDTH"],
-                        self.settings["WEIGHT_HEIGHT"])
+                        self.settings["VALUE_X"],
+                        self.settings["VALUE_Y"],
+                        self.settings["VALUE_WIDTH"],
+                        self.settings["VALUE_HEIGHT"])
 
     # -------------------------------------------------------------------
     # ------ DRAW DEBUG READINGS ON LCD       ---------------------------
@@ -125,7 +130,8 @@ class Display(object):
                 else:
                     print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
 
-            self.draw_debug(debug_list)
+            # draw_debug() is disabled
+            #self.draw_debug(debug_list)
 
         # -------------------------------------------------------------------
         # ------ ADD CURRENT WEIGHT TO BAR CHART   --------------------------
@@ -151,4 +157,62 @@ class Display(object):
 
     def finish(self):
         self.LCD.cleanup()
+
+# Pot fullness display object
+class Pot(object):
+
+    def __init__(self, LCD=None, x=0, y=0, w=40, h=128, settings=None):
+        self.LCD = LCD
+
+        # set pot coordinates on display
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+
+        # Set fg and bg colors
+        if settings is None or not "POT_FG" in settings:
+            self.FG_COLOR =str_to_color["YELLOW"]
+        else:
+            self.FG_COLOR = str_to_color[settings["POT_FG"]]
+
+        if settings is None or not "POT_BG" in settings:
+            self.BG_COLOR = str_to_color["BLUE"]
+        else:
+            self.BG_COLOR = str_to_color[settings["POT_BG"]]
+
+
+    def begin(self):
+
+        self.LCD.set_rectangle_color(self.x, self.y, self.w, self.h, self.BG_COLOR)
+
+        self.prev_y = self.y + self.h 
+
+
+    # convert a 'full' ratio 0..1 to a y pixel offset from top of screen.
+    def ratio_to_y(self, ratio):
+
+        # ratio is 0..1
+        return math.floor(self.y + self.h * (1 - ratio))
+
+    # Update the displayed vertical bar
+    def update(self, ratio):
+
+        new_y = self.ratio_to_y(ratio)
+
+        if new_y < self.prev_y:
+            # new ratio was higher
+            # add foreground pixels
+            h = self.prev_y - new_y
+            self.LCD.set_rectangle_color(self.x, new_y, self.w, h, self.FG_COLOR)
+        elif new_y > self.prev_y:
+            # new ratio was lower
+            # reduce bar by adding background pixels
+            h = new_y - self.prev_y
+            self.LCD.set_rectangle_color(self.x, self.prev_y, self.w, h, self.BG_COLOR)
+
+        self.prev_y = new_y
+
+        
+
 

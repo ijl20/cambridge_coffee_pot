@@ -82,6 +82,8 @@ class ST7735_EMULATOR(object):
     def screen_update(self):
         self.screen.blit(pg.transform.scale(self.lcd,(self.screen_width, self.screen_height)),[0,0])
         pg.display.update()
+        for e in pg.event.get():
+            pass
 
    # numpy is fastest way to convert image to bytes
     def image_to_data(self, image):
