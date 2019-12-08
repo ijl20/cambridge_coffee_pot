@@ -237,8 +237,9 @@ class Pot(object):
         self.h = 100
         self.bar_y_0 = self.h - 18 # level y-pixel for ratio=0
         self.bar_h = self.h - 52
-        self.BG_COLOR = 0xFFE0
-        self.level = [ self.LCD.image_to_data(Image.open('images/pot_0.png')),
+        self.BG_COLOR = 0xFFFF
+        self.FG_COLOR = 0x4145
+        self.custom = [ self.LCD.image_to_data(Image.open('images/pot_0.png')),
                   self.LCD.image_to_data(Image.open('images/pot_1.png')),
                   self.LCD.image_to_data(Image.open('images/pot_2.png')),
                   self.LCD.image_to_data(Image.open('images/pot_3.png')),
@@ -250,8 +251,7 @@ class Pot(object):
                   self.LCD.image_to_data(Image.open('images/pot_9.png'))
         ]
         self.level_top = self.LCD.image_to_data(Image.open('images/pot_top.png'))
-
-        self.prev_y = self.y + self.h
+        self.level_base = self.LCD.image_to_data(Image.open('images/pot_0_normal.png'))
 
     def begin(self):
         # 59 x 100
@@ -261,7 +261,13 @@ class Pot(object):
 
         #self.LCD.set_rectangle_color(self.x, self.y, self.w, self.h, self.BG_COLOR)
 
+        # record the 'previous' y offset of coffee amount, so we can fill between readings
         self.prev_y = self.y + self.h 
+
+        # record whether the previous reading was a custom image
+        self.prev_custom = False
+
+        self.update(0)
 
 
     # convert a 'full' ratio 0..1 to a y pixel offset from top of screen.
@@ -273,53 +279,88 @@ class Pot(object):
     # Update the displayed vertical coffee level
     def update(self, ratio):
 
+        # new_y is the display y-offset of the amount of coffee
+        # 
         new_y = self.ratio_to_y(ratio)
 
-        print("new_y",new_y)
+        # if y offset of coffee is unchanged, then do nothing.
+
+        if new_y == self.prev_y:
+            return
+        
+        # check if previous display was a custom image, if so update base of pot
+        if self.prev_custom:
+            print("was custom", self.prev_y)
+            self.LCD.set_window(self.x, self.y + self.bar_y_0 + 6, 59, 12)
+            self.LCD.send_data(self.level_base)
+            DEBUG DEBUG maybe use a fill-to variable instead.
+            This is causing a bug on upward fill from other custom images...
+            self.prev_y = self.y + self.bar_y_0
+
+        #print("new_y",new_y)
 
         # width of top image to draw
         w = 41 # will alter for pot_0
         x = self.x+9
 
-        if new_y < self.y + self.bar_y_0 - 7:
+        # zero_offset is 0..9, index of image to use for bottom of pot
+        zero_offset = self.y + self.bar_y_0 - new_y
+
+        if zero_offset >= len(self.custom):
             top_image = self.level_top
             h = 14
         else:
-            zero_offset = self.y + self.bar_y_0 - new_y
             print("zero_offset", zero_offset)
             h = zero_offset + 12
-            top_image = self.level[zero_offset]
+            top_image = self.custom[zero_offset]
             if zero_offset == 0:
                 w = 59
                 x = self.x
-                new_y = new_y+6
+                new_y = new_y+6 # image for zero coffee is taller.
 
         print("h",h)
 
         if new_y < self.prev_y:
-            # new ratio was higher
+            print("new_y lower")
+            # new ratio is higher than previous (y offset is DOWN the display)
             # add foreground pixels
-            #h = self.prev_y - new_y
-            #self.LCD.set_rectangle_color(self.x, new_y, self.w, h, self.FG_COLOR)
             self.LCD.set_window(x, new_y, w, h)
             self.LCD.send_data(top_image)
 
-            # fill in an area below this top_image
-            fill_x = self.x + 9
-            fill_y = new_y + 14
-            fill_w = 41
-            fill_h = self.prev_y - new_y
-            print("filling", fill_x, fill_y, fill_w, fill_h)
-            self.LCD.set_rectangle_color(fill_x, fill_y, fill_w, fill_h, self.BG_COLOR)
+            if zero_offset >= len(self.custom):
+                # fill in an area below this top_image
+                # if we haven't used one of pre-set images
+                fill_x = self.x + 9
+                fill_y = new_y + 14
+                fill_w = 41
+                if self.prev_custom:
+                    fill_h = self.y + self.bar_y_0 - fill_y + 6
+                else:
+                    fill_h = self.prev_y - new_y + 8
+
+                print("filling", fill_x, fill_y, fill_w, fill_h)
+                self.LCD.set_rectangle_color(fill_x, fill_y, fill_w, fill_h, self.FG_COLOR)
 
         elif new_y > self.prev_y:
+            print("new_y higher")
             # new ratio was lower
             # reduce bar by adding background pixels
-            #h = new_y - self.prev_y
-            #self.LCD.set_rectangle_color(self.x, self.prev_y, self.w, h, self.BG_COLOR)
             self.LCD.set_window(x, new_y, w, h)
             self.LCD.send_data(top_image)
 
+            # fill in an area above this top_image
+            fill_x = self.x + 9
+            fill_y = self.prev_y
+            fill_w = 41
+            fill_h = new_y - self.prev_y
+            print("filling", fill_x, fill_y, fill_w, fill_h)
+            self.LCD.set_rectangle_color(fill_x, fill_y, fill_w, fill_h, self.BG_COLOR)
+        else:
+            print("new_y same")
+
+        self.prev_custom = zero_offset < len(self.custom)
+        print("new_y was", new_y)
+        print("prev_custom", self.prev_custom)
         self.prev_y = new_y
 
         
