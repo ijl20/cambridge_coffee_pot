@@ -20,6 +20,17 @@ str_to_color = { "YELLOW": 0xFFE0,    # yellow 565 RGB
                  "BLUE": 0x001F    # blue 565 RGB
                }
 
+CHART_SETTINGS = { "x": 0, "y": 0, "w": 160, "h": 28, # 'pixels' top-left coords and width, height.
+                "step": 1,             # 'pixels': how many pixels to step in x direction for next()
+                "time_scale": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
+                "bar_width": 1,        # 'pixels', width of value column
+                "point_height": None,  # 'pixels', will display point of this height, not column to x-axis
+                "cursor_width": 2,     # 'pixels', width of scrolling cursor
+                "fg_color": [ 0xFF, 0xE0 ],    # yellow 565 RGB
+                "bg_color": [ 0x00, 0x1F ],    # blue 565 RGB
+                "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
+              }
+
 class Display(object):
 
     def __init__(self, settings=None, emulate=False):
@@ -39,7 +50,7 @@ class Display(object):
 
         self.LCD.begin()
 
-        image = Image.open('pot.bmp')
+        image = Image.open('images/pot.bmp')
         #LCD.LCD_PageImage(image)
         self.LCD.display(image)
 
@@ -49,7 +60,7 @@ class Display(object):
     # Initial display
     # ------------------
     def begin(self):
-        self.chart = self.LCD.add_chart()
+        self.chart = self.LCD.add_chart(CHART_SETTINGS)
 
     # -------------------------------------------------------------------
     # ------ DRAW NUMERIC VALUE ON LCD  ---------------------------------
@@ -158,8 +169,8 @@ class Display(object):
     def finish(self):
         self.LCD.cleanup()
 
-# Pot fullness display object
-class Pot(object):
+# Vertical bar display object
+class VerticalBar(object):
 
     def __init__(self, LCD=None, x=0, y=0, w=40, h=128, settings=None):
         self.LCD = LCD
@@ -210,6 +221,104 @@ class Pot(object):
             # reduce bar by adding background pixels
             h = new_y - self.prev_y
             self.LCD.set_rectangle_color(self.x, self.prev_y, self.w, h, self.BG_COLOR)
+
+        self.prev_y = new_y
+
+# Coffee Pot display object
+class Pot(object):
+
+    def __init__(self, LCD=None, x=0, y=28, settings=None):
+        self.LCD = LCD
+
+        # set pot coordinates on display
+        self.x = x
+        self.y = y
+        self.w = 59
+        self.h = 100
+        self.bar_y_0 = self.h - 18 # level y-pixel for ratio=0
+        self.bar_h = self.h - 52
+        self.BG_COLOR = 0xFFE0
+        self.level = [ self.LCD.image_to_data(Image.open('images/pot_0.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_1.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_2.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_3.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_4.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_5.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_6.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_7.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_8.png')),
+                  self.LCD.image_to_data(Image.open('images/pot_9.png'))
+        ]
+        self.level_top = self.LCD.image_to_data(Image.open('images/pot_top.png'))
+
+        self.prev_y = self.y + self.h
+
+    def begin(self):
+        # 59 x 100
+        image = Image.open('images/pot_background.png')
+
+        self.LCD.display_window(image, self.x, self.y, self.w, self.h)
+
+        #self.LCD.set_rectangle_color(self.x, self.y, self.w, self.h, self.BG_COLOR)
+
+        self.prev_y = self.y + self.h 
+
+
+    # convert a 'full' ratio 0..1 to a y pixel offset from top of screen.
+    def ratio_to_y(self, ratio):
+
+        # ratio is 0..1
+        return math.floor(self.y + self.bar_y_0 - self.bar_h * ratio)
+
+    # Update the displayed vertical coffee level
+    def update(self, ratio):
+
+        new_y = self.ratio_to_y(ratio)
+
+        print("new_y",new_y)
+
+        # width of top image to draw
+        w = 41 # will alter for pot_0
+        x = self.x+9
+
+        if new_y < self.y + self.bar_y_0 - 7:
+            top_image = self.level_top
+            h = 14
+        else:
+            zero_offset = self.y + self.bar_y_0 - new_y
+            print("zero_offset", zero_offset)
+            h = zero_offset + 12
+            top_image = self.level[zero_offset]
+            if zero_offset == 0:
+                w = 59
+                x = self.x
+                new_y = new_y+6
+
+        print("h",h)
+
+        if new_y < self.prev_y:
+            # new ratio was higher
+            # add foreground pixels
+            #h = self.prev_y - new_y
+            #self.LCD.set_rectangle_color(self.x, new_y, self.w, h, self.FG_COLOR)
+            self.LCD.set_window(x, new_y, w, h)
+            self.LCD.send_data(top_image)
+
+            # fill in an area below this top_image
+            fill_x = self.x + 9
+            fill_y = new_y + 14
+            fill_w = 41
+            fill_h = self.prev_y - new_y
+            print("filling", fill_x, fill_y, fill_w, fill_h)
+            self.LCD.set_rectangle_color(fill_x, fill_y, fill_w, fill_h, self.BG_COLOR)
+
+        elif new_y > self.prev_y:
+            # new ratio was lower
+            # reduce bar by adding background pixels
+            #h = new_y - self.prev_y
+            #self.LCD.set_rectangle_color(self.x, self.prev_y, self.w, h, self.BG_COLOR)
+            self.LCD.set_window(x, new_y, w, h)
+            self.LCD.send_data(top_image)
 
         self.prev_y = new_y
 
