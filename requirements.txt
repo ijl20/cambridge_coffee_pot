@@ -4,4 +4,6 @@ pygame
 simplejson
 requests
 pillow
+datetime
+pytz
 

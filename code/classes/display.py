@@ -6,13 +6,16 @@
 
 import time
 import math
+from datetime import datetime
+from pytz import timezone
 
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
-FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
+VALUE_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
+NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 20)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # ST7735 color mappings
@@ -31,6 +34,26 @@ CHART_SETTINGS = { "x": 0, "y": 0, "w": 160, "h": 28, # 'pixels' top-left coords
                 "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
               }
 
+VALUE_SETTINGS = {
+    "VALUE_X": 59,
+    "VALUE_Y": 98,
+    "VALUE_WIDTH": 101,
+    "VALUE_HEIGHT": 30,
+    "VALUE_COLOR_FG": "WHITE",
+    "VALUE_COLOR_BG": "BLUE",
+    "VALUE_RIGHT_MARGIN": 10,
+
+    "NEW_X": 59,
+    "NEW_Y": 28,
+    "NEW_WIDTH": 101,
+    "NEW_HEIGHT": 18,
+    "NEW_COLOR_FG": "BLUE",
+    "NEW_COLOR_BG": "WHITE",
+
+    "POT_FG": "YELLOW",
+    "POT_BG": "BLUE",
+}
+
 class Display(object):
 
     def __init__(self, settings=None, emulate=False):
@@ -40,11 +63,20 @@ class Display(object):
         else:
             from st7735_ijl20.st7735 import ST7735
 
-        self.settings = settings
+        if settings is not None:
+            self.settings = { **VALUE_SETTINGS, **settings }
+        else:
+            self.settings = VALUE_SETTINGS
+
+        if not "LOG_LEVEL" in self.settings:
+            self.settings["LOG_LEVEL"] = 2
 
         t_start = time.process_time()
 
         self.prev_lcd_time = None
+
+        self.prev_new_str = None # used to check if "new pot" string has changed so write.
+        self.new_str = None
 
         self.LCD = ST7735()
 
@@ -54,6 +86,8 @@ class Display(object):
         #LCD.LCD_PageImage(image)
         self.LCD.display(image)
 
+        self.pot = Pot(LCD=self.LCD, x=0, y=28, settings=self.settings)
+
         print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 
     # ------------------
@@ -61,6 +95,8 @@ class Display(object):
     # ------------------
     def begin(self):
         self.chart = self.LCD.add_chart(CHART_SETTINGS)
+
+        self.pot.begin()
 
     # -------------------------------------------------------------------
     # ------ DRAW NUMERIC VALUE ON LCD  ---------------------------------
@@ -78,19 +114,19 @@ class Display(object):
 
         display_number = value
 
-        if display_number >= 10000:
-            display_number = 9999.9
+        if display_number >= 9999:
+            display_number = 9999.1
 
         draw_string = "{:5.0f}".format(display_number) # 10 points for witty variable name
 
         # calculate x coordinate necessary to right-justify text
-        string_width, string_height = draw.textsize(draw_string, font=FONT)
+        string_width, string_height = draw.textsize(draw_string, font=VALUE_FONT)
 
         # embed this number into the blank image we created earlier
-        draw.text((self.settings["VALUE_WIDTH"]-string_width-self.settings["VALUE_RIGHT_MARGIN"],0),
+        draw.text((self.settings["VALUE_WIDTH"]-string_width-self.settings["VALUE_RIGHT_MARGIN"],-4),
                 draw_string,
                 fill = self.settings["VALUE_COLOR_FG"],
-                font=FONT)
+                font=VALUE_FONT)
 
         # display image on screen at coords x,y. (0,0)=top left.
         self.LCD.display_window(image,
@@ -98,6 +134,31 @@ class Display(object):
                         self.settings["VALUE_Y"],
                         self.settings["VALUE_WIDTH"],
                         self.settings["VALUE_HEIGHT"])
+
+    # -------------------------------------------------------------------
+    # ------ DRAW NEW POT TIME ON LCD  ---------------------------------
+    # -------------------------------------------------------------------
+    def draw_new(self, new_str):
+        # create a blank image to write the weight on
+        image = Image.new( "RGB",
+                           ( self.settings["NEW_WIDTH"],
+                             self.settings["NEW_HEIGHT"]),
+                           self.settings["NEW_COLOR_BG"])
+
+        draw = ImageDraw.Draw(image)
+
+        # embed this number into the blank image we created earlier
+        draw.text((5,-3),
+                new_str,
+                fill=self.settings["NEW_COLOR_FG"],
+                font=NEW_FONT)
+
+        # display image on screen at coords x,y. (0,0)=top left.
+        self.LCD.display_window(image,
+                        self.settings["NEW_X"],
+                        self.settings["NEW_Y"],
+                        self.settings["NEW_WIDTH"],
+                        self.settings["NEW_HEIGHT"])
 
     # -------------------------------------------------------------------
     # ------ DRAW DEBUG READINGS ON LCD       ---------------------------
@@ -122,6 +183,9 @@ class Display(object):
 
             self.LCD.display_window(image, 0, 40, 160, 40)
 
+    def update_new(self, ts):
+        self.new_str = datetime.fromtimestamp(ts,timezone('Europe/London')).strftime("%a %H:%M")
+
     # Update a PIL image with the weight, and send to LCD
     # Note we are creating an image smaller than the screen size, and only updating a part of the display
     def update(self, ts, sample_buffer, debug_list):
@@ -129,17 +193,38 @@ class Display(object):
         t_start = time.process_time()
 
         if (self.prev_lcd_time is None) or (ts - self.prev_lcd_time > 1):
-            sample_value, offset, duration, sample_count = sample_buffer.median(0,1) # get median weight value for 1 second
-            if not sample_value == None:
-                self.draw_value(sample_value)
+
+            # get median weight value for 1 second
+            sample_median, offset, duration, sample_count = sample_buffer.median(0,1)
+            # get deviation from median over 1 second
+            sample_deviation, offset, duration, sample_count = sample_buffer.deviation(0,1,sample_median)
+
+            if not sample_median is None:
+
+                self.draw_value(sample_median)
+
+                # if level is stable then update pot level
+                if not sample_deviation is None and sample_deviation < 30:
+                    max_coffee_weight = self.settings["WEIGHT_FULL"] - self.settings["WEIGHT_EMPTY"]
+                    pot_ratio = (sample_median - self.settings["WEIGHT_EMPTY"]) / max_coffee_weight
+                    if pot_ratio > 1:
+                        pot_ratio = 1
+                    elif pot_ratio < 0.04: # Force to zero if little coffee in pot
+                        pot_ratio = 0
+
+                    self.pot.update(pot_ratio)
+
+            if self.new_str != self.prev_new_str:
+                self.draw_new(self.new_str)
+                self.prev_new_str = self.new_str
 
             self.prev_lcd_time = ts
 
             if self.settings["LOG_LEVEL"] == 1:
-                if sample_value == None:
+                if sample_median == None:
                     print("loop update_lcd skipped (None) at {:.3f} secs.".format(time.process_time() - t_start))
                 else:
-                    print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_value, time.process_time() - t_start))
+                    print("loop update_lcd {:.1f} at {:.3f} secs.".format(sample_median, time.process_time() - t_start))
 
             # draw_debug() is disabled
             #self.draw_debug(debug_list)
@@ -197,7 +282,7 @@ class VerticalBar(object):
 
         self.LCD.set_rectangle_color(self.x, self.y, self.w, self.h, self.BG_COLOR)
 
-        self.prev_y = self.y + self.h 
+        self.prev_y = self.y + self.h
 
 
     # convert a 'full' ratio 0..1 to a y pixel offset from top of screen.
@@ -259,13 +344,11 @@ class Pot(object):
 
         self.LCD.display_window(image, self.x, self.y, self.w, self.h)
 
-        #self.LCD.set_rectangle_color(self.x, self.y, self.w, self.h, self.BG_COLOR)
-
-        # record the 'previous' y offset of coffee amount, so we can fill between readings
-        self.prev_y = self.y + self.h 
-
+        # These vars keep track of the previous level set, so we can optimise update()
         # record whether the previous reading was a custom image
-        self.prev_custom = False
+        self.prev_y = self.y + 35 # record the 'previous' y-pixel of coffee amount
+        self.prev_custom = False   # True if the previous level was set with a custom image
+        self.prev_y_fill_down = 0 # display y-pixel to fill DOWN to if next value HIGHER
 
         self.update(0)
 
@@ -279,90 +362,100 @@ class Pot(object):
     # Update the displayed vertical coffee level
     def update(self, ratio):
 
+        #print("update pot_ratio", ratio)
+
         # new_y is the display y-offset of the amount of coffee
-        # 
+        #
         new_y = self.ratio_to_y(ratio)
 
         # if y offset of coffee is unchanged, then do nothing.
 
         if new_y == self.prev_y:
             return
-        
+
         # check if previous display was a custom image, if so update base of pot
         if self.prev_custom:
-            print("was custom", self.prev_y)
-            self.LCD.set_window(self.x, self.y + self.bar_y_0 + 6, 59, 12)
+            #print("was custom", self.prev_y)
+            base_x = self.x
+            base_y = self.y + self.bar_y_0 + 6
+            base_w = 59
+            base_h = 12
+            self.LCD.set_window(base_x, base_y, base_w, base_h)
             self.LCD.send_data(self.level_base)
-            DEBUG DEBUG maybe use a fill-to variable instead.
-            This is causing a bug on upward fill from other custom images...
-            self.prev_y = self.y + self.bar_y_0
-
-        #print("new_y",new_y)
+            self.prev_y_fill_down = base_y
 
         # width of top image to draw
-        w = 41 # will alter for pot_0
-        x = self.x+9
+        w = 41          # will alter for pot_0
+        x = self.x+9    # will alter for pot_0
 
         # zero_offset is 0..9, index of image to use for bottom of pot
         zero_offset = self.y + self.bar_y_0 - new_y
 
+        # if zero_offset is NOT within set of images in custom list
         if zero_offset >= len(self.custom):
+            # not custom image required
             top_image = self.level_top
             h = 14
         else:
-            print("zero_offset", zero_offset)
+            # custom image required
+            #print("zero_offset", zero_offset)
             h = zero_offset + 12
             top_image = self.custom[zero_offset]
-            if zero_offset == 0:
-                w = 59
-                x = self.x
-                new_y = new_y+6 # image for zero coffee is taller.
 
-        print("h",h)
+        #print("height of image",h)
 
+        # ----------------------------------------
+        # display image and fill to previous image
+        # ----------------------------------------
         if new_y < self.prev_y:
-            print("new_y lower")
+            #print("more coffee")
             # new ratio is higher than previous (y offset is DOWN the display)
             # add foreground pixels
             self.LCD.set_window(x, new_y, w, h)
             self.LCD.send_data(top_image)
 
+            # if we have NOT used a custom image
             if zero_offset >= len(self.custom):
                 # fill in an area below this top_image
-                # if we haven't used one of pre-set images
                 fill_x = self.x + 9
                 fill_y = new_y + 14
                 fill_w = 41
-                if self.prev_custom:
-                    fill_h = self.y + self.bar_y_0 - fill_y + 6
-                else:
-                    fill_h = self.prev_y - new_y + 8
+                fill_h = self.prev_y_fill_down - fill_y
 
-                print("filling", fill_x, fill_y, fill_w, fill_h)
+                #print("filling", fill_x, fill_y, fill_w, fill_h)
                 self.LCD.set_rectangle_color(fill_x, fill_y, fill_w, fill_h, self.FG_COLOR)
 
         elif new_y > self.prev_y:
-            print("new_y higher")
+            #print("less coffee")
             # new ratio was lower
             # reduce bar by adding background pixels
-            self.LCD.set_window(x, new_y, w, h)
+            if zero_offset == 0:
+                zero_x = self.x
+                zero_y = new_y+6 # image for zero coffee is taller.
+                zero_w = 59
+                zero_h = 12
+                self.LCD.set_window(zero_x, zero_y, zero_w, zero_h)
+            else:
+                self.LCD.set_window(x, new_y, w, h)
             self.LCD.send_data(top_image)
 
             # fill in an area above this top_image
             fill_x = self.x + 9
             fill_y = self.prev_y
             fill_w = 41
-            fill_h = new_y - self.prev_y
-            print("filling", fill_x, fill_y, fill_w, fill_h)
+            if zero_offset == 0:
+                fill_h = new_y - self.prev_y + 6
+            else:
+                fill_h = new_y - self.prev_y
+            #print("filling", fill_x, fill_y, fill_w, fill_h)
             self.LCD.set_rectangle_color(fill_x, fill_y, fill_w, fill_h, self.BG_COLOR)
-        else:
-            print("new_y same")
 
         self.prev_custom = zero_offset < len(self.custom)
-        print("new_y was", new_y)
-        print("prev_custom", self.prev_custom)
+        self.prev_y_fill_down = new_y + 14
+        #print("new_y was", new_y)
+        #print("prev_custom", self.prev_custom)
         self.prev_y = new_y
 
-        
+
 
 

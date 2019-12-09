@@ -19,6 +19,8 @@ from classes.time_buffer import TimeBuffer, StatsBuffer
 
 from classes.display import Display
 
+VERSION = "SENSOR_0.60"
+
 # Data for pattern recognition
 
 DEFAULT_SIZE = 1000 # Sample history size if not in settings "SAMPLE_BUFFER_SIZE"
@@ -50,7 +52,13 @@ class Sensor(object):
 
         self.settings = settings
 
-        if self.settings is None or not "SAMPLE_BUFFER_SIZE" in self.settings:
+        if self.settings is None:
+            self.settings = { }
+
+        if not "VERSION" in self.settings:
+            self.settings["VERSION"] = VERSION
+
+        if not "SAMPLE_BUFFER_SIZE" in self.settings:
             self.size = DEFAULT_SIZE
         else:
             self.size = settings["SAMPLE_BUFFER_SIZE"]
@@ -79,7 +87,9 @@ class Sensor(object):
             self.save_count = self.settings["SAMPLE_SAVE_COUNT"]
         self.save_counter = 0 # cumulative count of how many samples we've collected
         print("Set save_count to", self.save_count)
+
         self.display.begin()
+
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
@@ -359,17 +369,21 @@ class Sensor(object):
                 self.sample_buffer.save("../data/save_{:.3f}.csv".format(time.time()))
                 self.save_counter = 0
 
+        # ----------------------
+        # SEND EVENT TO PLATFORM
+        # ----------------------
+
+        event = self.test_event(ts, value)
+
+        if event is not None and event["event_code"] == EVENT_NEW:
+            self.display.update_new(ts)
+
         #----------------
         # UPDATE DISPLAY
         # ---------------
 
         self.display.update(ts, self.sample_buffer, debug_list)
 
-        # ----------------------
-        # SEND EVENT TO PLATFORM
-        # ----------------------
-
-        self.test_event(ts, value)
 
         # ---------------------
         # SEND DATA TO PLATFORM
