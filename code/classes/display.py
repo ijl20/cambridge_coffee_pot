@@ -23,7 +23,7 @@ str_to_color = { "YELLOW": 0xFFE0,    # yellow 565 RGB
                  "BLUE": 0x001F    # blue 565 RGB
                }
 
-CHART_SETTINGS = { "x": 0, "y": 0, "w": 160, "h": 28, # 'pixels' top-left coords and width, height.
+CHART_SETTINGS = { "x": 0, "y": 100, "w": 160, "h": 28, # 'pixels' top-left coords and width, height.
                 "step": 1,             # 'pixels': how many pixels to step in x direction for next()
                 "time_scale": 0.1,      # 'seconds per pixel' x-scale for Bar add_time(timestamp, height_pixels )
                 "bar_width": 1,        # 'pixels', width of value column
@@ -36,7 +36,7 @@ CHART_SETTINGS = { "x": 0, "y": 0, "w": 160, "h": 28, # 'pixels' top-left coords
 
 VALUE_SETTINGS = {
     "VALUE_X": 59,
-    "VALUE_Y": 98,
+    "VALUE_Y": 70,
     "VALUE_WIDTH": 101,
     "VALUE_HEIGHT": 30,
     "VALUE_COLOR_FG": "WHITE",
@@ -44,12 +44,14 @@ VALUE_SETTINGS = {
     "VALUE_RIGHT_MARGIN": 10,
 
     "NEW_X": 59,
-    "NEW_Y": 28,
+    "NEW_Y": 0,
     "NEW_WIDTH": 101,
     "NEW_HEIGHT": 18,
     "NEW_COLOR_FG": "BLUE",
     "NEW_COLOR_BG": "WHITE",
 
+    "POT_X": 0,
+    "POT_Y": 0,
     "POT_FG": "YELLOW",
     "POT_BG": "BLUE",
 }
@@ -86,7 +88,10 @@ class Display(object):
         #LCD.LCD_PageImage(image)
         self.LCD.display(image)
 
-        self.pot = Pot(LCD=self.LCD, x=0, y=28, settings=self.settings)
+        self.pot = Pot(LCD=self.LCD,
+                       x=self.settings["POT_X"],
+                       y=self.settings["POT_Y"],
+                       settings=self.settings)
 
         print("init_lcd in {:.3f} sec.".format(time.process_time() - t_start))
 

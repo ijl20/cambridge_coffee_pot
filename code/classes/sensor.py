@@ -163,7 +163,12 @@ class Sensor(object):
     def test_empty(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
         d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
-        if not m is None and not sample_count is None and sample_count > 5 and not d is None and not d > 30:
+        if (not m is None and
+            not sample_count is None and
+            sample_count > 5 and
+            not d is None and
+            not d > 30):
+
             EMPTY_WEIGHT = 1600
             EMPTY_MARGIN = 100
             empty = abs(m - EMPTY_WEIGHT) < EMPTY_MARGIN
@@ -177,7 +182,13 @@ class Sensor(object):
     # Returns tuple <Test true/false>, < next offset >
     def test_full(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
-        if not m == None:
+        d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
+        if (not m is None and
+            not sample_count is None and
+            sample_count > 5 and
+            not d is None and
+            not d > 30):
+
             FULL_WEIGHT = 3400
             FULL_MARGIN = 400
             full = abs(m - FULL_WEIGHT) < FULL_MARGIN
