@@ -1,0 +1,132 @@
+<html>
+<head>
+<title>Cambridge Coffee Pot</title>
+
+<style>
+    #pot { background-color: lightblue;
+           position: relative;
+           width: 300px;
+           height: 486px;
+           border: solid black 2px;
+           }
+
+    #pot_background { position: absolute;
+                      left: 0;
+                      top: 0;
+                      z-index: 100;
+                      }
+
+    #pot_foreground { position: absolute;
+                      left: 0;
+                      top: 0;
+                      z-index: 500;
+                      }
+
+    #pot_empty { position: absolute;
+                      left: 0;
+                      top: 423px;
+                      z-index: 600;
+                      display: none;
+                      }
+
+    #pot_top { position: absolute;
+                    left: 52px;
+                    top: 300px;
+                    z-index: 200;
+                    }
+
+    #pot_below { position: absolute;
+                    width: 194px;
+                    left: 52px;
+                    top: 360px;
+                    height: 94px;
+                    z-index: 150;
+                    }
+
+</style>
+
+<script>
+"use strict"
+
+var pot_top;
+var pot_below;
+var pot_empty;
+
+// lower limit of coffee
+var POT_BOTTOM_Y = 454;
+
+// Y-pixel of ratio = 1
+var POT_MAX_Y = 160;
+// Y-pixel of ratio = 0
+var POT_MIN_Y = 421;
+
+// PX offset from top of pot_top image to the y-value representing the reading
+var POT_TOP_OFFSET = 30;
+var POT_BOTTOM_OFFSET = 40;
+
+var pot_is_empty;
+
+function init()
+{
+    console.log("init()");
+
+    // The 2 images that move up and down to display the coffee level.
+    pot_top = document.getElementById("pot_top");
+    pot_below = document.getElementById("pot_below");
+    pot_empty = document.getElementById("pot_empty");
+
+    pot_is_empty = false;
+
+    update(0.5);
+}
+
+// Convert a pot 'fullness' ratio to a Y-pixel value representing the reading
+function ratio_to_y(ratio)
+{
+    return Math.floor(ratio * (POT_MAX_Y - POT_MIN_Y) + POT_MIN_Y)
+}
+
+function update(ratio)
+{
+    var y = ratio_to_y(ratio);
+
+    console.log("y=",y);
+
+    pot_top.style['top'] = (y - POT_TOP_OFFSET)+"px";
+    pot_below.style['top'] = y + "px";
+    pot_below.style['height'] = (POT_MIN_Y - y) + POT_BOTTOM_OFFSET + "px";
+
+    if (ratio == 0 && !pot_is_empty)
+    {
+        console.log("new empty pot");
+
+        pot_empty.style['display'] = "block";
+        pot_is_empty = true;
+    }
+    else if (ratio != 0 && pot_is_empty)
+    {
+        console.log("new non-empty pot");
+
+        pot_empty.style['display'] = "none";
+        pot_is_empty = false;
+    }
+}
+
+</script>
+
+</head>
+<body onload="init()">
+
+<h1>Cambridge Coffee Pot</h1>
+
+<div id="pot">
+
+    <img id="pot_background" src="images/pot_background.png"/>
+    <img id="pot_foreground" src="images/pot_foreground.png"/>
+    <img id="pot_empty" src="images/pot_empty.png"/>
+    <img id="pot_top" src="images/pot_top.png"/>
+    <img id="pot_below" src="images/pot_below.png"/>
+</div>
+
+</body>
+</html>
