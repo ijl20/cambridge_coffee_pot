@@ -1,0 +1,153 @@
+
+/* rtroute.css style for rtroute utility */
+
+html {
+    height: 100%;
+    margin-right: 15px;
+}
+
+body {
+    font-family: sans-serif;
+    height: 100%;
+    width: 100%;
+}
+
+#rt_scratchpad {
+    font-size: x-small;
+    width: 95%;
+    height: 30%;
+}
+
+#log_div {
+    margin-top: 10px;
+}
+
+.top-aligned {
+    vertical-align: top;
+}
+
+.control_box {
+    padding: 2px;
+}
+
+.connected {
+    padding: 10px;
+    background-color: lightgreen;
+}
+
+.not_connected {
+    padding: 10px;
+    background-color: lightgray;
+}
+
+.uri_input {
+    margin: 10px;
+}
+
+.control_heading {
+    font-weight: bold;
+}
+
+.scratchpad_box {
+    width: 100%;
+    min-height: 300px;
+}
+
+.control_div {
+    display: inline-block;
+    width: 30%;
+    min-width: 400px;
+    max-width: 600px;
+    /* height: 80%; */
+    /* float: left; */
+    overflow-y: scroll;
+}
+
+.log_record {
+}
+
+.log_msg {
+    display: inline-block;
+    margin-left: 1em;
+}
+
+.log_ts {
+    display: inline-block;
+}
+
+.log_record_odd {
+    background-color: lightblue;
+}
+
+.log_record_even {
+    background-color: lightgray;
+}
+
+.log_error {
+    color: red;
+}
+
+.test_button {
+    background-color: lightpink;
+}
+
+.toggle_option {
+    display: inline-block;
+    border: 2px solid #cccccc;
+    background-color: #e8e8e8;
+    border-style: outset;
+    border-radius: 3px;
+}
+
+#rtmonitor_uri {
+    width: 100%;
+    border: none;
+    margin: 0 0 5px 0;
+}
+
+.client_area {
+    display: inline-block;
+}
+
+#pot { background-color: lightblue;
+       position: relative;
+       width: 300px;
+       height: 486px;
+       border: solid black 2px;
+       }
+
+#pot_background { position: absolute;
+                  left: 0;
+                  top: 0;
+                  z-index: 100;
+                  }
+
+#pot_foreground { position: absolute;
+                  left: 0;
+                  top: 0;
+                  z-index: 500;
+                  }
+
+#pot_empty { position: absolute;
+                  left: 0;
+                  top: 423px;
+                  z-index: 600;
+                  display: none;
+                  }
+
+#pot_top { position: absolute;
+                left: 52px;
+                top: 300px;
+                z-index: 200;
+                }
+
+#pot_below { position: absolute;
+                width: 194px;
+                left: 52px;
+                top: 360px;
+                height: 94px;
+                z-index: 150;
+                }
+
+</style>
+

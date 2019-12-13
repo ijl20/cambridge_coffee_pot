@@ -1,132 +1,177 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
+
 <head>
-<title>Cambridge Coffee Pot</title>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    <link rel="shortcut icon" type="image/png" href="/static_web/images/favicon.png"/>
 
-<style>
-    #pot { background-color: lightblue;
-           position: relative;
-           width: 300px;
-           height: 486px;
-           border: solid black 2px;
-           }
+    <title>xcoffee</title>
+<!--
+RELEASE INFO:
+    2019-12-12 xcoffee created from rtclient
+    2019-12-11 rtclient created from cut-down rtroute
+    2018-10-22 rtroute real-time analyze along journey WIP
+    2018-10-18 rtmonitor_api.js added to replace rtroute.js rtmonitor access
+    2018-10-15 rt_tracker.js added to hold probablistic bus tracking code
+    2018-08-31 rtroute_config.js added to store non-Git URL's and API token
+    2017-12-10 added progress vector, improved record, replay, logging
+    2017-12-08 moved JS into rtroute.js.
+               Replay with sample trip
+               Shims for sirivm_to_journey_id and vehicle_journey_id_to_route
+               'state' code for buses e.g. route_index, segment_probability
+               Route segment probabilities based on sirivm -> segment distance
+               Route segment probabilities based on current route_index
+    2017-12-01 imported stops, journeys and trip data, draw_stops and draw_route code
+    2017-11-30 Moved code into rtroute.html to experiment with route calculations
+    ----
+    2017-11-26 generalized from buses, latest full data in popup, icon resize on old data,
+               map can go fullscreen
+    2017-11-25 supports connect, close, subscribe, request with filters '=' and 'inside'
+                console log using divs, draw polygon, clear icons
+    2017-11-14 page working for connect, subscribe, close
+    2017-11-11 initial version to connect websocket to vertx rtmonitor
+-->
 
-    #pot_background { position: absolute;
-                      left: 0;
-                      top: 0;
-                      z-index: 100;
-                      }
+<link rel="stylesheet" href="xcoffee.css" />
 
-    #pot_foreground { position: absolute;
-                      left: 0;
-                      top: 0;
-                      z-index: 500;
-                      }
+<!-- RTMonitor and WebSockets library -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<!--script src="sockjs.min.js"></script>-->
 
-    #pot_empty { position: absolute;
-                      left: 0;
-                      top: 423px;
-                      z-index: 600;
-                      display: none;
-                      }
+<script src="rtmonitor_api.js"></script>
 
-    #pot_top { position: absolute;
-                    left: 52px;
-                    top: 300px;
-                    z-index: 200;
-                    }
+<!-- ijl20 library of useful geo functions -->
+<script src="geo.js"></script>
 
-    #pot_below { position: absolute;
-                    width: 194px;
-                    left: 52px;
-                    top: 360px;
-                    height: 94px;
-                    z-index: 150;
-                    }
-
-</style>
+<!-- The core realtime display and route analytics code -->
+<script src="xcoffee.js"></script>
 
 <script>
-"use strict"
+    RTMONITOR_URI = 'https://tfc-app2.cl.cam.ac.uk/rtmonitor/A/general/'
 
-var pot_top;
-var pot_below;
-var pot_empty;
-
-// lower limit of coffee
-var POT_BOTTOM_Y = 454;
-
-// Y-pixel of ratio = 1
-var POT_MAX_Y = 160;
-// Y-pixel of ratio = 0
-var POT_MIN_Y = 421;
-
-// PX offset from top of pot_top image to the y-value representing the reading
-var POT_TOP_OFFSET = 30;
-var POT_BOTTOM_OFFSET = 40;
-
-var pot_is_empty;
-
-function init()
-{
-    console.log("init()");
-
-    // The 2 images that move up and down to display the coffee level.
-    pot_top = document.getElementById("pot_top");
-    pot_below = document.getElementById("pot_below");
-    pot_empty = document.getElementById("pot_empty");
-
-    pot_is_empty = false;
-
-    update(0.5);
-}
-
-// Convert a pot 'fullness' ratio to a Y-pixel value representing the reading
-function ratio_to_y(ratio)
-{
-    return Math.floor(ratio * (POT_MAX_Y - POT_MIN_Y) + POT_MIN_Y)
-}
-
-function update(ratio)
-{
-    var y = ratio_to_y(ratio);
-
-    console.log("y=",y);
-
-    pot_top.style['top'] = (y - POT_TOP_OFFSET)+"px";
-    pot_below.style['top'] = y + "px";
-    pot_below.style['height'] = (POT_MIN_Y - y) + POT_BOTTOM_OFFSET + "px";
-
-    if (ratio == 0 && !pot_is_empty)
-    {
-        console.log("new empty pot");
-
-        pot_empty.style['display'] = "block";
-        pot_is_empty = true;
-    }
-    else if (ratio != 0 && pot_is_empty)
-    {
-        console.log("new non-empty pot");
-
-        pot_empty.style['display'] = "none";
-        pot_is_empty = false;
-    }
-}
-
+    RT_TOKEN = 'y1AS/hH1FzyNCQnPzlSAJvEW5Rs4McIPOpJoPHIsfyy8UC3jCNRW+OYACx7yC6pBwFS9Yr9aBldSfmBNUrjtvB3w2GOLJYzTUzEJ0DTfWr1MD8AWsu1pD0MVyyAp5NjvwECKxLioBwrQ3vf7obhfH/Y0rLbHh/B3bIX31sTWiSfsnLxkOC0pPfCAcQWStpGiPYp4L57HQjp8+S6MBzd1I3ByxG0Y9I4WUEZqZd386ipl91HzKMY41Sv6kSt3QwcrCALZyM3H0CquJrZaqGIOPLIN7ylIhRm6FwqUThwRNnbpyx3WcCEeZqQPSwcFwyM+lFkud0eXsHu3IX2BiwaVkmosSs6pqCAOX/0BOuUlIHeBJf3RQGWzYfZ/xika/TMOk11GCNoFei+HM102Jt4ayQ=='
 </script>
 
 </head>
-<body onload="init()">
 
-<h1>Cambridge Coffee Pot</h1>
+<!-- ************************************************************************************** -->
+<!-- ************************************************************************************** -->
+<!-- *********  PAGE HTML      ************************************************************ -->
+<!-- ************************************************************************************** -->
+<!-- ************************************************************************************** -->
+<body onload='init()'>
 
-<div id="pot">
+<div id="control_div" class="top-aligned control_div">
+    <h1><span id="page_title"></span> <span id='clock'></span></h1>
 
-    <img id="pot_background" src="images/pot_background.png"/>
-    <img id="pot_foreground" src="images/pot_foreground.png"/>
-    <img id="pot_empty" src="images/pot_empty.png"/>
-    <img id="pot_top" src="images/pot_top.png"/>
-    <img id="pot_below" src="images/pot_below.png"/>
+
+
+
+<div class="control_box">
+    <div id="connect_box" class="not_connected">
+        <div class="control_heading">RTMonitor:</div>
+
+        <form class="uri_input">
+            <input type="text" id="rtmonitor_uri"></input>
+        </form>
+
+        <button onclick="rt_connect('nginx')"
+            title="Connect socket to server and send rt_connect msg"
+            >Connect</button>
+        <button onclick="rt_disconnect()"
+            title="Close socket connection to server"
+            >Close</button>
+    </div>
+
+    <button onclick="page_reset()"
+        title="Reset this page"
+        >Reset</button>
+    <!--<button onclick="request_latest_msg()"
+        title="Get the latest eventbus message from the server"
+        >Request msg</button> -->
+    <button onclick="request_latest_records()"
+        title="Get all the latest data records accumulated on the server"
+        >Request records</button>
+    <button onclick="subscribe_all()"
+        title="Get a 'push' real-time subscription to all the data records as they arrive"
+        >Subscribe All</button>
+    <input type="button" id="draw_poly" onclick="draw_poly()" value="Draw Polygon"
+        title="Draw a polygon on the map to create an API 'inside' filter in scratchpad"
+        ></input>
+    <input type="button" id="load_poly" onclick="load_poly()" value="Load Polygon"
+        title="Draw a polygon on the map from data in the scratchpad"
+        ></input>
 </div>
+
+<div class="control_heading">Console log options</div>
+<div class="control_box">
+    <div class="toggle_option">Log oldest top: <input id="log_append" type="checkbox" onclick="click_log_append()"/></div>
+    <div class="toggle_option">Log data records: <input id="log_data" type="checkbox" onclick="click_log_data()"/></div>
+    <input type="button" onclick="log_clear()"
+        title="Clear log"
+        value="Clear"
+        ></input>
+</div>
+<div class="control_heading">Data recording</div>
+<div class="control_box">
+    <input type="button" id="record_start" onclick="record_start()" value="Record"
+        title="Record the data as it arrives"
+        ></input>
+    <input type="button" id="record_clear" onclick="record_clear()" value="Clear"
+        title="Cancel recording"
+        ></input>
+    <input type="button" id="record_print" onclick="record_print()" value="Print"
+        title="Print the recorded data to the console"
+        ></input>
+</div>
+<!-- TEST BUTTONS are added by javascript into this div -->
+<div id="test_buttons">
+</div>
+
+
+<div class="control_heading">Realtime API scratchpad:</div>
+
+<div class="scratchpad_box">
+<div class="button_box">
+  <button class="verticle_button" onclick="rt_send_input('rt_scratchpad')">Send:</button>
+  <button class="verticle_button" onclick="clear_textarea('rt_scratchpad')">Clear</button>
+  <button class="verticle_button" onclick="rt_prev_msg('rt_scratchpad')">&lt;</button>
+  <button class="verticle_button" onclick="rt_next_msg('rt_scratchpad')">&gt;</button>
+</div>
+
+<textarea rows="25" cols="50" id="rt_scratchpad">
+{ "msg_type": "rt_subscribe",
+  "request_id": "A",
+  "filters" : [
+                {"test": "=",
+		 "key": "VehicleRef",
+                 "value": "ABC"
+                }
+              ]
+}
+</textarea>
+</div>
+
+</div> <!-- end of control_div -->
+
+<div class="client_area">
+
+    <h1>Cambridge Coffee Pot</h1>
+
+    <div id="pot">
+        <img id="pot_background" src="images/pot_background.png"/>
+        <img id="pot_foreground" src="images/pot_foreground.png"/>
+        <img id="pot_empty" src="images/pot_empty.png"/>
+        <img id="pot_top" src="images/pot_top.png"/>
+        <img id="pot_below" src="images/pot_below.png"/>
+    </div>
+
+</div>
+
+<!-- console log -->
+<div id="log_div"></div>
+
 
 </body>
 </html>
