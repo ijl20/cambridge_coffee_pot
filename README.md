@@ -214,7 +214,22 @@ E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
 ## The web client
 
 The Cambridge Intelligent City Platform is used to receive the real-time data (periodic weight readings and low-latency
-events) from the sensor and also provide some user-appropriate display derived from this data.
+events) from the sensor and also provide some user-appropriate display derived from this data. The information
+sent to the Platform for a sample day is visualized below (the 'event' pattern matching in the
+sensor is first-cut prototype):
+
+![platform watchdog/events chart](images/2019-12-11_server_data.png)
+
+At this scale the periodic weight readings look detailed but it is *important* to note these are sent on a
+regular 2 minute interval and for real-time purposes provide a potential 2 minute latency to the actual
+state of the sensor. 
+
+In contrast the events (which include the current weight) are sent as soon
+as the event pattern is recognized (e.g. within a second of a cup being poured). The key point is that
+the 'events' latency is dominated by the characteristics of the behaviour being monitored 
+rather than some artificial time constant (like a polling interval) embedded in the software.
+For example a 'cup poured' event requires time to recognize
+potentially multiple presses on the pot plunger as a single 'cup poured' event.
 
 This web client uses the Intelligent City Platform [rtclient](https://github.com/ijl20/rtclient) as a starting 
 framework.
