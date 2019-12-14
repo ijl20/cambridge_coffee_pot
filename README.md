@@ -211,6 +211,18 @@ E.g. [available Amazon UK](https://www.amazon.co.uk/gp/product/B07GRGT3C3)
 
 [HX711 Data sheet](hx711/hx711_english.pdf)
 
+## The web client
+
+The Cambridge Intelligent City Platform is used to receive the real-time data (periodic weight readings and low-latency
+events) from the sensor and also provide some user-appropriate display derived from this data.
+
+This web client uses the Intelligent City Platform [rtclient](https://github.com/ijl20/rtclient) as a starting 
+framework.
+
+Here's an image of the client during development:
+
+![xcoffee dev image](images/xcoffee_dev.png)
+
 ## References
 
 <a id="ref_1">[1]</a> Heidi Howard, in conversation around the Coffee Pot, Cambridge Computer Lab, 2019-10-30
