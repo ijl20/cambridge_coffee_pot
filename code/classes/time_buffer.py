@@ -216,23 +216,10 @@ class TimeBuffer(object):
 
         return offset
 
-    # Calculate the average value recorded over the previous 'duration' seconds from time_offset seconds.
-    # Returns a tuple of <average value>, <index> where <index> is the sample_history offset
-    # one sample earlier than the offset & duration selected.
-    # E.g. mean_time(0,3) will find the average value of the most recent 3 seconds.
-    # average_time(2,1) will find average during 1 second duration ending 2 seconds ago.
-    # Return value is from self.mean(...)
-    def mean_time(self, time_offset, duration):
-        if self.settings["LOG_LEVEL"] == 1:
-            print("average_time time_offset={}, duration={}".format(time_offset, duration))
-
-        offset = self.time_to_offset(time_offset)
-
-        return self.average(offset, duration)
-
-    # mean() is like mean_time() but uses an INDEX offset rather than time offset
-    # Returns tuple (average_value, next_offset, sample_count)
-    # where average_value = calculated mean
+    # Calculate the average value recorded over the previous 'duration' seconds from INDEX offset
+    # Returns tuple (average_value, next_offset, actual_duration, sample_count)
+    # where:
+    #       average_value = calculated mean
     #       next_offset = offset in buffer of 1st sample older than latest - duration
     #       actual_duration = time span of data samples used in calculation
     #       sample_count = how many buffer values were used when calculating mean value
@@ -270,20 +257,6 @@ class TimeBuffer(object):
         return total_value / sample_count, next_offset, end_time - begin_time, sample_count
 
     # Return the median sample value for a time period.
-    # The period is from (latest sample time - time_offset) to (latest sample time - time_offset - duration)
-    # All time values are in seconds.
-    # Return value is from self.median(...)
-    def median_time(self, time_offset, duration):
-
-        if self.settings["LOG_LEVEL"] == 1:
-            print("median_time time_offset={}, duration={}".format(time_offset, duration))
-
-        # Convert time (e.g. 3 seconds) to an index offset from latest reading in sample_history
-        offset = self.time_to_offset(time_offset)
-
-        return self.median(offset, duration)
-
-    # median() is like median_time but uses an INDEX offset rather than a TIME offset.
     # Duration (the length of time to include samples) is still in seconds
     # Returns tuple:
     #       median_value = calculated median
@@ -348,33 +321,18 @@ class TimeBuffer(object):
 
         return median_value, next_offset, end_time - begin_time, len(value_list)
 
-    # deviation_time() returns the deviation of a set of values.
-    # Parameters:
-    #       time_offset: offset in seconds from the most recent sample
-    #       duration: time in seconds over which samples will be included
-    #       mean: average value to use in standard deviation calculation
-    # Returns:
-    #   the values provided by deviation()
-    def deviation_time(self, time_offset, duration, mean):
-        if self.settings["LOG_LEVEL"] == 1:
-            print("deviation_time time_offset={}, duration={}".format(time_offset, duration))
-
-        offset = self.time_to_offset(time_offset)
-
-        return self.deviation(offset, duration, mean)
-
     # deviation() returns the deviation of a set of values around a provided value
     # parameters:
     #       offset: index offset where latest sample = 0, previous = 1 etc
     #       duration: time in seconds over which to find the standard deviation
-    #       mean: average about which to calculate the deviation
+    #       avg: average about which to calculate the deviation
     # Returns tuple (deviation_value, next_offset, actual_duration, sample_count)
     # where deviation_value = calculated deviation
     #       next_offset = offset in buffer of 1st sample older than latest - duration.
     #       actual_duration = duration (seconds) from oldest to newest in deviation calculation.
-    #       sample_count = how many buffer values were used when calculating mean value.
-    def deviation(self, offset, duration, mean):
-        if mean is None:
+    #       sample_count = how many buffer values were used when calculating deviation value.
+    def deviation(self, offset, duration, avg):
+        if avg is None:
             return None, None, None, None
 
         # lookup the first value to get that value (grams) and timestamp
@@ -383,7 +341,7 @@ class TimeBuffer(object):
             return None, None, None, None
 
         next_offset = offset
-        total_variance = (sample["value"] - mean) ** 2
+        total_variance = (sample["value"] - avg) ** 2
         period_end = sample["ts"]
         period_begin = period_end - duration
         sample_count = 1
@@ -401,7 +359,7 @@ class TimeBuffer(object):
                 return None, None, None, None
             if sample["ts"] < period_begin:
                 break
-            total_variance += (sample["value"] - mean) ** 2
+            total_variance += (sample["value"] - avg) ** 2
             sample_count += 1
             actual_duration = period_end - sample["ts"]
 
@@ -412,6 +370,64 @@ class TimeBuffer(object):
             print("deviation {} duration {} with {} samples".format(deviation, actual_duration, sample_count))
 
         return deviation, next_offset, actual_duration, sample_count
+
+    # find(offset, duration, test_fn) returns tuple (sample,...) if 'test_fn(sample)' returns
+    # True for any sample in buffer from 'offset' back for 'duration' seconds. Otherwise returns (None,...)
+    # Parameters:
+    #       offset: index offset where latest sample = 0, previous = 1 etc
+    #       duration: time in seconds over which to apply the 'test_fn(value)' function
+    #       test_fn: a function which returns True or False for each buffer ts/value entry.
+    # Returns tuple (sample, next_offset, actual_duration, sample_count)
+    # where:
+    #       sample = sample|None whether the required sample was found in buffer
+    #       next_offset = offset in buffer of 1st sample older than value for which found=True (or duration)
+    #       actual_duration = duration (seconds) from found value to newest within duration
+    #       sample_count = how many buffer values were used in search for found value
+    def find(self, offset, duration, test_fn):
+        # lookup the first value to get that value and timestamp
+        sample = self.get(offset)
+        if sample is None:
+            return None, None, None, None
+
+        next_offset = offset
+        period_end = sample["ts"]
+        period_begin = period_end - duration
+        sample_count = 0
+        actual_duration = 0
+
+        while sample["ts"] >= period_begin:
+            sample_count += 1
+            actual_duration = period_end - sample["ts"]
+
+            # apply provided test function
+            found = test_fn(sample)
+
+            # We haven't found a matching value so move on to next sample in buffer
+            # select previous index in circular buffer
+            next_offset = (next_offset + 1) % self.SAMPLE_HISTORY_SIZE
+            if next_offset == offset:
+                next_offset = None
+                break
+
+            next_sample = self.get(next_offset)
+
+            if next_sample == None:
+                next_offset = None
+                # we've exhausted the values in the partially filled buffer
+                break
+
+            if found:
+                break
+
+            sample = next_sample
+
+        if self.settings["LOG_LEVEL"] == 1:
+            print("TimeBuffer.find() {} duration {} with {} samples".format(found, actual_duration, sample_count))
+
+        # A chance to use Python's quirky conditional expression syntax...
+        return_sample = sample if found else None
+
+        return return_sample, next_offset, actual_duration, sample_count
 
 # -----------------------------------------------------------------------------------------
 #

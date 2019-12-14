@@ -187,13 +187,9 @@ Will return `None` if no reading is found (i.e. the `time_offset` is before the 
 
 ```
 value, next_offset, actual_duration, sample_count = buffer.median(index_offset, duration)
-
-value, next_offset, actual_duration, sample_count = buffer.median_time(time_offset, duration)
 ```
 
-Will return the median value of a set of readings in the TimeBuffer. The difference between the two versions is whether
-an *index* offset into the buffer is used (e.g. referring to the 10th most recent sample in the TimeBuffer), or a *time*
-offset is used (e.g. a sample from 10 seconds ago).
+Will return the median value of a set of readings in the TimeBuffer.
 
 `duration` is a period in *seconds* over which the median is to be found which will run up to the offset given.
 
@@ -217,8 +213,6 @@ appeared.
 
 ```
 value, next_offset, actual_duration, sample_count = buffer.mean(index_offset, duration)
-
-value, next_offset, actual_duration, sample_count = buffer.mean_time(time_offset, duration)
 ```
 
 Similar functions to `median` above, but returning the mean value.
@@ -231,8 +225,29 @@ the arithmetic mean.
 
 ```
 value, next_offset, actual_duration, sample_count = buffer.deviation(index_offset, duration, mean_value)
+```
 
-value, next_offset, actual_duration, sample_count = buffer.deviation_time(time_offset, duration, mean_value)
+### Search the buffer to find if a sample matches a provided test function
+
+Returns a tuple (Sample, ...) or (None, ...) depending on whether a provided function returns True
+for any sample in the buffer over the duration given.
+
+```
+sample, next_offset, actual_duration, sample_count = buffer.find(offset, duration, test_function)
+```
+
+The `test_function` will be called with a sample (i.e. `{ "ts": , "value" }`) and should return `True`
+or `False`. For example, if the buffer contains values of the form `{ "weight": 99, "confidence": 0.5 }` and
+you want to know if the weight value was below 50 in the past 5 seconds:
+```
+def low_weight(sample):
+    return sample['value']['weight] < 50
+
+buffer.test(0,5,low_weight)
+```
+An inline function could also have been used, i.e. 
+```
+buffer.test(0, 5, lambda sample: sample['value']['weight']<50)
 ```
 
 ## Sensor and TimeBuffer replay of data
