@@ -234,7 +234,7 @@ potentially multiple presses on the pot plunger as a single 'cup poured' event.
 This web client uses the Intelligent City Platform [rtclient](https://github.com/ijl20/rtclient) as a starting 
 framework.
 
-Here's an image of the client during development:
+Here's an image of the client during development 2019-12-13:
 
 ![xcoffee dev image](images/xcoffee_dev.png)
 
