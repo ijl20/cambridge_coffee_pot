@@ -104,7 +104,7 @@ class Sensor(object):
     # post_data is a python dictionary to be converted to json.
     def send_data(self, post_data):
         try:
-            print("send_data() to {}".format(self.settings["FEEDMAKER_URL"]))
+            #print("send_data() to {}".format(self.settings["FEEDMAKER_URL"]))
             if not self.SIMULATION_MODE:
                 response = requests.post(
                         self.settings["FEEDMAKER_URL"],
@@ -117,7 +117,7 @@ class Sensor(object):
                                     sort_keys=True,
                                     indent=4,
                                     separators=(',', ': '))
-            print("sent:\n {}".format(debug_str))
+            #print("sent:\n {}".format(debug_str))
         except Exception as e:
             print("send_data() error with {}".format(post_data))
             print(e)
@@ -142,6 +142,7 @@ class Sensor(object):
                          'acp_ts': ts,
                          'version': self.settings["VERSION"]
                        }
+        print("{:.3f},{:5.1f},{},".format(ts, event_data['weight'], event_data['event_code']), event_data)
 
         # merge dictionaries
         message_data = { **message_data, **event_data }
@@ -207,7 +208,7 @@ class Sensor(object):
             sample_value, offset, duration, sample_count = self.sample_buffer.median(0,2) # from latest ts, back 2 seconds
 
             if not sample_value == None:
-                print ("SENDING WEIGHT {:5.1f}, {}".format(sample_value, time.ctime(ts)))
+                print ("{:.3f},{:5.1f},WEIGHT,".format(ts, sample_value), "{}".format(time.ctime(ts)))
 
                 self.send_weight(ts, sample_value)
 

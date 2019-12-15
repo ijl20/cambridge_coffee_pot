@@ -171,13 +171,25 @@ class Events(object):
 
             MIN_CUP_WEIGHT = 40
             MAX_CUP_WEIGHT = 1000
-            if push_detected and stats["deviation"] < 30 and med_delta > MIN_CUP_WEIGHT and med_delta < MAX_CUP_WEIGHT:
-                latest_event = self.event_buffer.get(0)
-                if ((latest_event is None) or
-                   (latest_event["value"]["event_code"] != self.EVENT_POURED) or
-                   (ts - latest_event["ts"] > 30 )):
-                    weight_poured = math.floor(med_delta + 0.5)
-                    weight = math.floor(current_median + 0.5)
+            if ( push_detected and 
+                 stats["deviation"] < 30 and 
+                 med_delta > MIN_CUP_WEIGHT and 
+                 med_delta < MAX_CUP_WEIGHT):
+
+                #latest_event = self.event_buffer.get(0)
+                #if ((latest_event is None) or
+                #   (latest_event["value"]["event_code"] != self.EVENT_POURED) or
+                #   (ts - latest_event["ts"] > 30 )):
+
+                weight_poured = math.floor(med_delta + 0.5)
+                weight = math.floor(current_median + 0.5)
+
+                is_poured_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_POURED
+
+                prev_poured, offset, duration, count = self.event_buffer.find(0,POUR_TEST_SECONDS,is_poured_event)
+
+                # Only send this POURED event if there isn't already a recent POURED event with similar weight
+                if prev_poured is None or prev_poured['value']['weight'] - weight > MIN_CUP_WEIGHT:
                     confidence = 0.8 # we don't have much better yet
                     return { "event_code": self.EVENT_POURED,
                              "weight_poured": weight_poured,
@@ -256,8 +268,11 @@ class Events(object):
             #   (latest_event["value"]["event_code"] != self.EVENT_EMPTY) or
             #   (ts - latest_event["ts"] > 600 )):
             PREVIOUS_EMPTY_TEST_SECONDS = 60
+
             is_empty_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_EMPTY
+
             previous_empty_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_EMPTY_TEST_SECONDS, is_empty_event )
+
             if previous_empty_event is None:
                 weight = math.floor(empty_weight+0.5)
                 confidence = empty_confidence

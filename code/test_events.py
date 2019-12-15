@@ -18,6 +18,8 @@ else:
 
 config.settings["VERSION"] = "TEST_0.1"
 
+config.settings["DISPLAY"] = False
+
 s = Sensor(settings = config.settings)
 
 s.begin()

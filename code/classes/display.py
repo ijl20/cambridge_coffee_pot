@@ -70,6 +70,10 @@ class Display(object):
         else:
             self.settings = VALUE_SETTINGS
 
+        # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
+        if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
+            return
+            
         if not "LOG_LEVEL" in self.settings:
             self.settings["LOG_LEVEL"] = 2
 
@@ -99,6 +103,9 @@ class Display(object):
     # Initial display
     # ------------------
     def begin(self):
+        # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
+        if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
+            return
         self.chart = self.LCD.add_chart(CHART_SETTINGS)
 
         self.pot.begin()
@@ -189,11 +196,18 @@ class Display(object):
             self.LCD.display_window(image, 0, 40, 160, 40)
 
     def update_new(self, ts):
+        # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
+        if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
+            return
         self.new_str = datetime.fromtimestamp(ts,timezone('Europe/London')).strftime("%a %H:%M")
 
     # Update a PIL image with the weight, and send to LCD
     # Note we are creating an image smaller than the screen size, and only updating a part of the display
     def update(self, ts, sample_buffer, debug_list):
+
+        # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
+        if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
+            return
 
         t_start = time.process_time()
 
