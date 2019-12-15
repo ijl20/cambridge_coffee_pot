@@ -18,6 +18,7 @@ class Events(object):
                  event_buffer=None,
                  stats_buffer=None
                 ):
+
         # COFFEE POT EVENTS
 
         self.EVENT_NEW = "COFFEE_NEW"
@@ -26,15 +27,47 @@ class Events(object):
         self.EVENT_REMOVED = "COFFEE_REMOVED"
         self.EVENT_GROUND = "COFFEE_GROUND"
 
+        # CONSTS
+        self.EMPTY_WEIGHT = 1630
+        self.EMPTY_MARGIN = 50
+        self.FULL_WEIGHT = 3400
+        self.FULL_MARGIN = 400
+        self.REMOVED_WEIGHT = 0
+        self.REMOVED_MARGIN = 100
+
         self.settings = settings
         self.sample_buffer = sample_buffer
         self.event_buffer = event_buffer
         self.stats_buffer = stats_buffer
 
+    # Test if value represents EMPTY pot
+    def empty_value(self, x):
+        if x==None:
+            return False, 1
+        empty = abs(x - self.EMPTY_WEIGHT) < self.EMPTY_MARGIN
+        confidence = 1 - abs(x - self.EMPTY_WEIGHT) / self.EMPTY_MARGIN / 2
+        return empty, confidence
+
+    # Test if value represents a FULL pot
+    def full_value(self, x):
+        if x==None:
+            return False, 1
+        full = abs(x - self.FULL_WEIGHT) < self.FULL_MARGIN
+        confidence = 1 - abs(x - self.FULL_WEIGHT) / self.FULL_MARGIN / 2
+        return full, confidence
+
+    # Test if value represents the pot REMOVED
+    def removed_value(self, x):
+        if x==None:
+            return False, 1
+        removed = abs(x - self.REMOVED_WEIGHT) < self.REMOVED_MARGIN
+        confidence = 1 - abs(x-self.REMOVED_WEIGHT) / (2 * self.REMOVED_MARGIN)
+        return removed, confidence
+
     # Test if pot is EMPTY
     # True if median for 1 second is 1400 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
-    def test_empty(self,offset):
+    def is_empty(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
         d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
         if (not m is None and
@@ -43,10 +76,8 @@ class Events(object):
             not d is None and
             not d > 30):
 
-            EMPTY_WEIGHT = 1600
-            EMPTY_MARGIN = 100
-            empty = abs(m - EMPTY_WEIGHT) < EMPTY_MARGIN
-            confidence = 1 - abs(m - EMPTY_WEIGHT) / EMPTY_MARGIN / 2
+            empty, confidence = self.empty_value(m)
+
             return empty, next_offset, m, confidence
         else:
             return None, None, None, None
@@ -54,7 +85,7 @@ class Events(object):
     # Test if pot is FULL
     # True if median for 1 second is 3400 grams +/- 400
     # Returns tuple <Test true/false>, < next offset >
-    def test_full(self,offset):
+    def is_full(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
         d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
         if (not m is None and
@@ -63,10 +94,8 @@ class Events(object):
             not d is None and
             not d > 30):
 
-            FULL_WEIGHT = 3400
-            FULL_MARGIN = 400
-            full = abs(m - FULL_WEIGHT) < FULL_MARGIN
-            confidence = 1 - abs(m - FULL_WEIGHT) / FULL_MARGIN / 2
+            full, confidence = self.full_value(m)
+
             return full, next_offset, m, confidence
         else:
             return None, None, None, None
@@ -74,11 +103,12 @@ class Events(object):
     # Test if pot is REMOVED
     # True if median for 3 seconds is 0 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
-    def test_removed(self,offset):
+    def is_removed(self,offset):
         m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 3)
         if not m == None:
-            removed = abs(m) < 100
-            confidence = 1 - abs(m) / 200
+
+            removed, confidence = self.removed_value(m)
+
             return removed, next_offset, m, confidence
         else:
             return None, None, None, None
@@ -110,8 +140,9 @@ class Events(object):
 
         push_detected = False
 
-        # look back 15 seconds and see if push detected AND stable prior value was 100.500g higher than latest stable value
+        # look back and see if push detected AND stable prior value was higher than latest stable value
         POUR_TEST_SECONDS = 30
+        # We are using the fact that each index in stats_buffer represents ONE SECOND of readings
         for i in range(POUR_TEST_SECONDS):
             stats_record = self.stats_buffer.get(i)
             if stats_record is None:
@@ -160,12 +191,16 @@ class Events(object):
 
     def test_event_new(self, ts):
         # Is the pot full now ?
-        full, offset, full_weight, full_confidence = self.test_full(0)
+        full, offset, full_weight, full_confidence = self.is_full(0)
+
+        # Immediate return if pot not full now
+        if not full:
+            return None
 
         # Was it removed before ?
-        removed, new_offset, removed_weight, removed_confidence = self.test_removed(offset)
+        removed_before, new_offset, removed_weight, removed_confidence = self.is_removed(offset)
 
-        if removed and full:
+        if removed_before:
             latest_event = self.event_buffer.get(0)
             if ((latest_event is None) or
                (latest_event["value"]["event_code"] != self.EVENT_NEW) or
@@ -178,12 +213,16 @@ class Events(object):
 
     def test_event_removed(self, ts):
         # Is the pot removed now ?
-        removed_now, offset, removed_now_weight, removed_now_confidence = self.test_removed(0)
+        removed_now, offset, removed_now_weight, removed_now_confidence = self.is_removed(0)
+
+        # Immediate exit if pot does not seem 'removed' now
+        if not removed_now:
+            return None
 
         # Was it removed before ?
-        removed_before, new_offset, removed_before_weight, removed_before_confidence = self.test_removed(offset)
+        removed_before, new_offset, removed_before_weight, removed_before_confidence = self.is_removed(offset)
 
-        if removed_now and not removed_before:
+        if not removed_before:
             latest_event = self.event_buffer.get(0)
             if ((latest_event is None) or
                (latest_event["value"]["event_code"] != self.EVENT_REMOVED) or
@@ -196,19 +235,37 @@ class Events(object):
 
     def test_event_empty(self, ts):
         # Is the pot empty now ?
-        empty_now, offset, empty_weight, empty_confidence = self.test_empty(0)
+        empty_now, offset, empty_weight, empty_confidence = self.is_empty(0)
 
-        # Was it empty before ?
-        empty_before, new_offset, empty_before_weight, empty_before_confidence = self.test_empty(offset)
+        # Immediate return if pot doesn't seem empty now
+        if not empty_now:
+            return None
 
-        if empty_now and not empty_before:
-            latest_event = self.event_buffer.get(0)
-            if ((latest_event is None) or
-               (latest_event["value"]["event_code"] != self.EVENT_EMPTY) or
-               (ts - latest_event["ts"] > 600 )):
+        # Was pot NOT EMPTY during previous 30 seconds ?
+        EMPTY_TEST_SECONDS = 30
+        # define stats_buffer sample test function
+        not_empty = lambda stats_sample: not self.empty_value(stats_sample['value']['median'])[0]
+        # look in stats_buffer to try and find 'not empty' 1-second median
+        stats_not_empty, stats_offset, stats_duration, stats_count = self.stats_buffer.find(0, EMPTY_TEST_SECONDS, not_empty)
+
+        #print(ts,"test_event_empty: empty_now, stats_not_empty=", stats_not_empty)
+
+        if stats_not_empty != None:
+            #latest_event = self.event_buffer.get(0)
+            #if ((latest_event is None) or
+            #   (latest_event["value"]["event_code"] != self.EVENT_EMPTY) or
+            #   (ts - latest_event["ts"] > 600 )):
+            PREVIOUS_EMPTY_TEST_SECONDS = 60
+            is_empty_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_EMPTY
+            previous_empty_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_EMPTY_TEST_SECONDS, is_empty_event )
+            if previous_empty_event is None:
                 weight = math.floor(empty_weight+0.5)
                 confidence = empty_confidence
+
+                #print(ts, "test_event_empty: returning EVENT_EMPTY")
                 return { "event_code": self.EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
+            #else:
+                #print(ts,"test_event_empty: returning None due to previous EVENT_EMPTY at ",previous_empty_event['ts'])
 
         return None
 

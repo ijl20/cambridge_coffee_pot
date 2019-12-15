@@ -218,7 +218,10 @@ class TimeBuffer(object):
 
     # Calculate the average value recorded over the previous 'duration' seconds from INDEX offset
     # Returns tuple (average_value, next_offset, actual_duration, sample_count)
-    # where:
+    # Parameters:
+    #       offset: buffer index offset (0=latest) for start of calculation
+    #       duration: time period (seconds) over which to calculate return value
+    # Return tuple:
     #       average_value = calculated mean
     #       next_offset = offset in buffer of 1st sample older than latest - duration
     #       actual_duration = time span of data samples used in calculation
@@ -258,7 +261,10 @@ class TimeBuffer(object):
 
     # Return the median sample value for a time period.
     # Duration (the length of time to include samples) is still in seconds
-    # Returns tuple:
+    # Parameters:
+    #       offset: buffer index offset (0=latest) for start of calculation
+    #       duration: time period (seconds) over which to calculate return value
+    # Return tuple:
     #       median_value = calculated median
     #       next_offset = offset in buffer of 1st sample older than latest - duration
     #       actual_duration = actual sample period used in median calculation
@@ -322,8 +328,8 @@ class TimeBuffer(object):
         return median_value, next_offset, end_time - begin_time, len(value_list)
 
     # deviation() returns the deviation of a set of values around a provided value
-    # parameters:
-    #       offset: index offset where latest sample = 0, previous = 1 etc
+    # Parameters:
+    #       offset: index offset (latest sample = 0, previous = 1 etc)
     #       duration: time in seconds over which to find the standard deviation
     #       avg: average about which to calculate the deviation
     # Returns tuple (deviation_value, next_offset, actual_duration, sample_count)
@@ -374,7 +380,7 @@ class TimeBuffer(object):
     # find(offset, duration, test_fn) returns tuple (sample,...) if 'test_fn(sample)' returns
     # True for any sample in buffer from 'offset' back for 'duration' seconds. Otherwise returns (None,...)
     # Parameters:
-    #       offset: index offset where latest sample = 0, previous = 1 etc
+    #       offset: index offset (latest sample = 0, previous = 1 etc)
     #       duration: time in seconds over which to apply the 'test_fn(value)' function
     #       test_fn: a function which returns True or False for each buffer ts/value entry.
     # Returns tuple (sample, next_offset, actual_duration, sample_count)

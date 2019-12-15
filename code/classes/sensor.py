@@ -26,8 +26,9 @@ VERSION = "SENSOR_0.70"
 # Data for pattern recognition
 
 DEFAULT_SIZE = 1000 # Sample history size if not in settings "SAMPLE_BUFFER_SIZE"
-EVENT_HISTORY_SIZE = 5 # keep track of the most recent 5 events sent to server
-STATS_HISTORY_SIZE = 30
+EVENT_HISTORY_SIZE = 1000 # keep track of the most recent 1000 events sent to server (since reboot)
+STATS_HISTORY_SIZE = 1000 # Define a stats_buffer with 1000 entries, each 1 second long
+STATS_DURATION = 1
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
@@ -63,7 +64,9 @@ class Sensor(object):
         self.display = Display(self.settings, self.SIMULATION_MODE)
 
         # Create a 30-entry x 1-second stats buffer
-        self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE, duration=1, settings=self.settings)
+        self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE, 
+                                        duration=STATS_DURATION, 
+                                        settings=self.settings)
 
         self.sample_buffer = TimeBuffer(size=self.size, settings=self.settings, stats_buffer=self.stats_buffer )
 
