@@ -35,6 +35,7 @@ class Events(object):
         self.REMOVED_WEIGHT = 0
         self.REMOVED_MARGIN = 100
 
+        # set up the various timebuffers
         self.settings = settings
         self.sample_buffer = sample_buffer
         self.event_buffer = event_buffer
@@ -209,16 +210,29 @@ class Events(object):
         if not full:
             return None
 
-        # Was it removed before ?
-        removed_before, new_offset, removed_weight, removed_confidence = self.is_removed(offset)
+        #print(ts,"test_event_new is_full")
 
-        if removed_before:
-            latest_event = self.event_buffer.get(0)
-            if ((latest_event is None) or
-               (latest_event["value"]["event_code"] != self.EVENT_NEW) or
-               (ts - latest_event["ts"] > 600 )):
+        # Was pot REMOVED during previous 30 seconds ?
+        REMOVED_TEST_SECONDS = 30
+        # define stats_buffer sample test function
+        removed_test = lambda stats_sample: self.removed_value(stats_sample['value']['median'])[0]
+
+        # look in stats_buffer to try and find 'removed' 1-second median
+        stats_removed, stats_offset, stats_duration, stats_count = self.stats_buffer.find(0, REMOVED_TEST_SECONDS, removed_test)
+
+        if stats_removed != None:
+            #print(ts, "test_event_new stats_removed test succeeded", stats_removed)
+            # ok we found a previous 'removed' median
+            PREVIOUS_NEW_TEST_SECONDS = 60
+
+            is_new_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_NEW
+
+            previous_new_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_NEW_TEST_SECONDS, is_new_event )
+
+            if previous_new_event is None:
+                # and we have no previous NEW event
                 weight = math.floor(full_weight+0.5)
-                confidence = full_confidence * 0.7 + removed_confidence * 0.3
+                confidence = full_confidence
                 return { "event_code": self.EVENT_NEW, "weight": weight, "acp_confidence": confidence }
 
         return None
