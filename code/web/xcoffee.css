@@ -64,6 +64,7 @@ body {
 }
 
 .log_record {
+    background-color: lightblue;
 }
 
 .log_msg {
@@ -162,6 +163,3 @@ body {
                 z-index: 750;
                 display: block;
              }
-
-</style>
-

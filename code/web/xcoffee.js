@@ -70,6 +70,8 @@ var log_append = false;
 
 var log_data = false;
 
+var events_div; // Events list dom object
+
 // *********************************************************
 // RTRoutes globals
 
@@ -165,6 +167,8 @@ function xcoffee_init()
     pot_removed = document.getElementById("pot_removed");
     pot_disconnected = document.getElementById("pot_disconnected");
 
+    events_div = document.getElementById("events");
+
     pot_is_empty = false;
 
     rt_mon = RTMONITOR_API.register(xcoffee_connected, rtmonitor_disconnected);
@@ -210,6 +214,8 @@ function xcoffee_handle_msg(msg)
 {
     console.log('xcoffee msg',msg);
 
+    events_div.appendChild(xcoffee_format_msg(msg));
+
     if ( msg["weight"] != null )
     {
         var ratio = (msg["weight"] - POT_WEIGHT_EMPTY) / (POT_WEIGHT_FULL - POT_WEIGHT_EMPTY)
@@ -224,6 +230,17 @@ function xcoffee_handle_msg(msg)
         }
 
         xcoffee_update_pot(ratio);
+    }
+
+    console.log("msg event_code =",msg["event_code"])
+    if ( msg["event_code"] == "COFFEE_REMOVED" )
+    {
+        pot_removed.style['display'] = 'block';
+    }
+    else if (msg["event_code"] != null)
+    {
+        console.log('display=none for pot_removed')
+        pot_removed.style['display'] = 'none';
     }
 }
 
@@ -272,6 +289,14 @@ function xcoffee_connected()
 function xcoffee_disconnected()
 {
     rtmonitor_disconnected();
+}
+
+function xcoffee_format_msg(msg)
+{
+    var div = document.createElement('div');
+    var div_content = document.createTextNode(JSON.stringify(msg));
+    div.appendChild(div_content);
+    return div;
 }
 
 // *********************************************************************************
