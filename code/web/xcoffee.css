@@ -154,6 +154,14 @@ body {
                 top: 0;
                 z-index: 700;
                 display: none;
-                }
+             }
+
+#pot_disconnected { position: absolute;
+                left: 0;
+                top: 0;
+                z-index: 750;
+                display: block;
+             }
+
 </style>
 

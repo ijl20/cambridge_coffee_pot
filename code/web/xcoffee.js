@@ -4,7 +4,8 @@
 // ***************************************************************************
 // Constants
 
-var VERSION = '7.01';
+var VERSION = '7.02';
+            // 7.01 connecting, requesting, subscribing on startup
             // 7.00 rtclient.js -> xcoffee.js
             // 6.01 client/rtmonitor connecting on tfc-app2
             // 6.00 rtclient - removed all bus stuff
@@ -136,6 +137,8 @@ var POT_WEIGHT_EMPTY = 1630;
 var pot_top;
 var pot_below;
 var pot_empty;
+var pot_removed;
+var pot_disconnected;
 
 // lower limit of coffee
 var POT_BOTTOM_Y = 454;
@@ -159,8 +162,14 @@ function xcoffee_init()
     pot_top = document.getElementById("pot_top");
     pot_below = document.getElementById("pot_below");
     pot_empty = document.getElementById("pot_empty");
+    pot_removed = document.getElementById("pot_removed");
+    pot_disconnected = document.getElementById("pot_disconnected");
 
     pot_is_empty = false;
+
+    rt_mon = RTMONITOR_API.register(xcoffee_connected, rtmonitor_disconnected);
+
+    rt_mon.connect()
 
     xcoffee_update_pot(0);
 }
@@ -175,7 +184,7 @@ function xcoffee_update_pot(ratio)
 {
     var y = ratio_to_y(ratio);
 
-    console.log("y=",y);
+    //console.log("y=",y);
 
     pot_top.style['top'] = (y - POT_TOP_OFFSET)+"px";
     pot_below.style['top'] = y + "px";
@@ -216,6 +225,53 @@ function xcoffee_handle_msg(msg)
 
         xcoffee_update_pot(ratio);
     }
+}
+
+//subscribe to events from cambridge_coffee_pot
+function xcoffee_subscribe(sensor_id)
+{
+    console.log('** subscribing to',sensor_id);
+
+    var msg_obj = { msg_type: 'rt_subscribe',
+                    request_id: 'A',
+                    filters: [ { test: "=",
+                                 key: "acp_id",
+                                 value: sensor_id } ]
+                  };
+    //sock_send_str(JSON.stringify(msg_obj));
+    rt_mon.subscribe(sensor_id, msg_obj, handle_records);
+}
+
+//subscribe to events from cambridge_coffee_pot
+function xcoffee_request(sensor_id)
+{
+    console.log('** requesting latest message from',sensor_id);
+
+    var msg_obj = { options: ['latest_records'],
+                    filters: [ { test: "=",
+                                 key: "acp_id",
+                                 value: sensor_id } ]
+                  };
+    //sock_send_str(JSON.stringify(msg_obj));
+    rt_mon.request('B', msg_obj, handle_records);
+}
+
+function xcoffee_connected()
+{
+    console.log('** xcoffee connected **');
+    pot_disconnected.style['display'] = 'none';
+    document.getElementById('connect_box').className = 'connected';
+
+    rtmonitor_connected();
+
+    xcoffee_request('cambridge_coffee_pot');
+
+    xcoffee_subscribe('cambridge_coffee_pot');
+}
+
+function xcoffee_disconnected()
+{
+    rtmonitor_disconnected();
 }
 
 // *********************************************************************************
@@ -284,8 +340,6 @@ function init()
     setInterval(check_old_records, OLD_TIMER_INTERVAL*1000);
 
     RTMONITOR_API = new RTMonitorAPI(CLIENT_DATA, RTMONITOR_URI);
-
-    rt_mon = RTMONITOR_API.register(rtmonitor_connected,rtmonitor_disconnected);
 
     xcoffee_init();
     //rt_mon.connect();
@@ -514,18 +568,22 @@ function rt_connect()
 function rt_disconnect()
 {
     console.log('** disconnecting rtmonitor **');
+    pot_disconnected.style['display'] = 'block';
+    document.getElementById('connect_box').className = 'not_connected';
     rt_mon.close();
 }
 
 function rtmonitor_disconnected()
 {
     console.log('** rtmonitor connection closed **');
+    pot_disconnected.style['display'] = 'block';
     document.getElementById('connect_box').className = 'not_connected';
 }
 
 function rtmonitor_connected()
 {
     console.log('** rtmonitor connected **');
+    pot_disconnected.style['display'] = 'none';
     document.getElementById('connect_box').className = 'connected';
 }
 

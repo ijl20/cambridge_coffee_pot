@@ -3,7 +3,8 @@
 //
 function RTMonitorAPI(client_data, optional_uri) {
 
-var VERSION = '3.4';
+var VERSION = '3.41';
+// 3.41 added re-use of existing socket to avoid multiple socket connections from same client
 // 3.4  token support, set_uri method
 // 3.3  added raw() and request() methods to rtmonitor api client (for rtroute.js)
 // 3.2  only connect to server when first client connects, disconnect from server after last client calls close()
@@ -24,9 +25,14 @@ var RTMONITOR_URI = optional_uri ? optional_uri : 'https://smartcambridge.org/rt
 //this.RTMONITOR_URI = 'https://tfc-app2.cl.cam.ac.uk/rtmonitor/sirivm';
 //this.RTMONITOR_URI = 'http://tfc-app2.cl.cam.ac.uk/test/rtmonitor/sirivm';
 
+if (!optional_uri)
+{
+    console.log('RTMonitorAPI', 'WARN - instantiated without a RTMonitor URI, using smartcambridge');
+}
+
 var self = this;
 
-var DEBUG = 'rtmonitor_api_log';
+//var DEBUG = 'rtmonitor_api_log';
 
 if (client_data)
 {
@@ -40,12 +46,13 @@ else
     self.client_data.rt_client_name = 'rtmonitor_api.js V'+VERSION;
 }
 self.client_data.rt_client_url = location.href;
+self.client_data.rt_version = VERSION;
 
 log('RTMonitorAPI V'+VERSION+' instantiation',self.client_data);
 
-var sock = {}; // the page's WebSocket
+var sock = null; // the page's WebSocket
 
-var sock_timer = {}; // intervalTimer we use for retries iif socket has failed
+var sock_timer = {}; // intervalTimer we use for retries if socket has failed
 
 var revive = true; // "Resuscitate" flag, 'true' enables 'reconnect' in sock.onclose callback
 
@@ -64,7 +71,7 @@ if ((typeof DEBUG !== 'undefined') && DEBUG.indexOf('rtmonitor_api_log') >= 0)
 {
     document.onkeydown = function(evt) {
         evt = evt || window.event;
-        //log('keydown '+evt.keyCode);
+        log('keydown '+evt.keyCode);
         if (evt.keyCode == 222) // '#' keycode
         {
             test_disconnect();
@@ -87,6 +94,9 @@ this.init = function () {
     console.log('RTMonitorAPI', 'WARN - init() called (now redundant)');
 };
 
+this.version = function () {
+    return VERSION;
+}
 
 // ***************************************************************************
 // *******************  WebSocket code    ************************************
@@ -101,7 +111,15 @@ this.connect = function()
 
     revive = true; // an unexpected close will try and reconnect
 
-    sock = new SockJS(RTMONITOR_URI);
+    // Open a new socket if we don't already have a connection
+    if (!sock || (sock.readyState == SockJS.CLOSING || sock.readyState == SockJS.CLOSED))
+    {
+        sock = new SockJS(RTMONITOR_URI);
+    }
+    else
+    {
+	    console.log('RTMonitorAPI.connect() re-using existing socket');
+    }
 
     sock.onopen = function() {
                 log('** socket open');
@@ -475,4 +493,3 @@ function log(str)
 
 // END of 'class' RTMonitorAPI
 }
-
