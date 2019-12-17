@@ -149,5 +149,11 @@ body {
                 z-index: 150;
                 }
 
+#pot_removed { position: absolute;
+                left: 0;
+                top: 0;
+                z-index: 700;
+                display: none;
+                }
 </style>
 

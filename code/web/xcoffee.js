@@ -4,7 +4,7 @@
 // ***************************************************************************
 // Constants
 
-var VERSION = '7.00';
+var VERSION = '7.01';
             // 7.00 rtclient.js -> xcoffee.js
             // 6.01 client/rtmonitor connecting on tfc-app2
             // 6.00 rtclient - removed all bus stuff
