@@ -215,7 +215,7 @@ function xcoffee_handle_msg(msg)
 {
     console.log('xcoffee msg',msg);
 
-    events_div.insertBefore(xcoffee_format_msg(msg),events_div.firstchild);
+    events_div.insertBefore(xcoffee_format_msg(msg),events_div.firstChild);
 
     if ( msg["weight"] != null )
     {
