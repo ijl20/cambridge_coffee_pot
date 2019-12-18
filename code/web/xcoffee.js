@@ -159,6 +159,7 @@ var pot_is_empty;
 function xcoffee_init()
 {
     console.log("init()");
+    document.title = 'xcoffee V' + VERSION;
 
     // The 2 images that move up and down to display the coffee level.
     pot_top = document.getElementById("pot_top");
@@ -214,7 +215,7 @@ function xcoffee_handle_msg(msg)
 {
     console.log('xcoffee msg',msg);
 
-    events_div.appendChild(xcoffee_format_msg(msg));
+    events_div.insertBefore(xcoffee_format_msg(msg),events_div.firstchild);
 
     if ( msg["weight"] != null )
     {
@@ -306,7 +307,6 @@ function xcoffee_format_msg(msg)
 // *********************************************************************************
 function init()
 {
-    document.title = 'xcoffee V' + VERSION;
     //initialise page_title
     var page_title_text = document.createTextNode('xcoffee V'+VERSION);
     var page_title = document.getElementById('page_title');
