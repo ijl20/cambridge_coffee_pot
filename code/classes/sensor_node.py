@@ -32,7 +32,7 @@ STATS_DURATION = 1
 
 debug_list = [ 1, 2, 3, 4] # weights from each load cell, for debug display on LCD
 
-class Sensor(object):
+class SensorNode(object):
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
