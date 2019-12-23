@@ -1,6 +1,7 @@
 
 import asyncio
 import signal
+import time
 
 # Async MQTT
 from gmqtt.mqtt.constants import MQTTv311
@@ -14,12 +15,17 @@ from gmqtt import Client as MQTTClient
 
 class SmartPlug(object):
 
-    def __init__(self, settings=None, name=None, event_buffer=None):
-        print("SmartPlug init()",name)
+    def __init__(self, settings=None, sensor_id=None, event_buffer=None):
+        print("SmartPlug init()",sensor_id)
+
+        self.broker_host = 'localhost'
+        self.broker_port = 1887
+
+        self.sensor_id = sensor_id
 
         self.STOP = asyncio.Event()
 
-        self.client = MQTTClient("client-id")
+        self.client = MQTTClient(self.sensor_id)
 
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
@@ -27,12 +33,10 @@ class SmartPlug(object):
         self.client.on_subscribe = self.on_subscribe
 
 
-    async def begin(self, broker_host, broker_port):
+    async def begin(self):
 
         #client.set_auth_credentials(token, None)
-        await self.client.connect(broker_host, broker_port, version=MQTTv311)
-
-        #self.client.publish('TEST/TIME', str(time.time()), qos=1)
+        await self.client.connect(self.broker_host, self.broker_port, version=MQTTv311)
 
     async def finish(self):
 
@@ -41,8 +45,10 @@ class SmartPlug(object):
 
     def on_connect(self, client, flags, rc, properties):
         print('Connected')
-        self.client.subscribe('TEST/#', qos=0)
 
+        self.client.publish('TEST/TIME', "{:.3f} {} {}".format(time.time(),self.sensor_id,'connected mqtt'), qos=1)
+
+        self.client.subscribe('TEST/#', qos=0)
 
     def on_message(self, client, topic, payload, qos, properties):
         self.handle_input(payload)

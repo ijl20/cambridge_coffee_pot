@@ -20,7 +20,7 @@ from classes.sensor_utils import list_to_string
 
 from classes.time_buffer import TimeBuffer
 
-VERSION = "0.80"
+VERSION = "0.80a"
 
 
 # ----------------------------------------------------------------------
@@ -43,13 +43,15 @@ async def main():
 
     event_buffer = TimeBuffer(settings=config.settings)
 
-    s = SensorNode(settings = config.settings)
+    sensor_node = SensorNode(settings = config.settings)
 
     weight_sensor = WeightSensor(config.settings)
 
-    smart_plug_A = SmartPlug(settings=config.settings, name='smart_plug_A', event_buffer=event_buffer)
+    smart_plug_A = SmartPlug(settings=config.settings, sensor_id='smart_plug_A', event_buffer=event_buffer)
 
-    s.begin()
+    await smart_plug_A.begin()
+
+    sensor_node.begin()
 
     # Infinite loop until killed, reading weight and sending data
     try:
@@ -66,7 +68,7 @@ async def main():
             # ---------------
             # PROCESS READING
             # ---------------
-            s.process_sample(time.time(), value)
+            sensor_node.process_sample(time.time(), value)
 
             loop_time = time.time() - loop_start_time
             if loop_time < 0.1:
@@ -76,7 +78,7 @@ async def main():
         pass
 
     # Cleanup and quit
-    s.finish()
+    sensor_node.finish()
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
