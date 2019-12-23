@@ -26,7 +26,7 @@ class SmartPlug(object):
 
         self.STOP = asyncio.Event()
 
-        self.client = MQTTClient(self.sensor_id)
+        self.client = MQTTClient(self.sensor_id+"_node")
 
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
