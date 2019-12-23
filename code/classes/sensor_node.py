@@ -26,7 +26,7 @@ VERSION = "SENSOR_0.70"
 # Data for pattern recognition
 
 DEFAULT_SIZE = 1000 # Sample history size if not in settings "SAMPLE_BUFFER_SIZE"
-EVENT_HISTORY_SIZE = 1000 # keep track of the most recent 1000 events sent to server (since reboot)
+#EVENT_HISTORY_SIZE = 1000 # keep track of the most recent 1000 events sent to server (since reboot)
 STATS_HISTORY_SIZE = 1000 # Define a stats_buffer with 1000 entries, each 1 second long
 STATS_DURATION = 1
 
@@ -40,7 +40,7 @@ class SensorNode(object):
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------
 
-    def __init__(self, settings=None):
+    def __init__(self, event_buffer, settings=None):
         global GPIO_FAIL
 
         self.SIMULATION_MODE = GPIO_FAIL
@@ -70,7 +70,7 @@ class SensorNode(object):
 
         self.sample_buffer = TimeBuffer(size=self.size, settings=self.settings, stats_buffer=self.stats_buffer )
 
-        self.event_buffer = TimeBuffer(size=EVENT_HISTORY_SIZE, settings=self.settings)
+        self.event_buffer = event_buffer
 
         self.events = Events(settings=self.settings, 
                              sample_buffer=self.sample_buffer,

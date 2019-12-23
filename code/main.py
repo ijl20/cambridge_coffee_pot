@@ -31,7 +31,7 @@ VERSION = "0.80a"
 
 async def main():
 
-    print("main started with {} arguments {}".format(len(sys.argv), list_to_string(sys.argv)))
+    print("main V{} started with {} arguments {}".format(VERSION,len(sys.argv), list_to_string(sys.argv)))
 
     if len(sys.argv) > 1 :
         filename = sys.argv[1]
@@ -39,17 +39,19 @@ async def main():
     else:
         config = Config()
 
-    config.settings["VERSION"] = VERSION
+    settings = config.settings
 
-    event_buffer = TimeBuffer(settings=config.settings)
+    settings["VERSION"] = VERSION
 
-    sensor_node = SensorNode(settings = config.settings)
+    event_buffer = TimeBuffer(size=1000, settings=settings)
 
-    weight_sensor = WeightSensor(config.settings)
+    sensor_node = SensorNode(event_buffer, settings=settings)
 
-    smart_plug_A = SmartPlug(settings=config.settings, sensor_id='smart_plug_A', event_buffer=event_buffer)
+    weight_sensor = WeightSensor(settings=settings)
 
-    await smart_plug_A.begin()
+    sensor_node_A = SmartPlug(sensor_id=settings["SENSOR_ID"]+"_A", event_buffer=event_buffer, settings=settings)
+
+    await sensor_node_A.begin()
 
     sensor_node.begin()
 

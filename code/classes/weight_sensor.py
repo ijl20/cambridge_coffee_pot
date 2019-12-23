@@ -15,7 +15,7 @@ class WeightSensor(object):
     # Initialize scales, return hx711 objects
     # Note there are TWO load cells, each with their own HX711 A/D converter.
     # Each HX711 has an A and a B channel, we are only using the A channel of each.
-    def __init__(self, settings):
+    def __init__(self, settings=None):
 
         self.settings = settings
 
