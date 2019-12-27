@@ -4,6 +4,11 @@
 
 ![Anoopsyche smart plug](Anoopsyche_JH-G01B1/JH-G01B1.png)
 
+![open](Anoopsyche_JH-G01B1/open.jpg)
+![top](Anoopsyche_JH-G01B1/circuit_top.jpg)
+![bottom](Anoopsyche_JH-G01B1/circuit_bottom.jpg)
+![side](Anoopsyche_JH-G01B1/circuit_side.jpg)
+
 ### Tasmota Config Template
 ```
 {"NAME":"JH-G01B1","GPIO":[0,145,0,146,0,0,0,0,17,56,21,0,0],"FLAG":0,"BASE":41}
