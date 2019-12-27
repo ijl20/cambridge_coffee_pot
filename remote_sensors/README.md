@@ -1,6 +1,19 @@
 # 'Remote' sensors connecting to the Sensor Node
 
-e.g. the ANOOPSYCHE smart plug[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D[D
+## Anoopsyche JH-G01B1 smart plug
 
-the Avatar smart plug[D[D[D[D[D[D[D[D[D[DAWP14H smart plug
+![Anoopsyche smart plug](Anoopsyche_JH-G01B1/JH-G01B1.png)
 
+### Tasmota Config Template
+```
+{"NAME":"JH-G01B1","GPIO":[0,145,0,146,0,0,0,0,17,56,21,0,0],"FLAG":0,"BASE":41}
+```
+
+## Avatar (aka Aisirer) AWP14H smart plug
+
+![Avatar AWP14H smart plug](Avatar_AWP14H/AWP14H.png)
+
+### Tasmota Config Template
+```
+{"NAME":"Avatar UK 10A","GPIO":[0,0,56,0,0,134,0,0,131,17,132,21,0],"FLAG":0,"BASE":45}
+```
