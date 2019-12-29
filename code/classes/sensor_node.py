@@ -43,7 +43,7 @@ class SensorNode(object):
     def __init__(self, event_buffer, settings=None):
         global GPIO_FAIL
 
-        self.SIMULATION_MODE = GPIO_FAIL
+        self.ALLOW_UPLINK = False
 
         self.settings = settings
 
@@ -58,21 +58,35 @@ class SensorNode(object):
         else:
             self.size = settings["SAMPLE_BUFFER_SIZE"]
 
+        self.DISPLAY_SIMULATION_MODE = False
+
+        if (GPIO_FAIL or
+            "DISPLAY_SIMULATION_MODE" in self.settings and
+            self.settings["DISPLAY_SIMULATION_MODE"]
+           ) :
+           self.DISPLAY_SIMULATION_MODE = True
+
+        if self.DISPLAY_SIMULATION_MODE:
+            print("Using DISPLAY_SIMULATION_MODE")
+
+        if not self.ALLOW_UPLINK:
+            print("Uplink to Platform disabled")
+
         # times to control watchdog sends to platform
         self.prev_send_time = None
 
-        self.display = Display(self.settings, self.SIMULATION_MODE)
+        self.display = Display(self.settings, self.DISPLAY_SIMULATION_MODE)
 
         # Create a 30-entry x 1-second stats buffer
-        self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE, 
-                                        duration=STATS_DURATION, 
+        self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE,
+                                        duration=STATS_DURATION,
                                         settings=self.settings)
 
         self.sample_buffer = TimeBuffer(size=self.size, settings=self.settings, stats_buffer=self.stats_buffer )
 
         self.event_buffer = event_buffer
 
-        self.events = Events(settings=self.settings, 
+        self.events = Events(settings=self.settings,
                              sample_buffer=self.sample_buffer,
                              event_buffer=self.event_buffer,
                              stats_buffer=self.stats_buffer
@@ -105,7 +119,7 @@ class SensorNode(object):
     def send_data(self, post_data):
         try:
             #print("send_data() to {}".format(self.settings["FEEDMAKER_URL"]))
-            if not self.SIMULATION_MODE:
+            if self.ALLOW_UPLINK:
                 response = requests.post(
                         self.settings["FEEDMAKER_URL"],
                         headers={ self.settings["FEEDMAKER_HEADER_KEY"] : self.settings["FEEDMAKER_HEADER_VALUE"] },
@@ -188,7 +202,7 @@ class SensorNode(object):
             if event["event_code"] == self.events.EVENT_NEW:
                 self.display.update_new(ts)
             self.send_event(ts, event)
- 
+
         #----------------
         # UPDATE DISPLAY
         # ---------------

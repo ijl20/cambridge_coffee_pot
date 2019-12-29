@@ -19,7 +19,7 @@ class SmartPlug(object):
         print("SmartPlug init()",sensor_id)
 
         #debug will put these in settings
-        self.broker_host = '192.168.1.51'
+        self.broker_host = 'localhost'
         self.broker_port = 1883
 
         self.sensor_id = sensor_id
@@ -50,7 +50,7 @@ class SmartPlug(object):
         #print("{} Publishing".format(self.sensor_id))
         #self.client.publish('TEST/TIME', "{:.3f} {} {}".format(time.time(),self.sensor_id,'connected mqtt'), qos=1)
 
-        subscribe_str = 'CSN_NODE/tele/{}/SENSOR'.format(self.sensor_id)
+        subscribe_str = '{}/tele/SENSOR'.format(self.sensor_id)
         print("{} Subscribing to {}".format(self.sensor_id, subscribe_str))
         self.client.subscribe(subscribe_str, qos=0)
 

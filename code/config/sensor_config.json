@@ -2,7 +2,7 @@
 {
     "LOG_LEVEL": 2,
 
-    "SENSOR_ID": "CSN_NODE_1",
+    "SENSOR_ID": "csn-node-1",
     "SENSOR_TYPE": "coffee_pot",
 
     "TARE_FILENAME": "config/sensor_tare.json",

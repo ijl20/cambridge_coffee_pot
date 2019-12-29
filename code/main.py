@@ -49,9 +49,17 @@ async def main():
 
     weight_sensor = WeightSensor(settings=settings)
 
-    sensor_node_A = SmartPlug(sensor_id=settings["SENSOR_ID"]+"_A", event_buffer=event_buffer, settings=settings)
+    sensor_node_a = SmartPlug(sensor_id=settings["SENSOR_ID"]+"-a",
+                              event_buffer=event_buffer,
+                              settings=settings)
 
-    await sensor_node_A.begin()
+    await sensor_node_a.begin()
+
+    sensor_node_b = SmartPlug(sensor_id=settings["SENSOR_ID"]+"-b",
+                              event_buffer=event_buffer,
+                              settings=settings)
+
+    await sensor_node_b.begin()
 
     sensor_node.begin()
 
