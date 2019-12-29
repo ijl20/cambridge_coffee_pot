@@ -1,5 +1,9 @@
 # 'Remote' sensors connecting to the Sensor Node
 
+[A list of smart devices that can be flashed with Tasmota](https://blakadder.github.io/templates)
+
+[Tasmota firmware installation and configuration](tasmota/README.md)
+
 ## Anoopsyche JH-G01B1 smart plug
 
 ![Anoopsyche smart plug](Anoopsyche_JH-G01B1/JH-G01B1.png)
