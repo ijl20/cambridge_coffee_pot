@@ -10,7 +10,9 @@ made a fresh pot of coffee. When the world-wide-web first became a thing we conn
 to a web server and were surprised how many people around the world wanted to see a 'webcam' (the word wasn't
 yet invented) and the rest is history (see [Trojan Room coffee pot](https://en.wikipedia.org/wiki/Trojan_Room_coffee_pot)).
 
-<img align="center" src="images/Trojan_Room_coffee_pot_xcoffee.png"/>
+<p align="center">
+    <img align="center" src="images/Trojan_Room_coffee_pot_xcoffee.png"/>
+</p>
 
 Well, here we are ~30 years later in a somewhat shinier modern Computer Laboratory out at West Cambridge, but
 the endemic coffee dependency remains a central theme, with our local kitchen looking like this (2019):
