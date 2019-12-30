@@ -90,8 +90,9 @@ in the kitchen so in the next version a 'portrait' arrangement was used.
 
 ![4 load cells](images/working_prototype.jpg)
 
-In addition to the four load cells, this prototype uses 4 x hx711 A/D converters to reduce latency in reading
-as with two.
+In addition to the four load cells, this prototype uses 4 x hx711 A/D converters to reduce latency in reading. Although
+the HX711 A/D converter has two channels (A & B), there is a ~500ms latency switching beween the two channels. As
+sensor latency is a central theme of this development four independent HX711 chips are used, each only using channel A.
 
 ### Adding the LCD display
 
