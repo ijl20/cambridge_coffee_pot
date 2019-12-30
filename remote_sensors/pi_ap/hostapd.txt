@@ -1,0 +1,51 @@
+https://www.raspberrypi.org/forums/viewtopic.php?t=244242
+
+FIXED !
+
+The instructions from 
+www.umpah.net/raspberry-pi-as-standalon ... omment-172 work 
+with a couple of provisos :
+(1) My mistake was not to run in Step 2 the command sudo rpi-update. When I saw 
+the warning message "..... only do this if instructed to by an engineer .." I 
+opted not to continue. The result was that I got the error message described in 
+this post when I went to install HOSTAPD. On my second pass through the 
+www.umpah.net procedure I did continue with rpi-update with the result that when 
+I came to install HOSTAPD it went without incident.
+
+(2) For the Raspberry Pi 3 B+ to get the www.umpah.net procedure to work 
+properly there are a couple of small corrections to make
+(a) In Step 3 there is a missing line in the /etc/network/interfaces file. It 
+needs a new line between 10 and 11 that reads
+auto wlan0
+(b)In Step 5 the hostapd.conf file should have the driver line (line 3) 
+commented out viz. #driver=nl80211
+
+(3) to complete the setup with Apache and PHP you need to install these with the 
+following commands
+
+sudo apt-get install apache2
+sudo chown -R pi:www-data /var/www/html
+sudo chown -R 770 /var/www/html/
+sudo apt install php php-mbstring
+
+The last line installs PHP Version 7
+
+Restart everything before checking it is all running ....
+If you run ifconfig you should see the IP address of wlan0 is indeed 10.0.0.1
+
+If you turn wifi on on your cell phone then you should see an available wifi 
+called raspberrypi which you can connect to by using the password raspberry.
+Once connected open Google Chrome on your phone and type in 10.0.0.1/index.html 
+and you should get the Apache 2 Debian Default Page screen.
+
+To check that PHP7 is running you need to write a little php file on the 
+Raspberry Pi. This is most easliy done by using this in the terminal ...
+
+echo "<?php phpinfo ();?>" > /var/www/html/index.php
+
+Now when you type in 10.0.0.1/index.php into your cell phone's browser you 
+should see the PHP version page ... someting like this "PHP Version 
+7.0.0.33-0+deb9u3
+
+From now on you can build your website on the Raspberry Pi by putting all the 
+files into /var/www/html/ and its sub-directories.

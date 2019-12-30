@@ -1,6 +1,10 @@
-# 'Remote' sensors connecting to the Sensor Node
+# Remote sensors connecting to the Sensor Node
 
 [A list of smart devices that can be flashed with Tasmota](https://blakadder.github.io/templates)
+
+[Raspberry Pi as WiFi Access Point for remote sensor backhaul](pi_ap/README.md)
+
+[Raspberry Pi receive the remote sensor data via MQTT](pi_mqtt/README.md)
 
 [Tasmota firmware installation and configuration](tasmota/README.md)
 
@@ -13,7 +17,7 @@
 ![bottom](Anoopsyche_JH-G01B1/circuit_bottom.jpg)
 ![side](Anoopsyche_JH-G01B1/circuit_side.jpg)
 
-### Tasmota Config Template
+### Tasmota JH-G01B1 Config Template
 ```
 {"NAME":"JH-G01B1","GPIO":[0,145,0,146,0,0,0,0,17,56,21,0,0],"FLAG":0,"BASE":41}
 ```

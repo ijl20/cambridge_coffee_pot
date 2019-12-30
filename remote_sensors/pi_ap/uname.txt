@@ -1,0 +1,1 @@
+Linux csn-node-test 4.19.88-v7+ #1284 SMP Wed Dec 11 13:46:41 GMT 2019 armv7l GNU/Linux

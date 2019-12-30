@@ -1,0 +1,8 @@
+Bus 001 Device 004: ID 2357:0109 TP-Link TL WN823N RTL8192EU
+Bus 001 Device 008: ID 413c:2010 Dell Computer Corp. Keyboard
+Bus 001 Device 006: ID 413c:1003 Dell Computer Corp. Keyboard Hub
+Bus 001 Device 005: ID 046d:c077 Logitech, Inc. M105 Optical Mouse
+Bus 001 Device 007: ID 0424:7800 Standard Microsystems Corp. 
+Bus 001 Device 003: ID 0424:2514 Standard Microsystems Corp. USB 2.0 Hub
+Bus 001 Device 002: ID 0424:2514 Standard Microsystems Corp. USB 2.0 Hub
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub

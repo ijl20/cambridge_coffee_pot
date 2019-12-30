@@ -1,0 +1,14 @@
+The simplest way to install my wifi drivers now is to use my install-wifi script which determines the wifi adapter you use and the kernel version you have and then should automatically download and install the right version of the driver you need. You can download and install the script using commands
+Code: Select all
+
+sudo wget http://fars-robotics.net/install-wifi -O /usr/bin/install-wifi
+sudo chmod +x /usr/bin/install-wifi
+After it is installed to see info on how to use it use command
+Code: Select all
+
+sudo install-wifi -h
+To download the driver to your current kernel version you should just need to use command
+Code: Select all
+
+sudo install-wifi
+
