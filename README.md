@@ -88,7 +88,7 @@ in the kitchen so in the next version a 'portrait' arrangement was used.
 
 2019-10-06
 
-![4 load cells](images/four_load_cells.jpg)
+![4 load cells](images/working_prototype.jpg)
 
 In addition to the four load cells, this prototype uses 4 x hx711 A/D converters to reduce latency in reading
 as with two.
@@ -147,13 +147,30 @@ happens to carry a useful payload.
 
 This is an open question at the moment. The original coffee pot presented the data as a 128x128px monochrome
 image and it was left to the viewer how to interpret it, combined with an implicit assumption the user would
-issue the ```xcoffee``` command at the time they were interested in the coffee.
+issue the ```xcoffee``` command at the time they were interested in the coffee. Note the readings displayed
+below are high-frequency (10x/sec) and noisy and annotated with the 'Events' recognized at the time). This data
+can be contrasted with the 'server' view illustrated in the web client section below.
+
+![readings chart](data/2019-12-04_full_day_samples_events_chart.png)
+
+The proportion of erroneous readings is exaggerated by the chart, as normal readings provide a very high number
+of overlapping 'dots' on the chart while the erroneous readings are isolated dots. The main reason for the 'noise'
+is the simplistic ['bit-banging'](https://en.wikipedia.org/wiki/Bit_banging) approach used to read the HX711 weight sensor in Python
+which might be improved with a better GPIO library (such as [pigpio](http://abyz.me.uk/rpi/pigpio/)).
 
 The new design can assume the permanent connection of web-based displays (in addition to the 'user request'
 model) and we will consider (i.e. measure) the latency in the system reporting a fresh pot of coffee.
 
 It has been suggested that any self-respecting coffee machine in 2019 would have a Twitter account. [[ref]](#ref_1)
 
+## Remote Sensors
+
+This sensor is designed to be a **Sensor Node**. I.e. the Cambridge Coffee Pot contains multiple sensors and provides Events as
+a result of interpreting input from all of them. In particular, the Cambridge Coffee Pot receives data from two modified energy-monitoring
+smart plugs which inform the composite sensor node when the coffee is being ground, and when the coffee-making machine is boiling
+the water.
+
+The implementation of these sensors is described in the [remote sensors](remote_sensors/README.md) section.
 
 ## Development install
 
