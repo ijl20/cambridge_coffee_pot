@@ -117,5 +117,113 @@ this is normal.
 
 Open the web browser on the phone and browser `192.168.4.1`. You should see the Tasmota device homepage. If so, congratulations.
 
-This is where you tell the smart device the actual WiFi network/password you would like it to connect to (AP1). You can tell it
-a *second* Wifi SSID/pwd to use as a fallback (e.g. 'backupnet/backupnet')
+This is where you tell the smart device the actual WiFi network/password you would like it to connect to (AP1). You can also tell it
+a *second* Wifi SSID/pwd to use as a fallback (e.g. 'backupnet/backupnet'). Note at this point **it is possible to brick the device**
+if you give it wrong WiFi credentials as you will then not be able to contact the device in any way.
+
+After setting the WiFi credentials check them again.  And again. Then click 'SAVE' and the smart device will reboot.
+
+## Configuring Tasmota on the Smart Device
+
+If you followed the instructions above, the smart device is now rebooted and connected to the Wifi network with a random IP
+address you are going to need to find, either by looking at the DHCP client list on the router or by using a network scanning tool
+such as `nmap`.
+
+The Cambridge `sensor_node` design uses a Raspberry Pi as an Access Point to deliver a dedicated sensor WiFi network. In this
+example the sensor node is called `csn-node-test` on sensor network address `192.168.75.1`, and providing an MQTT server on
+port `1883`. The username/password for the MQTT server are `csn-node-test`/`csn-node-test` and the smart device will publish all
+data messages to topics starting `csn-node-test-a/...`. The Cambridge sensor node Raspberry Pi also provides a time NTP service.
+
+In this example the smart devices has booted with an IP address `192.168.75.187`.
+
+### Browse the smart device Tasmota homepage
+
+On a workstation connected to the sensor WiFi network, open the browser to `192.168.75.187`.
+
+### Get the smart device Mac address
+
+Click `Information` on the homepage. Cut-and-paste the last 6 digits of the Mac address shown on the page e.g. "40:A3:77".
+
+You will use this to customize the name of the smart device, and can usefully write the digits onto the actual device.
+
+Now the settings can be put into the device to map the internal sensors and relays to the correct pins of the internal controller.
+
+### Set the smart device config 'template'
+
+From homepage, click `Configuration`, `Configuration Other` and set the following:
+
+`Friendly name`: `csn-node-<Mac>` omitting the Mac colons, i.e. `csn-node-40A377`.
+
+`Template`: cut-and-paste from [the list of available templates](https://blakadder.github.io/templates)
+
+Ensure you click the template `Activate` checkbox.
+
+Click `SAVE` and the smart device will reboot.
+
+After the device has rebooted, the device homepage will refresh and should now show the new 'Friendly Name' at
+the top of the page.
+
+A new `Toggle` button should be on the page, and if you click that you should hear the power on/off relay click in your smart device.
+If there is no 'Toggle' button on the page you probably forgot to click the `Activate` checkbox so go back and do that.
+
+### Customize the MQTT and related parameters for data sending
+
+On the smart device homepage enter `Configuration`, `Configure MQTT`.
+
+Set settings as below:
+
+`Host`: 192.168.75.1
+
+`Port`: 1883
+
+`Client`: csn-node-test
+
+`Password`: csn-node-test
+
+`Topic`: csn-node-test-a
+
+`Full Topic`: %topic%/%prefix% *(i.e. reverse the default setting)*
+
+These settings will cause the smart device to periodically send sensor data to `csn-node-test-a/tele/SENSOR`.
+
+The %prefix% values are:
+
+`tele`: periodic telemetry data
+
+`stat`: status response data
+
+`cmnd`: command data
+
+The default sensor telemetry reporting period is 5 minutes, and the smart device may initially report the timestamp in the
+data as 1970-01-01, probably with the wrong timezone. We will fix that in the next section.
+
+### Using the smart device console to setup time client and adjust telemetry period
+
+On the smart device homepage, click `Console`. Enter the following commands (or enter just the command name to see the current values):
+
+```
+TelePeriod 120
+PowerDelta 130
+
+ntpServer1 192.168.75.1
+ntpServer2 0
+ntpServer3 0
+Timezone 0
+```
+
+The first command sets the regular telemetry reporting period to 2 minutes, while the second says *also* send a telemetry message if the
+power reading changes by 30 watts. This PowerDelta setting isn't completely reliable and can have a considerable latency (~8 seconds) but
+provides a way of sending an 'event-based' message rather than rely entirely on the periodic telemetry.
+
+The ntpServer<N> commands tell the smart device to get the time from our sensor node, which will also be advertising the time service via DHCP.
+
+The `TimeZone` is a simple offset from UTC that does not adjust for Summer, so it is better to use `0` and treat the value as UTC.
+
+The [full list of commands is online](https://tasmota.github.io/docs/#/Commands)
+
+## Security
+
+These instructions provide a working but insecure open system. 
+
+There are multiple actions that can be taken to improve the security of the Pi and smart devices, for example
+the web interface of the smart devices can be protected with a password.
