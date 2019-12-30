@@ -10,12 +10,12 @@ made a fresh pot of coffee. When the world-wide-web first became a thing we conn
 to a web server and were surprised how many people around the world wanted to see a 'webcam' (the word wasn't
 yet invented) and the rest is history (see [Trojan Room coffee pot](https://en.wikipedia.org/wiki/Trojan_Room_coffee_pot)).
 
-![Original Trojan Room coffee pot image](images/Trojan_Room_coffee_pot_xcoffee.png)
+<img align="center" src="images/Trojan_Room_coffee_pot_xcoffee.png"/>
 
 Well, here we are ~30 years later in a somewhat shinier modern Computer Laboratory out at West Cambridge, but
-the endemic coffee dependency remains a central theme, with our kitchen looking like this:
+the endemic coffee dependency remains a central theme, with our local kitchen looking like this (2019):
 
-![Current Netos coffee pot image 2019-10-08](images/kitchen.jpg)
+<img align="center" src="images/kitchen.jpg"/>
 
 So the question is, should we have a **new** coffee sensor and if so what would it look like in 2019 vs 1991?
 
