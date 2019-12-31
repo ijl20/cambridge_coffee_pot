@@ -16,26 +16,30 @@ settings = {
     "SENSOR_ID": "csn-node-test"
 }
 
-async def uplink_init():
-    print('uplink_init() startup')
-    uplink_client = MQTTClient()
-    await uplink_client.connect(settings["UPLINK_HOST"])
-    print('uplink_init() connected {}'.format(settings["UPLINK_HOST"]))
-    return uplink_client
+class Uplink(object):
 
-async def uplink_send(uplink_client, topic, message=None):
-    print('uplink_send() sending {}'.format(topic))
-    message_b = bytes(message,'utf-8')
-    tasks = [
-        asyncio.ensure_future(uplink_client.publish(topic, message_b))
-    ]
-    await asyncio.wait(tasks)
-    print("uplink_send() published {} {}".format(topic,message))
+    def __init__(self):
+        print("Uplink __init__()")
 
-async def uplink_finish():
-    await uplink_client.disconnect()
+    async def start(self):
+        print('start() startup')
+        self.client = MQTTClient()
+        await self.client.connect(settings["UPLINK_HOST"])
+        print('start() connected {}'.format(settings["UPLINK_HOST"]))
 
-async def remote_event_detect(uplink_client, sample_buffer, event_buffer):
+    async def send(self, topic, message=None):
+        print('uplink send() sending {}'.format(topic))
+        message_b = bytes(message,'utf-8')
+        tasks = [
+            asyncio.ensure_future(self.client.publish(topic, message_b))
+        ]
+        await asyncio.wait(tasks)
+        print("uplink send() published {} {}".format(topic,message))
+
+    async def finish(self):
+        await self.client.disconnect()
+
+async def remote_event_detect(uplink, sample_buffer, event_buffer):
     value = sample_buffer.get(0)
 
     #debug send event for every message from remote sensors
@@ -48,10 +52,9 @@ async def remote_event_detect(uplink_client, sample_buffer, event_buffer):
 
         remote_msg = json.dumps(remote_event)
 
-        await uplink_send(uplink_client, settings["SENSOR_ID"], remote_msg)
+        await uplink.send(settings["SENSOR_ID"], remote_msg)
 
-
-async def remote_sensors(uplink_client, event_buffer):
+async def remote_sensors(uplink, event_buffer):
     print('remote_sensors() startup')
 
     sample_buffer = TimeBuffer(100)
@@ -90,7 +93,7 @@ async def remote_sensors(uplink_client, event_buffer):
 
             sample_buffer.put(time.time(), message_dict)
 
-            await remote_event_detect(uplink_client, sample_buffer, event_buffer)
+            await remote_event_detect(uplink, sample_buffer, event_buffer)
 
     except ClientException as client_exception:
         print("remote_sensors() Client exception: {}".format(client_exception))
@@ -105,8 +108,8 @@ async def remote_sensors(uplink_client, event_buffer):
     await sensor_client.disconnect()
 
     print("remote_sensors disconnected()")
-    
-async def local_event_detect(uplink_client, sample_buffer, event_buffer):
+
+async def local_event_detect(uplink, sample_buffer, event_buffer):
     sample = sample_buffer.get(0)
 
     if not sample is None and sample["value"] > 99:
@@ -118,9 +121,9 @@ async def local_event_detect(uplink_client, sample_buffer, event_buffer):
 
         watchdog_msg = json.dumps(watchdog_event)
 
-        await uplink_send(uplink_client, settings["SENSOR_ID"], watchdog_msg)
+        await uplink.send(settings["SENSOR_ID"], watchdog_msg)
 
-async def local_sensor(uplink_client, event_buffer):
+async def local_sensor(uplink, event_buffer):
 
     sample_buffer = TimeBuffer(1000)
 
@@ -131,20 +134,21 @@ async def local_sensor(uplink_client, event_buffer):
 
     startup_msg = json.dumps(startup_event)
 
-    await uplink_send(uplink_client, settings["SENSOR_ID"], startup_msg)
+    await uplink.send(settings["SENSOR_ID"], startup_msg)
 
     quit = False
     while not quit:
         rand = random.random() * 100
         sample_buffer.put(time.time(), rand)
-        await local_event_detect(uplink_client, sample_buffer, event_buffer)
+        await local_event_detect(uplink, sample_buffer, event_buffer)
         await asyncio.sleep(0.1)
 
 async def main():
     event_buffer = TimeBuffer(100)
-    uplink_client = await uplink_init()
-    await asyncio.gather(local_sensor(uplink_client,event_buffer),
-                         remote_sensors(uplink_client, event_buffer))
+    uplink = Uplink()
+    await uplink.start()
+    await asyncio.gather(local_sensor(uplink,event_buffer),
+                         remote_sensors(uplink, event_buffer))
 
 
 if __name__ == '__main__':
