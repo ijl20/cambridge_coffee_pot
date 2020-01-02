@@ -93,13 +93,13 @@ class Events(object):
         # Connect to the platform
         self.uplink = Uplink(settings=self.settings)
 
-    async def start(self):
+    async def start(self, ts):
         await self.uplink.start()
 
         # Send startup message
-        startup_event = { "acp_ts": time.time(),
-                        "acp_id": self.settings["SENSOR_ID"],
-                        "event_code": "COFFEE_STARTUP"
+        startup_event = { "acp_ts": ts,
+                          "acp_id": self.settings["SENSOR_ID"],
+                          "event_code": "COFFEE_STARTUP"
                         }
 
         startup_msg = json.dumps(startup_event)
@@ -143,7 +143,7 @@ class Events(object):
 
     # Look in the sample_history buffer (including latest) and try and spot a new event.
     # Uses the event_history buffer to avoid repeated messages for the same event
-    def test(self, ts, sensor_id):
+    async def test(self, ts, sensor_id):
         events = []
         for test_function in [ self.test_event_remote,
                                self.test_event_local
@@ -152,7 +152,11 @@ class Events(object):
             if not event is None:
                 events.append(event)
 
-        return events
+        for event in events:
+            #send MQTT topic, message
+            event_msg = json.dumps(event)
+            await self.uplink.send(self.settings["SENSOR_ID"], event_msg)
+
 
 class RemoteSensor():
     """
@@ -177,7 +181,7 @@ class RemoteSensor():
         self.sample_buffer = TimeBuffer(size=1000, settings=self.settings, stats_buffer=None )
 
         # Add the sample_buffer to the Events object so it can use it in event tests
-        self.events.sensor_buffers["sensor_id"] = { "sample_buffer": self.sample_buffer }
+        self.events.sensor_buffers[self.sensor_id] = { "sample_buffer": self.sample_buffer }
 
         self.sensor_link = SensorLink(settings=self.settings, topic=self.sensor_id+"/tele/SENSOR")
 
@@ -213,7 +217,7 @@ class RemoteSensor():
 
             self.sample_buffer.put(ts, message_dict)
 
-            await self.events.test(ts, sensor_id)
+            await self.events.test(ts, self.sensor_id)
 
 
 class LocalSensor():
@@ -263,18 +267,18 @@ async def main():
 
     events = Events(settings=settings)
 
-    await events.start()
+    await events.start(time.time())
 
     remote_sensor_a = RemoteSensor( settings=settings,
-                                    sensor_id="sensor-node-test-a", 
+                                    sensor_id="csn-node-test-a", 
                                     events=events)
 
     remote_sensor_b = RemoteSensor( settings=settings,
-                                    sensor_id="sensor-node-test-b", 
+                                    sensor_id="csn-node-test-b", 
                                     events=events)
 
     local_sensor = LocalSensor( settings=settings,
-                                sensor_id="sensor-node-test-weight", 
+                                sensor_id="csn-node-test-weight", 
                                 events=events)
 
     await asyncio.gather(local_sensor.start(),
