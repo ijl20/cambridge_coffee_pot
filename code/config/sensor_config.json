@@ -4,6 +4,9 @@
 
     "SENSOR_ID": "csn-node-1",
     "SENSOR_TYPE": "coffee_pot",
+    "WEIGHT_SENSOR_ID": "csn-node-1-weight",
+    "GRIND_SENSOR_ID": "csn-node-1-a",
+    "BREW_SENSOR_ID": "csn-node-1-b",
 
     "TARE_FILENAME": "config/sensor_tare.json",
     "WEIGHT_FACTOR": 374,

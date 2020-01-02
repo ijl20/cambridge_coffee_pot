@@ -11,6 +11,13 @@ from hx711_ijl20.hx711 import HX711
 from classes.sensor_utils import list_to_string
 
 class WeightSensor(object):
+    """
+        Instantiation:
+            weight_sensor = WeightSensor(settings=settings)
+
+        Methods:
+            weight_sensor.get_value() # returns weight in grams
+    """
 
     # Initialize scales, return hx711 objects
     # Note there are TWO load cells, each with their own HX711 A/D converter.
@@ -172,15 +179,16 @@ class WeightSensor(object):
         t_start = time.process_time()
 
         total_reading = 0
-
+        reading_list = []
         for hx in self.hx_list:
             # get_weight accepts a parameter 'number of times to sample weight and then average'
             reading = hx.get_weight_A(1)
+            reading_list.append(reading)
             total_reading = total_reading + reading
 
         if self.settings["LOG_LEVEL"] == 1:
             output_string = "get_weight readings [ {} ] completed at {:.3f} secs."
-            print( output_string.format(list_to_string(debug_list, "{:+.0f}"), time.process_time() - t_start))
+            print( output_string.format(list_to_string(reading_list, "{:+.0f}"), time.process_time() - t_start))
 
         return total_reading / self.settings["WEIGHT_FACTOR"] # grams
 

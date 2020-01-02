@@ -10,14 +10,11 @@
 
 import math
 
+from classes.time_buffer import TimeBuffer
+
 class Events(object):
 
-    def __init__(self, 
-                 settings=None,
-                 sample_buffer=None,
-                 event_buffer=None,
-                 stats_buffer=None
-                ):
+    def __init__(self, settings=None):
 
         # COFFEE POT EVENTS
 
@@ -25,7 +22,8 @@ class Events(object):
         self.EVENT_EMPTY = "COFFEE_EMPTY"
         self.EVENT_POURED = "COFFEE_POURED"
         self.EVENT_REMOVED = "COFFEE_REMOVED"
-        self.EVENT_GROUND = "COFFEE_GROUND"
+        self.EVENT_GRINDING = "COFFEE_GRINDING"
+        self.EVENT_BREWING = "COFFEE_BREWING"
 
         # CONSTS
         self.EMPTY_WEIGHT = 1630
@@ -37,9 +35,13 @@ class Events(object):
 
         # set up the various timebuffers
         self.settings = settings
-        self.sample_buffer = sample_buffer
-        self.event_buffer = event_buffer
-        self.stats_buffer = stats_buffer
+
+        # Create event buffer for sensor node, i.e. common to all sensors
+        self.event_buffer = TimeBuffer(size=1000, settings=settings)
+
+        # Create dictionary to reference buffers for each sensor
+        # This Events object will be passed to each sensor __init__ so the sensor will add its buffers to sensor_buffers.
+        self.sensor_buffers = {}
 
     # Test if value represents EMPTY pot
     def empty_value(self, x):
@@ -69,8 +71,9 @@ class Events(object):
     # True if median for 1 second is 1400 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
     def is_empty(self,offset):
-        m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
-        d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
+        sample_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
+        m, next_offset, duration, sample_count = sample_buffer.median(offset, 1)
+        d, next_offset, duration, sample_count = sample_buffer.deviation(offset, 1, m)
         if (not m is None and
             not sample_count is None and
             sample_count > 5 and
@@ -87,8 +90,9 @@ class Events(object):
     # True if median for 1 second is 3400 grams +/- 400
     # Returns tuple <Test true/false>, < next offset >
     def is_full(self,offset):
-        m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 1)
-        d, next_offset, duration, sample_count = self.sample_buffer.deviation(offset, 1, m)
+        sample_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
+        m, next_offset, duration, sample_count = sample_buffer.median(offset, 1)
+        d, next_offset, duration, sample_count = sample_buffer.deviation(offset, 1, m)
         if (not m is None and
             not sample_count is None and
             sample_count > 5 and
@@ -105,7 +109,7 @@ class Events(object):
     # True if median for 3 seconds is 0 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
     def is_removed(self,offset):
-        m, next_offset, duration, sample_count = self.sample_buffer.median(offset, 3)
+        m, next_offset, duration, sample_count = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"].median(offset, 3)
         if not m == None:
 
             removed, confidence = self.removed_value(m)
@@ -116,13 +120,14 @@ class Events(object):
 
     # Test if cup has been POURED
     def test_event_poured(self, ts):
+        sample_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
 
-        now = self.sample_buffer.get(0)["ts"]
+        now = sample_buffer.get(0)["ts"]
 
         # get latest 1-second median and deviation
-        current_median, offset, duration, sample_count = self.sample_buffer.median(0,1)
+        current_median, offset, duration, sample_count = sample_buffer.median(0,1)
 
-        current_deviation, offset, duration, sample_count = self.sample_buffer.deviation(0,1,current_median)
+        current_deviation, offset, duration, sample_count = sample_buffer.deviation(0,1,current_median)
 
         # COFFEE_POURED == False if current 1 second weight not stable
         if ( current_median is None or
@@ -145,7 +150,8 @@ class Events(object):
         POUR_TEST_SECONDS = 30
         # We are using the fact that each index in stats_buffer represents ONE SECOND of readings
         for i in range(POUR_TEST_SECONDS):
-            stats_record = self.stats_buffer.get(i)
+            stats_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["stats_buffer"]
+            stats_record = stats_buffer.get(i)
             if stats_record is None:
                 continue
 
@@ -218,7 +224,8 @@ class Events(object):
         removed_test = lambda stats_sample: self.removed_value(stats_sample['value']['median'])[0]
 
         # look in stats_buffer to try and find 'removed' 1-second median
-        stats_removed, stats_offset, stats_duration, stats_count = self.stats_buffer.find(0, REMOVED_TEST_SECONDS, removed_test)
+        stats_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["stats_buffer"]
+        stats_removed, stats_offset, stats_duration, stats_count = stats_buffer.find(0, REMOVED_TEST_SECONDS, removed_test)
 
         if stats_removed != None:
             #print(ts, "test_event_new stats_removed test succeeded", stats_removed)
@@ -272,7 +279,8 @@ class Events(object):
         # define stats_buffer sample test function
         not_empty = lambda stats_sample: not self.empty_value(stats_sample['value']['median'])[0]
         # look in stats_buffer to try and find 'not empty' 1-second median
-        stats_not_empty, stats_offset, stats_duration, stats_count = self.stats_buffer.find(0, EMPTY_TEST_SECONDS, not_empty)
+        stats_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["stats_buffer"]
+        stats_not_empty, stats_offset, stats_duration, stats_count = stats_buffer.find(0, EMPTY_TEST_SECONDS, not_empty)
 
         #print(ts,"test_event_empty: empty_now, stats_not_empty=", stats_not_empty)
 
@@ -298,20 +306,49 @@ class Events(object):
 
         return None
 
+    # Test any event after a GRIND reading
+    def test_grind(self, ts):
+        # TimeBuffer.get() returns {"ts": , "value": }
+        sample = self.sensor_buffers[self.settings["GRIND_SENSOR_ID"]]["sample_buffer"].get(0)
 
-    # Look in the sample_history buffer (including latest) and try and spot a new event.
-    # Uses the event_history buffer to avoid repeated messages for the same event
-    def test(self, ts, weight_g):
-        events = []
-        for test_function in [ self.test_event_new,
-                               self.test_event_removed,
-                               self.test_event_poured,
-                               self.test_event_empty
-                    ]:
+        value = sample["value"]
+
+        # debug
+        confidence = 0.81
+
+        return { "event_code": self.EVENT_GRINDING, "value": value, "acp_confidence": confidence }
+
+    # Test any event after a BREW reading
+    def test_brew(self, ts):
+        value = self.sensor_buffers[self.settings["BREW_SENSOR_ID"]]["sample_buffer"].get(0)["value"]
+
+        # debug
+        confidence = 0.82
+
+        return { "event_code": self.EVENT_BREWING, "value": value, "acp_confidence": confidence }
+
+    def test(self, ts, sensor_id):
+
+        if sensor_id == self.settings["WEIGHT_SENSOR_ID"]:
+            tests = [ self.test_event_new,
+                      self.test_event_removed,
+                      self.test_event_poured,
+                      self.test_event_empty
+                    ]
+
+        elif sensor_id == self.settings["GRIND_SENSOR_ID"]:
+            tests = [ self.test_grind ]
+
+        elif sensor_id == self.settings["BREW_SENSOR_ID"]:
+            tests = [ self.test_brew ]
+
+        else:
+            raise NameError("Bad sensor id: {}".format(sensor_id))
+
+        event_list = []
+        for test_function in tests:
             event = test_function(ts)
             if not event is None:
-                events.append(event)
+                event_list.append(event)
 
-        return events
-
-
+        return event_list
