@@ -2,74 +2,19 @@ import sys
 import logging
 import asyncio
 import time
-import random
 
 import simplejson as json
 from simplejson.errors import JSONDecodeError
 
-from hbmqtt.client import MQTTClient, ClientException
-from hbmqtt.mqtt.constants import QOS_0, QOS_1, QOS_2
-
 from classes.sensor_utils import list_to_string
 from classes.time_buffer import TimeBuffer, StatsBuffer
 from classes.config import Config
+from classes.links import Uplink, SensorLink
+from classes.remote_sensor import RemoteSensor
+from classes.local_sensor import LocalSensor
 
-STATS_HISTORY_SIZE = 1000 # Define a stats_buffer with 1000 entries, each 1 second long
-STATS_DURATION = 1
+VERSION = "0.81b"
 
-VERSION = "0.81a"
-
-class Uplink(object):
-
-    def __init__(self, settings=None):
-        print("Uplink __init__()")
-        self.settings = settings
-        self.client = MQTTClient()
-
-    async def start(self):
-        print('start() startup')
-        await self.client.connect(self.settings["UPLINK_HOST"])
-        print('start() connected {}'.format(self.settings["UPLINK_HOST"]))
-
-    async def send(self, topic, message=None):
-        print('uplink send() sending {}'.format(topic))
-        message_b = bytes(message,'utf-8')
-        tasks = [
-            asyncio.ensure_future(self.client.publish(topic, message_b))
-        ]
-        await asyncio.wait(tasks)
-        print("uplink send() published {} {}".format(topic,message))
-
-    async def finish(self):
-        await self.client.disconnect()
-
-class SensorLink(object):
-    """
-    SensorLink provides the local communications endpoint for receiving
-    data from the remote sensors within the SensorNode
-    """
-
-    def __init__(self, settings=None, topic=None):
-        print("SensorLink __init__() {}".format(topic))
-        self.settings = settings
-        self.topic = topic
-
-    async def start(self):
-        print("SensorLink start() {}".format(self.topic))
-        self.client = MQTTClient(config=None)
-
-        await self.client.connect(self.settings["SENSOR_HOST"])
-        print("SensorLink {} connected".format(self.topic))
-
-        await self.client.subscribe([(self.topic, QOS_0)])
-        print("SensorLink {} subscribed".format(self.topic))
-
-    async def get(self):
-        return await self.client.deliver_message()
-
-    async def stop(self):
-        await self.client.disconnect()
-        print("remote_sensor {} disconnected".format(self.topic))
 
 class Events(object):
     """
@@ -156,101 +101,6 @@ class Events(object):
             #send MQTT topic, message
             event_msg = json.dumps(event)
             await self.uplink.send(self.settings["SENSOR_ID"], event_msg)
-
-
-class RemoteSensor():
-    """
-    RemoteSensor represents a sensor within the Node connected remotely, e.g. via
-    a local wifi ssid broadcast by the sensor hub.
-    """
-
-    def __init__(self, settings=None, sensor_id=None, events=None):
-        print("RemoteSensor() __init__ {}".format(sensor_id))
-
-        self.settings = settings
-        self.sensor_id = sensor_id
-        self.events = events
-
-        #debug - StatsBuffer should have a FUNCTION to extract the value from the reading
-        # Create a 30-entry x 1-second stats buffer
-        #self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE,
-        #                                duration=STATS_DURATION,
-        #                                settings=self.settings)
-
-        #debug setting var for buffer size
-        self.sample_buffer = TimeBuffer(size=1000, settings=self.settings, stats_buffer=None )
-
-        # Add the sample_buffer to the Events object so it can use it in event tests
-        self.events.sensor_buffers[self.sensor_id] = { "sample_buffer": self.sample_buffer }
-
-        self.sensor_link = SensorLink(settings=self.settings, topic=self.sensor_id+"/tele/SENSOR")
-
-    async def start(self):
-        await self.sensor_link.start()
-
-        while True:
-            message_obj = await self.sensor_link.get()
-            packet = message_obj.publish_packet
-            topic = packet.variable_header.topic_name
-
-            print("remote_sensors() topic received {}".format(topic))
-
-            message = ""
-            if packet.payload is None:
-                print("remote_sensors packet.payload=None {}".format(topic))
-            elif packet.payload.data is None:
-                print("remote_sensors() packet.payload.data=None {}".format(topic))
-            else:
-                message = packet.payload.data.decode('utf-8')
-                print("remote_sensors() {} => {}".format(topic,message))
-
-            message_dict = {}
-            try:
-                message_dict = json.loads(message)
-            except JSONDecodeError:
-                message_dict["message"] = message
-                print("remote_sensors() json msg error: {} => {}".format(topic,message))
-
-            message_dict["topic"] = topic
-
-            ts = time.time()
-
-            self.sample_buffer.put(ts, message_dict)
-
-            await self.events.test(ts, self.sensor_id)
-
-
-class LocalSensor():
-
-    def __init__(self, settings=None, sensor_id=None, events=None):
-        print("LocalSensor() __init__ {}".format(sensor_id))
-
-        self.settings = settings
-        self.sensor_id = sensor_id
-        self.events = events
-
-        # Create a 30-entry x 1-second stats buffer
-        self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE,
-                                        duration=STATS_DURATION,
-                                        settings=self.settings)
-
-        #debug will have settings var for buffer size
-        self.sample_buffer = TimeBuffer(size=1000, settings=self.settings, stats_buffer=None )
-
-        # Add the buffers to the Events object so it can use it in event tests
-        self.events.sensor_buffers[self.sensor_id] = { "sample_buffer": self.sample_buffer,
-                                                       "stats_buffer": self.stats_buffer
-                                                     }
-
-    async def start(self):
-
-        quit = False
-        while not quit:
-            rand = random.random() * 100
-            ts = time.time()
-            self.sample_buffer.put(ts, rand)
-            await self.events.test(ts, self.sensor_id)
-            await asyncio.sleep(0.1)
 
 async def main():
     print("main V{} started with {} arguments {}".format(VERSION, len(sys.argv), list_to_string(sys.argv)))
