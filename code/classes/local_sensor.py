@@ -27,6 +27,14 @@ class LocalSensor():
         self.sensor = sensor
         self.sensor_hub = sensor_hub
 
+        # set counter for how many samples to collect before saving
+        if self.settings is None or not "SAMPLE_SAVE_COUNT" in self.settings:
+            self.save_count = 0
+        else:
+            self.save_count = self.settings["SAMPLE_SAVE_COUNT"]
+        self.save_counter = 0 # cumulative count of how many samples we've collected
+        print("Set save_count to", self.save_count)
+
         # Create a 30-entry x 1-second stats buffer
         self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE,
                                         duration=STATS_DURATION,

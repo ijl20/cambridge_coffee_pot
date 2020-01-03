@@ -58,9 +58,9 @@ VALUE_SETTINGS = {
 
 class Display(object):
 
-    def __init__(self, settings=None, emulate=False):
+    def __init__(self, settings=None):
 
-        if emulate:
+        if settings is None or settings["DISPLAY_SIMULATION_MODE"]:
             from st7735_ijl20.st7735_emulator import ST7735_EMULATOR as ST7735
         else:
             from st7735_ijl20.st7735 import ST7735
@@ -203,7 +203,7 @@ class Display(object):
 
     # Update a PIL image with the weight, and send to LCD
     # Note we are creating an image smaller than the screen size, and only updating a part of the display
-    def update(self, ts, sample_buffer, debug_list):
+    def update(self, ts, sample_buffer):
 
         # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
         if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:

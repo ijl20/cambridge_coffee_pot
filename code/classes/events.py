@@ -18,12 +18,14 @@ class Events(object):
 
         # COFFEE POT EVENTS
 
+        self.EVENT_STARTUP = "COFFEE_STARTUP"
         self.EVENT_NEW = "COFFEE_NEW"
         self.EVENT_EMPTY = "COFFEE_EMPTY"
         self.EVENT_POURED = "COFFEE_POURED"
         self.EVENT_REMOVED = "COFFEE_REMOVED"
         self.EVENT_GRINDING = "COFFEE_GRINDING"
         self.EVENT_BREWING = "COFFEE_BREWING"
+        self.EVENT_WEIGHT = "COFFEE_WEIGHT"
 
         # CONSTS
         self.EMPTY_WEIGHT = 1630
