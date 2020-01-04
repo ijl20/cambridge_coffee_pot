@@ -65,6 +65,7 @@ class SensorHub(object):
                          'acp_type': self.settings["SENSOR_TYPE"],
                          'acp_ts': ts,
                          'acp_units': 'GRAMS',
+                         'event_code': self.events.EVENT_WEIGHT,
                          'weight': math.floor(weight_g+0.5), # rounded to integer grams
                          'version': self.settings["VERSION"]
                        }
@@ -76,9 +77,6 @@ class SensorHub(object):
 
     async def process_reading(self, ts, sensor_id):
         t_start = time.process_time()
-
-        if self.settings["LOG_LEVEL"] == 1:
-            print("process_sample got value {:.1f} at {:.3f} secs.".format(value, time.process_time() - t_start))
 
         # ---------------------------------
         # TEST EVENTS AND SEND TO PLATFORM
@@ -131,7 +129,8 @@ class SensorHub(object):
                 print("process_sample send data NOT SENT as data value None")
 
         if self.settings["LOG_LEVEL"] == 1:
-            print ("WEIGHT {:5.1f}, {}".format(value, time.ctime(ts)))
+            print ("WEIGHT {:5.1f}, {}".format(weight_sample_buffer.get(0)["value"], time.ctime(ts)))
 
         if self.settings["LOG_LEVEL"] == 1:
             print("process_sample time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
+

@@ -180,9 +180,9 @@ class Events(object):
 
             MIN_CUP_WEIGHT = 40
             MAX_CUP_WEIGHT = 1000
-            if ( push_detected and 
-                 stats["deviation"] < 30 and 
-                 med_delta > MIN_CUP_WEIGHT and 
+            if ( push_detected and
+                 stats["deviation"] < 30 and
+                 med_delta > MIN_CUP_WEIGHT and
                  med_delta < MAX_CUP_WEIGHT):
 
                 #latest_event = self.event_buffer.get(0)
@@ -322,7 +322,10 @@ class Events(object):
 
     # Test any event after a BREW reading
     def test_brew(self, ts):
-        value = self.sensor_buffers[self.settings["BREW_SENSOR_ID"]]["sample_buffer"].get(0)["value"]
+        # get latest sample from BREW sample buffer
+        sample = self.sensor_buffers[self.settings["BREW_SENSOR_ID"]]["sample_buffer"].get(0)
+
+        value = sample["value"]
 
         # debug
         confidence = 0.82
@@ -352,5 +355,7 @@ class Events(object):
             event = test_function(ts)
             if not event is None:
                 event_list.append(event)
+                self.event_buffer.put(ts,event)
 
         return event_list
+
