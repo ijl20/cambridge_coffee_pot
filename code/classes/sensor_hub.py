@@ -63,7 +63,7 @@ class SensorHub(object):
     #debug still to be implemented
     # watchdog is called by Watchdog coroutine periodically
     async def watchdog(self):
-        print("{:.3f} SensorHub() watchdog...".format(time.time())
+        print("{:.3f} SensorHub() watchdog...".format(time.time()))
 
     # send 'weight' event (periodic)
     async def send_weight(self, ts, weight_g):
@@ -139,4 +139,14 @@ class SensorHub(object):
 
         if self.settings["LOG_LEVEL"] == 1:
             print("process_sample time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
+
+
+    async def finish(self):
+
+        await self.uplink.finish()
+
+        if not self.settings["DISPLAY_SIMULATION_MODE"]:
+
+            self.display.finish()
+
 

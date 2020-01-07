@@ -74,3 +74,6 @@ class RemoteSensor():
 
             await self.sensor_hub.process_reading(ts, self.sensor_id)
 
+    async def finish(self):
+        await self.sensor_link.finish()
+

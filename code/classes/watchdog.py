@@ -21,7 +21,13 @@ class Watchdog():
 
     # start() method is async with permanent loop, using asyncio.sleep().
     async def start(self):
-        quit = False
-        while not quit:
+        self.quit = False
+        while not self.quit:
             await self.watched.watchdog()
             await asyncio.sleep(self.period)
+
+    async def finish(self):
+        #debug this won't terminate the start() loop until 'period' expires
+        self.quit = True
+        print("watchdog finish(): set to quit")
+

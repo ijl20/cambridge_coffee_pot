@@ -55,6 +55,6 @@ class SensorMQTT(object):
     async def get(self):
         return await self.client.deliver_message()
 
-    async def stop(self):
+    async def finish(self):
         await self.client.disconnect()
         print("remote_sensor {} disconnected".format(self.topic))

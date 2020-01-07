@@ -49,41 +49,46 @@ class SensorNode(object):
 
     async def start(self):
 
-        sensor_hub = SensorHub(settings=self.settings)
+        self.sensor_hub = SensorHub(settings=self.settings)
 
-        await sensor_hub.start(time.time())
+        await self.sensor_hub.start(time.time())
 
-        remote_sensor_a = RemoteSensor( settings=self.settings,
+        self.remote_sensor_a = RemoteSensor( settings=self.settings,
                                         sensor_id="csn-node-test-a",
-                                        sensor_hub=sensor_hub)
+                                        sensor_hub=self.sensor_hub)
 
-        remote_sensor_b = RemoteSensor( settings=self.settings,
+        self.remote_sensor_b = RemoteSensor( settings=self.settings,
                                         sensor_id="csn-node-test-b",
-                                        sensor_hub=sensor_hub)
+                                        sensor_hub=self.sensor_hub)
 
-        local_sensor = LocalSensor( settings=self.settings,
+        self.local_sensor = LocalSensor( settings=self.settings,
                                     sensor_id="csn-node-test-weight",
                                     sensor=WeightSensor(settings=self.settings),
-                                    sensor_hub=sensor_hub)
+                                    sensor_hub=self.sensor_hub)
 
-        watchdog = Watchdog( settings=self.settings, watched=sensor_hub, period=30)
+        self.watchdog = Watchdog( settings=self.settings, watched=self.sensor_hub, period=30)
 
-        await asyncio.gather(local_sensor.start(),
-                             remote_sensor_a.start(),
-                             remote_sensor_b.start(),
-                             watchdog.start()
+        await asyncio.gather(self.local_sensor.start(),
+                             self.remote_sensor_a.start(),
+                             self.remote_sensor_b.start(),
+                             self.watchdog.start()
                             )
 
-    def finish(self):
+    async def finish(self):
         print("\n")
 
-        if not self.DISPLAY_SIMULATION_MODE:
+        await self.watchdog.finish()
 
-            self.display.finish()
+        await self.remote_sensor_a.finish()
 
-            print("GPIO cleanup()...")
+        await self.remote_sensor_b.finish()
+
+        await self.local_sensor.finish()
+
+        await self.sensor_hub.finish()
 
         if not GPIO_FAIL:
+            print("GPIO cleanup()...")
             GPIO.cleanup()
 
         print("SensorNode finished")
@@ -105,5 +110,12 @@ if __name__ == '__main__':
     sensor_node = SensorNode(settings)
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(sensor_node.start())
+    try:
+        loop.run_until_complete(sensor_node.start())
+    except Exception as e:
+        print("\nmain.py interrupted\n{}".format(e))
+
+    loop.run_until_complete(sensor_node.finish())
+
     loop.close()
+

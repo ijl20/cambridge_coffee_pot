@@ -52,8 +52,8 @@ class LocalSensor():
     # start() method is async with permanent loop, using asyncio.sleep().
     async def start(self):
 
-        quit = False
-        while not quit:
+        self.quit = False
+        while not self.quit:
             if self.sensor is None:
                 value = random.random() * 100
             else:
@@ -64,3 +64,9 @@ class LocalSensor():
             self.sample_buffer.put(ts, value)
             await self.sensor_hub.process_reading(ts, self.sensor_id)
             await asyncio.sleep(0.1)
+
+
+    async def finish(self):
+        self.quit = True
+        print("local_sensor finish(): set to quit")
+
