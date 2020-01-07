@@ -1,4 +1,4 @@
-Bus 001 Device 004: ID 2357:0109 TP-Link TL WN823N RTL8192EU
+Bus 001 Device 004: ID 148f:5370 Ralink Technology, Corp. RT5370 Wireless Adapter
 Bus 001 Device 008: ID 413c:2010 Dell Computer Corp. Keyboard
 Bus 001 Device 006: ID 413c:1003 Dell Computer Corp. Keyboard Hub
 Bus 001 Device 005: ID 046d:c077 Logitech, Inc. M105 Optical Mouse

@@ -1,13 +1,13 @@
-wlan0     IEEE 802.11bgn  ESSID:"Forster-Lewis"  Nickname:"<WIFI@REALTEK>"
-          Mode:Managed  Frequency:2.412 GHz  Access Point: C4:E9:84:2D:2B:10   
-          Bit Rate:300 Mb/s   Sensitivity:0/0  
-          Retry:off   RTS thr:off   Fragment thr:off
-          Power Management:off
-          Link Quality=100/100  Signal level=94/100  Noise level=0/100
-          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
-          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
-
-wlan1     IEEE 802.11  Mode:Master  Tx-Power=31 dBm   
+wlan0     IEEE 802.11  Mode:Master  Tx-Power=31 dBm   
           Retry short limit:7   RTS thr:off   Fragment thr:off
           Power Management:on
           
+wlx1cbfce15e85f  IEEE 802.11  ESSID:"Forster-Lewis"  
+          Mode:Managed  Frequency:2.412 GHz  Access Point: C4:E9:84:2D:2B:10   
+          Bit Rate=26 Mb/s   Tx-Power=20 dBm   
+          Retry short  long limit:2   RTS thr:off   Fragment thr:off
+          Power Management:off
+          Link Quality=49/70  Signal level=-61 dBm  
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:1  Invalid misc:12   Missed beacon:0
+
