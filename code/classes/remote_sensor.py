@@ -7,7 +7,7 @@ import time
 import simplejson as json
 from simplejson.errors import JSONDecodeError
 
-from classes.links import SensorMQTT as SensorLink
+from classes.links_hbmqtt import SensorMQTT as SensorLink
 from classes.time_buffer import TimeBuffer, StatsBuffer
 
 STATS_HISTORY_SIZE = 1000 # Define a stats_buffer with 1000 entries, each 1 second long

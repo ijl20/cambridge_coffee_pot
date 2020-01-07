@@ -1,37 +1,96 @@
-# -------------------------------------------------------------------
-#
-# Python script to run sensor
-#
-# -------------------------------------------------------------------
-
 import sys
-import time
+import logging
 import asyncio
-
-from classes.config import Config
-
-from classes.sensor_node import SensorNode
-
-from classes.weight_sensor import WeightSensor
-
-from classes.smart_plug import SmartPlug
+import time
 
 from classes.sensor_utils import list_to_string
+from classes.config import Config
+from classes.remote_sensor import RemoteSensor
+from classes.local_sensor import LocalSensor
+from classes.sensor_hub import SensorHub
+from classes.weight_sensor import WeightSensor
+from classes.watchdog import Watchdog
 
-from classes.time_buffer import TimeBuffer
+GPIO_FAIL = False
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    GPIO_FAIL = True
+    print("RPi.GPIO not loaded, running in SIMULATION_MODE")
 
-VERSION = "0.80a"
+VERSION = "0.82"
+
+class SensorNode(object):
+
+    def __init__(self, settings=None):
+        global GPIO_FAIL
+
+        #debug this can come from settings
+        self.ALLOW_UPLINK = False
+
+        self.settings = settings
+
+        if self.settings is None:
+            self.settings = { }
+
+        if not "VERSION" in self.settings:
+            self.settings["VERSION"] = VERSION
+
+        if "DISPLAY_SIMULATION_MODE" in self.settings and self.settings["DISPLAY_SIMULATION_MODE"]:
+            print("Using DISPLAY_SIMULATION_MODE=True from settings file")
+
+        # ensure settings["DISPLAY_SIMULATION_MODE"] is set
+        if not "DISPLAY_SIMULATION_MODE" in self.settings:
+            self.settings["DISPLAY_SIMULATION_MODE"] = GPIO_FAIL
+
+        if not self.ALLOW_UPLINK:
+            print("Uplink to Platform disabled")
 
 
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-# main code
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
+    async def start(self):
 
-async def main():
+        sensor_hub = SensorHub(settings=self.settings)
 
-    print("main V{} started with {} arguments {}".format(VERSION,len(sys.argv), list_to_string(sys.argv)))
+        await sensor_hub.start(time.time())
+
+        remote_sensor_a = RemoteSensor( settings=self.settings,
+                                        sensor_id="csn-node-test-a",
+                                        sensor_hub=sensor_hub)
+
+        remote_sensor_b = RemoteSensor( settings=self.settings,
+                                        sensor_id="csn-node-test-b",
+                                        sensor_hub=sensor_hub)
+
+        local_sensor = LocalSensor( settings=self.settings,
+                                    sensor_id="csn-node-test-weight",
+                                    sensor=WeightSensor(settings=self.settings),
+                                    sensor_hub=sensor_hub)
+
+        watchdog = Watchdog( settings=self.settings, watched=sensor_hub, period=30)
+
+        await asyncio.gather(local_sensor.start(),
+                             remote_sensor_a.start(),
+                             remote_sensor_b.start(),
+                             watchdog.start()
+                            )
+
+    def finish(self):
+        print("\n")
+
+        if not self.DISPLAY_SIMULATION_MODE:
+
+            self.display.finish()
+
+            print("GPIO cleanup()...")
+
+        if not GPIO_FAIL:
+            GPIO.cleanup()
+
+        print("SensorNode finished")
+
+
+if __name__ == '__main__':
+    print("Cambridge Sensor Framework V{} started with {} arguments {}".format(VERSION, len(sys.argv), list_to_string(sys.argv)))
 
     if len(sys.argv) > 1 :
         filename = sys.argv[1]
@@ -43,57 +102,8 @@ async def main():
 
     settings["VERSION"] = VERSION
 
-    event_buffer = TimeBuffer(size=1000, settings=settings)
+    sensor_node = SensorNode(settings)
 
-    sensor_node = SensorNode(event_buffer, settings=settings)
-
-    weight_sensor = WeightSensor(settings=settings)
-
-    sensor_node_a = SmartPlug(sensor_id=settings["SENSOR_ID"]+"-a",
-                              event_buffer=event_buffer,
-                              settings=settings)
-
-    await sensor_node_a.begin()
-
-    sensor_node_b = SmartPlug(sensor_id=settings["SENSOR_ID"]+"-b",
-                              event_buffer=event_buffer,
-                              settings=settings)
-
-    await sensor_node_b.begin()
-
-    sensor_node.begin()
-
-    # Infinite loop until killed, reading weight and sending data
-    try:
-        while True:
-            loop_start_time = time.time()
-
-            #----------------
-            # GET READING
-            # ---------------
-
-            # get readings from all load cells
-            value = weight_sensor.get_value()
-
-            # ---------------
-            # PROCESS READING
-            # ---------------
-            sensor_node.process_sample(time.time(), value)
-
-            loop_time = time.time() - loop_start_time
-            if loop_time < 0.1:
-                await asyncio.sleep(0.1 - loop_time)
-
-    except (KeyboardInterrupt, SystemExit):
-        pass
-
-    # Cleanup and quit
-    sensor_node.finish()
-
-if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-
-    #loop.add_signal_handler(signal.SIGINT, ask_exit)
-    #loop.add_signal_handler(signal.SIGTERM, ask_exit)
-
-    loop.run_until_complete(main())
+    loop.run_until_complete(sensor_node.start())
+    loop.close()

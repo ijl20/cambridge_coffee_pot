@@ -10,3 +10,5 @@ pytz
 gmqtt
 hbmqtt
 
+RPi.GPIO
+spidev

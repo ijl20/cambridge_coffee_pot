@@ -17,6 +17,7 @@ try:
     import RPi.GPIO as GPIO
     import spidev
 except:
+    print("ST7735 import RPi.GPIO or spidev failed. Using SIMULATION_MODE")
     SIMULATION_MODE = True
 
 SPI_CLOCK_HZ = 9000000 # 9 MHz

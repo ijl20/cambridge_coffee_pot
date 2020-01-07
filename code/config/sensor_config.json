@@ -2,11 +2,21 @@
 {
     "LOG_LEVEL": 2,
 
-    "SENSOR_ID": "csn-node-1",
+    "SENSOR_ID": "csn-node-test",
     "SENSOR_TYPE": "coffee_pot",
-    "WEIGHT_SENSOR_ID": "csn-node-1-weight",
-    "GRIND_SENSOR_ID": "csn-node-1-a",
-    "BREW_SENSOR_ID": "csn-node-1-b",
+    "WEIGHT_SENSOR_ID": "csn-node-test-weight",
+    "GRIND_SENSOR_ID": "csn-node-test-a",
+    "BREW_SENSOR_ID": "csn-node-test-b",
+
+    "PLATFORM_HOST": "mqtt://192.168.1.51",
+    "PLATFORM_PORT": 1883,
+    "PLATFORM_USER": "csn-node",
+    "PLATFORM_PASSWORD": "csn-node",
+
+    "SENSOR_HOST": "mqtt://localhost",
+    "SENSOR_PORT": 1883,
+    "SENSOR_USER": "csn-node",
+    "SENSOR_PASSWORD": "csn-node",
 
     "TARE_FILENAME": "config/sensor_tare.json",
     "WEIGHT_FACTOR": 374,

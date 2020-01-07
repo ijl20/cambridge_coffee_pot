@@ -7,13 +7,14 @@ from simplejson.errors import JSONDecodeError
 import time
 import math
 
-from classes.links import PlatformMQTT as Uplink
+from classes.links_hbmqtt import PlatformMQTT as Uplink
 from classes.display import Display
 from classes.events import Events
 
 class SensorHub(object):
     """
-    The SensorHub object provides a .process_reading() function that looks at the values in the various sensor buffers and
+    The SensorHub object provides a .process_reading() function that looks
+    at the values in the various sensor buffers and
     decides whether an event should be sent to the platform.
     """
 
@@ -21,9 +22,13 @@ class SensorHub(object):
         print("SensorHub __init()__")
         self.settings = settings
 
+        # LCD DISPLAY
+
         self.display = Display(self.settings)
 
         self.display.begin()
+
+        # EVENTS PATTERN MATCH
 
         self.events = Events(settings=self.settings)
 
@@ -34,7 +39,8 @@ class SensorHub(object):
         self.prev_send_time = None
 
 
-    # A LocalSensor or RemoteSensor will call this add_buffers() method to make their TimeBuffers visible to Events
+    # A LocalSensor or RemoteSensor will call this add_buffers() method to
+    # make their TimeBuffers visible to Events
     def add_buffers(self, sensor_id, buffers):
         print("SensorHub adding buffers for {}: {}".format(sensor_id,buffers))
         self.events.sensor_buffers[sensor_id] = buffers
@@ -57,7 +63,7 @@ class SensorHub(object):
     #debug still to be implemented
     # watchdog is called by Watchdog coroutine periodically
     async def watchdog(self):
-        print("watchdog")
+        print("{:.3f} SensorHub() watchdog...".format(time.time())
 
     # send 'weight' event (periodic)
     async def send_weight(self, ts, weight_g):
