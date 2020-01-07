@@ -27,6 +27,9 @@ class Events(object):
         self.EVENT_BREWING = "COFFEE_BREWING"
         self.EVENT_WEIGHT = "COFFEE_WEIGHT"
 
+        self.EVENT_GRIND_STATUS = "GRIND_STATUS"
+        self.EVENT_BREW_STATUS = "BREW_STATUS"
+
         # CONSTS
         self.EMPTY_WEIGHT = 1630
         self.EMPTY_MARGIN = 50
@@ -318,7 +321,7 @@ class Events(object):
         # debug
         confidence = 0.81
 
-        return { "event_code": self.EVENT_GRINDING, "value": value, "acp_confidence": confidence }
+        return { "event_code": self.EVENT_GRIND_STATUS, "value": value, "acp_confidence": confidence }
 
     # Test any event after a BREW reading
     def test_brew(self, ts):
@@ -330,7 +333,7 @@ class Events(object):
         # debug
         confidence = 0.82
 
-        return { "event_code": self.EVENT_BREWING, "value": value, "acp_confidence": confidence }
+        return { "event_code": self.EVENT_BREW_STATUS, "value": value, "acp_confidence": confidence }
 
     def test(self, ts, sensor_id):
 
