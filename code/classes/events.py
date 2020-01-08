@@ -3,8 +3,8 @@
 # ----------------------------------------------------------------------
 # EVENT PATTERN RECOGNITION
 #
-# In general these routines look at the sample_history buffer and
-# decide if an event has just become recognizable, e.g. POT_NEW
+# In general these routines look at the TimeBuffers and
+# decide if an event has just become recognizable, e.g. COFFEE_NEW
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
@@ -16,6 +16,9 @@ class Events(object):
 
     def __init__(self, settings=None):
 
+        # set up the various timebuffers
+        self.settings = settings
+
         # COFFEE POT EVENTS
 
         self.EVENT_STARTUP = "COFFEE_STARTUP"
@@ -23,6 +26,7 @@ class Events(object):
         self.EVENT_EMPTY = "COFFEE_EMPTY"
         self.EVENT_POURED = "COFFEE_POURED"
         self.EVENT_REMOVED = "COFFEE_REMOVED"
+        self.EVENT_REPLACED = "COFFEE_REPLACED"
         self.EVENT_GRINDING = "COFFEE_GRINDING"
         self.EVENT_BREWING = "COFFEE_BREWING"
         self.EVENT_WEIGHT = "COFFEE_WEIGHT"
@@ -38,11 +42,8 @@ class Events(object):
         self.REMOVED_WEIGHT = 0
         self.REMOVED_MARGIN = 100
 
-        # set up the various timebuffers
-        self.settings = settings
-
         # Create event buffer for sensor node, i.e. common to all sensors
-        self.event_buffer = TimeBuffer(size=1000, settings=settings)
+        self.event_buffer = TimeBuffer(size=1000, settings=self.settings)
 
         # Create dictionary to reference buffers for each sensor
         # This Events object will be passed to each sensor __init__ so the sensor will add its buffers to sensor_buffers.
@@ -66,10 +67,12 @@ class Events(object):
 
     # Test if value represents the pot REMOVED
     def removed_value(self, x):
+        #print("removed_value()",x)
         if x==None:
             return False, 1
         removed = abs(x - self.REMOVED_WEIGHT) < self.REMOVED_MARGIN
         confidence = 1 - abs(x-self.REMOVED_WEIGHT) / (2 * self.REMOVED_MARGIN)
+        #print("removed_value()",x,removed)
         return removed, confidence
 
     # Test if pot is EMPTY
@@ -114,7 +117,8 @@ class Events(object):
     # True if median for 3 seconds is 0 grams +/- 100
     # Returns tuple <Test true/false>, < next offset >
     def is_removed(self,offset):
-        m, next_offset, duration, sample_count = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"].median(offset, 3)
+        sample_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
+        m, next_offset, duration, sample_count = sample_buffer.median(offset, 3)
         if not m == None:
 
             removed, confidence = self.removed_value(m)
@@ -214,6 +218,8 @@ class Events(object):
         return None
 
     def test_event_new(self, ts):
+        REMOVED_TEST_SECONDS = 30 # pot must previously have been removed for at least this long
+        PREVIOUS_NEW_TEST_SECONDS = 60 # there must not have been a NEW event within this time
         # Is the pot full now ?
         full, offset, full_weight, full_confidence = self.is_full(0)
 
@@ -221,10 +227,10 @@ class Events(object):
         if not full:
             return None
 
-        #print(ts,"test_event_new is_full")
+        if self.settings["LOG_LEVEL"] <= 1:
+            print("{:.3f} test_event_new is_full".format(ts))
 
         # Was pot REMOVED during previous 30 seconds ?
-        REMOVED_TEST_SECONDS = 30
         # define stats_buffer sample test function
         removed_test = lambda stats_sample: self.removed_value(stats_sample['value']['median'])[0]
 
@@ -233,9 +239,10 @@ class Events(object):
         stats_removed, stats_offset, stats_duration, stats_count = stats_buffer.find(0, REMOVED_TEST_SECONDS, removed_test)
 
         if stats_removed != None:
-            #print(ts, "test_event_new stats_removed test succeeded", stats_removed)
+            if self.settings["LOG_LEVEL"] <= 1:
+                print("{:.3f} test_event_new stats_removed test succeeded".format(ts))
+
             # ok we found a previous 'removed' median
-            PREVIOUS_NEW_TEST_SECONDS = 60
 
             is_new_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_NEW
 
@@ -246,6 +253,12 @@ class Events(object):
                 weight = math.floor(full_weight+0.5)
                 confidence = full_confidence
                 return { "event_code": self.EVENT_NEW, "weight": weight, "acp_confidence": confidence }
+            else:
+                if self.settings["LOG_LEVEL"] <= 1:
+                    print("{:.3f} EVENT_NEW suppressed due to prior EVENT_NEW".format(ts))
+
+        elif self.settings["LOG_LEVEL"] <= 1:
+            print("{:.3f} remove_test failed".format(ts))
 
         return None
 
@@ -268,6 +281,73 @@ class Events(object):
                 weight = math.floor(removed_now_weight+0.5)
                 confidence = removed_now_confidence
                 return { "event_code": self.EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
+
+        return None
+
+    def test_event_replaced(self, ts):
+        sample_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
+
+        # fast fail if latest weight reading < EMPTY_WEIGHT
+        latest_sample = sample_buffer.get(0)
+
+        if latest_sample is None or latest_sample["value"] < self.EMPTY_WEIGHT * 0.9: # 10% error margin
+            return None
+
+        now = sample_buffer.get(0)["ts"]
+
+        # get latest 1-second median and deviation
+        current_median, offset, duration, sample_count = sample_buffer.median(0,1)
+
+        #print("test_event_replaced() median {:.1f}".format(current_median))
+
+        current_deviation, offset, duration, sample_count = sample_buffer.deviation(0,1,current_median)
+
+        # COFFEE_POURED == False if current 1 second weight not stable
+        if ( current_median is None or
+             offset is None or
+             duration is None or
+             sample_count is None or
+             current_deviation is None ):
+            #print("{} no stats now".format(now))
+            return None
+
+        if current_median < self.EMPTY_WEIGHT * 0.9:
+            #print("test_event_replaced() median too small for replaced")
+            return None
+
+        if current_deviation > 30:
+            #print("test_event_replaced() deviation not stable = {}".format(current_deviation))
+            return None
+
+        # Was pot REMOVED during previous 3 seconds ?
+        # define stats_buffer sample test function
+        removed_test = lambda stats_sample: self.removed_value(stats_sample['value']['median'])[0]
+
+        # look in stats_buffer to try and find 'removed' 1-second median
+        stats_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["stats_buffer"]
+
+        stats_removed, stats_offset, stats_duration, stats_count = stats_buffer.find(0, 3, removed_test)
+
+        if stats_removed != None:
+            if self.settings["LOG_LEVEL"] <= 1:
+                print("{:.3f} test_event_replaced() stats_removed test succeeded".format(ts))
+
+            # ok we found a previous 'removed' median
+
+            is_replaced_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_REPLACED
+
+            previous_event, offset, duration, count = self.event_buffer.find(0, 3, is_replaced_event )
+
+            if previous_event is None:
+                # we have no previous REPLACED event in past 3 seconds
+                weight = math.floor(current_median+0.5)
+                confidence = 0.8 #debug need to calculate a reasonable figure
+                return { "event_code": self.EVENT_REPLACED, "weight": weight, "acp_confidence": confidence }
+            elif self.settings["LOG_LEVEL"] <= 1:
+                print("{:.3f} EVENT_REPLACED suppressed due to prior event".format(ts))
+
+        elif self.settings["LOG_LEVEL"] <= 1:
+            print("{:.3f} test_event_replaced() remove_test failed".format(ts))
 
         return None
 
@@ -341,7 +421,8 @@ class Events(object):
             tests = [ self.test_event_new,
                       self.test_event_removed,
                       self.test_event_poured,
-                      self.test_event_empty
+                      self.test_event_empty,
+                      self.test_event_replaced
                     ]
 
         elif sensor_id == self.settings["GRIND_SENSOR_ID"]:

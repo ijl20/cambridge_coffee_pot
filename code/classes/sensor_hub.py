@@ -81,8 +81,15 @@ class SensorHub(object):
         #send MQTT topic, message
         await self.uplink.send(self.settings["SENSOR_ID"], weight_msg)
 
+    # process_reading(ts, sensor_id) is called by each of the sensors, i.e.
+    # LocalSensors and RemoteSensors, each time they have a reading to be
+    # processed.  The Events module can use 'sensor_id' to determine the
+    # source of the reading.  All events sent to the Platform are labelled
+    # with the sensor_id of the sensor node, not the individual sensor.
     async def process_reading(self, ts, sensor_id):
         t_start = time.process_time()
+
+        weight_sensor_id = self.settings["WEIGHT_SENSOR_ID"]
 
         # ---------------------------------
         # TEST EVENTS AND SEND TO PLATFORM
@@ -108,7 +115,7 @@ class SensorHub(object):
         # UPDATE DISPLAY
         # ---------------
 
-        weight_sample_buffer = self.events.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
+        weight_sample_buffer = self.events.sensor_buffers[weight_sensor_id]["sample_buffer"]
         self.display.update(ts, weight_sample_buffer)
 
         # ------------------------------------------
@@ -120,25 +127,26 @@ class SensorHub(object):
 
         WATCHDOG_PERIOD = 120
         if ts - self.prev_send_time > WATCHDOG_PERIOD:
-            sample_value, offset, duration, sample_count = weight_sample_buffer.median(0,2) # from latest ts, back 2 seconds
+            # from latest ts, back 2 seconds
+            sample_value, offset, duration, sample_count = weight_sample_buffer.median(0,2)
 
             if not sample_value == None:
-                print ("{:.3f},{:5.1f},WEIGHT,".format(ts, sample_value), "{}".format(time.ctime(ts)))
+                print ("{:.3f} WEIGHT {:5.1f}".format(ts, sample_value))
 
                 await self.send_weight(ts, sample_value)
 
                 self.prev_send_time = ts
 
                 if self.settings["LOG_LEVEL"] == 1:
-                    print("process_sample send data at {:.3f} secs.".format(time.process_time() - t_start))
+                    print("process_reading send data at {:.3f} secs.".format(time.process_time() - t_start))
             else:
-                print("process_sample send data NOT SENT as data value None")
+                print("process_reading send data NOT SENT as data value None")
 
         if self.settings["LOG_LEVEL"] == 1:
-            print ("WEIGHT {:5.1f}, {}".format(weight_sample_buffer.get(0)["value"], time.ctime(ts)))
+            print ("{:.3f} WEIGHT {:5.1f}".format(weight_sample_buffer.get(0)["value"], time.ctime(ts)))
 
         if self.settings["LOG_LEVEL"] == 1:
-            print("process_sample time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
+            print("process_reading time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
 
 
     async def finish(self):

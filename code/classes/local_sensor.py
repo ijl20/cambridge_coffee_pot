@@ -41,7 +41,7 @@ class LocalSensor():
                                         settings=self.settings)
 
         #debug will have settings var for buffer size
-        self.sample_buffer = TimeBuffer(size=1000, settings=self.settings, stats_buffer=None )
+        self.sample_buffer = TimeBuffer(size=1000, settings=self.settings, stats_buffer=self.stats_buffer)
 
         # Add the buffers to the sensor_hub object so it can use it in event tests
         self.sensor_hub.add_buffers( self.sensor_id,
@@ -51,19 +51,40 @@ class LocalSensor():
 
     # start() method is async with permanent loop, using asyncio.sleep().
     async def start(self):
+        # minimum seconds between sensor readings
+        SENSOR_READ_PERIOD = 0.1 # reading sensor at max 10Hz
 
         self.quit = False
         while not self.quit:
+            ts = time.time()
             if self.sensor is None:
                 value = random.random() * 100
             else:
                 # no sensor provided, so generate random test values 0..100
                 value = self.sensor.get_value()
 
-            ts = time.time()
+            # save the reading to the sample_buffer
             self.sample_buffer.put(ts, value)
+
+            # call the hub to process the reading, including test/send events to Platform
             await self.sensor_hub.process_reading(ts, self.sensor_id)
-            await asyncio.sleep(0.1)
+
+            # calculate time (seconds) taken to process reading
+            process_time = time.time() - ts
+
+            # If the process_time was more than 1 second, print log message
+            if self.settings["LOG_LEVEL"] <= 2 and process_time > 1:
+                print("{:.3f} LocalSensor {} process_time was {:.1f}".format(time.time(),
+                                                                             self.sensor_id,
+                                                                             process_time))
+
+            # set the sleep time so total loop is at least SENSOR_READ_PERIOD
+            sleep_time = SENSOR_READ_PERIOD - process_time
+            if sleep_time < 0.01: # could be zero or negative, but we should always await
+                sleep_time = 0.01
+
+            # sleep 0.01 .. SENSOR_READ_PERIOD seconds.
+            await asyncio.sleep(sleep_time)
 
 
     async def finish(self):
