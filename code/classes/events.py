@@ -393,6 +393,7 @@ class Events(object):
 
     # Test any event after a GRIND reading
     def test_grind(self, ts):
+        GRIND_POWER = 9 #debug
         # TimeBuffer.get() returns {"ts": , "value": }
         sample = self.sensor_buffers[self.settings["GRIND_SENSOR_ID"]]["sample_buffer"].get(0)
 
@@ -400,6 +401,14 @@ class Events(object):
 
         # debug
         confidence = 0.81
+
+        if "ENERGY" in value and "Power" in value["ENERGY"]:
+            power = value["ENERGY"]["Power"]
+            if power > GRIND_POWER:
+                return { "event_code": self.EVENT_GRINDING,
+                         "power": power,
+                         "value": value,
+                         "acp_confidence": confidence }
 
         return { "event_code": self.EVENT_GRIND_STATUS, "value": value, "acp_confidence": confidence }
 

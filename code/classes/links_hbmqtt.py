@@ -1,11 +1,55 @@
 """
 MQTT links to Platform (PlatformMQTT) and remote sensors (SensorMQTT)
+
+link = Link(settings)
+
+await link.start(server_settings)
+
+await link.finish()
+
+await link.put(sensor_id, message)
+
+await link.subscribe(sensor_id)
+
+await link.get()
+
 """
 
 import asyncio
 
 from hbmqtt.client import MQTTClient, ClientException
 from hbmqtt.mqtt.constants import QOS_0, QOS_1, QOS_2
+
+class LinkMQTT(object):
+
+    def __init__(self, settings=None):
+        print("LinkMQTT __init__()")
+        self.settings = settings
+        self.client = MQTTClient()
+
+    async def start(self, server_settings):
+        print('LinkMQTT.start() startup')
+        await self.client.connect("mqtt://"+server_settings["host"])
+        print('LinkMQTT.start() connected {}'.format(server_settings["host"]))
+
+    async def put(self, sensor_id, message=None):
+        print('LinkMQTT.put() sending {}'.format(sensor_id))
+        message_b = bytes(message,'utf-8')
+        tasks = [
+            asyncio.ensure_future(self.client.publish(sensor_id, message_b))
+        ]
+        await asyncio.wait(tasks)
+        print("LinkMQTT.put() published {} {}".format(sensor_id,message))
+
+    async def subscribe(self, sensor_id):
+        await self.client.subscribe([(sensor_id, QOS_0)])
+        print("LinkMQTT.subscribed() {}".format(sensor_id))
+
+    async def get(self):
+        return await self.client.deliver_message()
+
+    async def finish(self):
+        await self.client.disconnect()
 
 class PlatformMQTT(object):
 
@@ -57,4 +101,5 @@ class SensorMQTT(object):
 
     async def finish(self):
         await self.client.disconnect()
-        print("remote_sensor {} disconnected".format(self.topic))
+        print("remote_sensor {} disconnected".format(sielf.topic))
+
