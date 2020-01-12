@@ -7,7 +7,7 @@ from simplejson.errors import JSONDecodeError
 import time
 import math
 
-from classes.links_hbmqtt import PlatformMQTT as Uplink
+from classes.links_hbmqtt import LinkHBMQTT as Uplink
 from classes.display import Display
 from classes.events import Events
 
@@ -47,7 +47,10 @@ class SensorHub(object):
 
     # start() is async to allow Uplink.send
     async def start(self, ts):
-        await self.uplink.start()
+        host_settings = {}
+        host_settings["host"] = self.settings["PLATFORM_HOST"]
+
+        await self.uplink.start(host_settings)
 
         # Send startup message
         startup_event = { "acp_ts": ts,
@@ -55,10 +58,8 @@ class SensorHub(object):
                           "event_code": self.events.EVENT_STARTUP
                         }
 
-        startup_msg = json.dumps(startup_event)
-
-        #send MQTT topic, message
-        await self.uplink.send(self.settings["SENSOR_ID"], startup_msg)
+        #send to platform
+        await self.uplink.put(self.settings["SENSOR_ID"], startup_event)
 
     #debug still to be implemented
     # watchdog is called by Watchdog coroutine periodically
@@ -76,10 +77,8 @@ class SensorHub(object):
                          'version': self.settings["VERSION"]
                        }
 
-        weight_msg = json.dumps(weight_event)
-
         #send MQTT topic, message
-        await self.uplink.send(self.settings["SENSOR_ID"], weight_msg)
+        await self.uplink.put(self.settings["SENSOR_ID"], weight_event)
 
     # process_reading(ts, sensor_id) is called by each of the sensors, i.e.
     # LocalSensors and RemoteSensors, each time they have a reading to be
@@ -107,9 +106,9 @@ class SensorHub(object):
                               "acp_type": self.settings["SENSOR_TYPE"]
                             }
             #send MQTT topic, message
-            event_msg = json.dumps({ **event, **event_params })
+            event_to_send = { **event, **event_params }
 
-            await self.uplink.send(self.settings["SENSOR_ID"], event_msg)
+            await self.uplink.put(self.settings["SENSOR_ID"], event_to_send)
 
         #----------------
         # UPDATE DISPLAY

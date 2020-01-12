@@ -1,105 +1,62 @@
 """
 MQTT links to Platform (PlatformMQTT) and remote sensors (SensorMQTT)
 
-link = Link(settings)
+link = Link(settings) - instantiate object. settings = application settings e.g. "LOG_LEVEL"
 
-await link.start(server_settings)
+await link.start(server_settings) - CONNECT to host, server_settings e.g. "host"
 
-await link.finish()
+await link.finish() - cleanup, e.g. DISCONNECT from host
 
-await link.put(sensor_id, message)
+await link.put(sensor_id, event) - SENDS message to host
 
-await link.subscribe(sensor_id)
+await link.subscribe(sensor_id) - requests SUBSCRIPTION from host
 
-await link.get()
+await link.get() - async GETS next message from host
 
 """
 
 import asyncio
+import simplejson as json
 
 from hbmqtt.client import MQTTClient, ClientException
 from hbmqtt.mqtt.constants import QOS_0, QOS_1, QOS_2
 
-class LinkMQTT(object):
+class LinkHBMQTT(object):
 
     def __init__(self, settings=None):
-        print("LinkMQTT __init__()")
+        print("LinkHBMQTT __init__()")
         self.settings = settings
         self.client = MQTTClient()
 
     async def start(self, server_settings):
-        print('LinkMQTT.start() startup')
+        print('LinkHBMQTT.start() startup')
         await self.client.connect("mqtt://"+server_settings["host"])
-        print('LinkMQTT.start() connected {}'.format(server_settings["host"]))
+        print('LinkHBMQTT.start() connected {}'.format(server_settings["host"]))
 
-    async def put(self, sensor_id, message=None):
-        print('LinkMQTT.put() sending {}'.format(sensor_id))
+    async def put(self, sensor_id, event):
+        """
+        Sends sensor_id/event to MQTT broker.
+        sensor_id is string, used as MQTT topic
+        event is dictionary which will be converted to bytes for MQTT message
+        """
+        print('LinkHBMQTT.put() sending {}'.format(sensor_id))
+
+        message = json.dumps(event)
+
         message_b = bytes(message,'utf-8')
         tasks = [
             asyncio.ensure_future(self.client.publish(sensor_id, message_b))
         ]
         await asyncio.wait(tasks)
-        print("LinkMQTT.put() published {} {}".format(sensor_id,message))
+        print("LinkHBMQTT.put() published {} {}".format(sensor_id,message))
 
-    async def subscribe(self, sensor_id):
-        await self.client.subscribe([(sensor_id, QOS_0)])
-        print("LinkMQTT.subscribed() {}".format(sensor_id))
-
-    async def get(self):
-        return await self.client.deliver_message()
-
-    async def finish(self):
-        await self.client.disconnect()
-
-class PlatformMQTT(object):
-
-    def __init__(self, settings=None):
-        print("PlatformMQTT __init__()")
-        self.settings = settings
-        self.client = MQTTClient()
-
-    async def start(self):
-        print('start() startup')
-        await self.client.connect(self.settings["PLATFORM_HOST"])
-        print('start() connected {}'.format(self.settings["PLATFORM_HOST"]))
-
-    async def send(self, topic, message=None):
-        print('PlatformMQTT send() sending {}'.format(topic))
-        message_b = bytes(message,'utf-8')
-        tasks = [
-            asyncio.ensure_future(self.client.publish(topic, message_b))
-        ]
-        await asyncio.wait(tasks)
-        print("PlatformMQTT send() published {} {}".format(topic,message))
-
-    async def finish(self):
-        await self.client.disconnect()
-
-class SensorMQTT(object):
-    """
-    SensorMQTT provides the local communications endpoint for receiving
-    data from the remote sensors within the SensorNode
-    """
-
-    def __init__(self, settings=None, topic=None):
-        print("SensorMQTT __init__() {}".format(topic))
-        self.settings = settings
-        self.topic = topic
-
-    async def start(self):
-        print("SensorMQTT start() {}".format(self.topic))
-        self.client = MQTTClient(config=None)
-
-        await self.client.connect(self.settings["SENSOR_HOST"])
-        print("SensorMQTT {} connected".format(self.topic))
-
-        await self.client.subscribe([(self.topic, QOS_0)])
-        print("SensorMQTT {} subscribed".format(self.topic))
+    async def subscribe(self, subscribe_settings):
+        await self.client.subscribe([(subscribe_settings["topic"], QOS_0)])
+        print("LinkHBMQTT.subscribed() {}".format(subscribe_settings["topic"]))
 
     async def get(self):
         return await self.client.deliver_message()
 
     async def finish(self):
         await self.client.disconnect()
-        print("remote_sensor {} disconnected".format(self.topic))
 

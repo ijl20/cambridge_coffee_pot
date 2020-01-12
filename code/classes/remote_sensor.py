@@ -7,7 +7,7 @@ import time
 import simplejson as json
 from simplejson.errors import JSONDecodeError
 
-from classes.links_hbmqtt import SensorMQTT as SensorLink
+from classes.links_hbmqtt import LinkHBMQTT as SensorLink
 from classes.time_buffer import TimeBuffer, StatsBuffer
 
 STATS_HISTORY_SIZE = 1000 # Define a stats_buffer with 1000 entries, each 1 second long
@@ -38,10 +38,17 @@ class RemoteSensor():
         # Add the sample_buffer to the sensor_hub object so Events can use it in event tests
         self.sensor_hub.add_buffers(self.sensor_id, { "sample_buffer": self.sample_buffer } )
 
-        self.sensor_link = SensorLink(settings=self.settings, topic=self.sensor_id+"/tele/SENSOR")
+        self.sensor_link = SensorLink(settings=self.settings)
+
 
     async def start(self):
-        await self.sensor_link.start()
+        link_settings = {}
+        link_settings["host"] = self.settings["SENSOR_HOST"]
+        await self.sensor_link.start(link_settings)
+        
+        subscribe_settings = {}
+        subscribe_settings["topic"] = self.sensor_id+"/tele/SENSOR/#"
+        await self.sensor_link.subscribe(subscribe_settings)
 
         while True:
             message_obj = await self.sensor_link.get()

@@ -8,12 +8,12 @@
     "GRIND_SENSOR_ID": "csn-node-test-a",
     "BREW_SENSOR_ID": "csn-node-test-b",
 
-    "PLATFORM_HOST": "mqtt://192.168.1.51",
+    "PLATFORM_HOST": "192.168.1.51",
     "PLATFORM_PORT": 1883,
     "PLATFORM_USER": "csn-node",
     "PLATFORM_PASSWORD": "csn-node",
 
-    "SENSOR_HOST": "mqtt://localhost",
+    "SENSOR_HOST": "localhost",
     "SENSOR_PORT": 1883,
     "SENSOR_USER": "csn-node",
     "SENSOR_PASSWORD": "csn-node",
