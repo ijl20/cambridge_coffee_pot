@@ -4,8 +4,6 @@ RemoteSensor - downstream sensors to Sensor Node
 
 import asyncio
 import time
-import simplejson as json
-from simplejson.errors import JSONDecodeError
 
 from classes.links_hbmqtt import LinkHBMQTT as SensorLink
 from classes.time_buffer import TimeBuffer, StatsBuffer
@@ -64,34 +62,11 @@ class RemoteSensor():
             if self.quit:
                 break
 
-            message_obj = finished.pop().result()
+            message = finished.pop().result()
             
-            packet = message_obj.publish_packet
-            topic = packet.variable_header.topic_name
-
-            print("remote_sensors() topic received {}".format(topic))
-
-            message = ""
-            if packet.payload is None:
-                print("remote_sensors packet.payload=None {}".format(topic))
-            elif packet.payload.data is None:
-                print("remote_sensors() packet.payload.data=None {}".format(topic))
-            else:
-                message = packet.payload.data.decode('utf-8')
-                print("remote_sensors() {} => {}".format(topic,message))
-
-            message_dict = {}
-            try:
-                message_dict = json.loads(message)
-            except JSONDecodeError:
-                message_dict["message"] = message
-                print("remote_sensors() json msg error: {} => {}".format(topic,message))
-
-            message_dict["topic"] = topic
-
             ts = time.time()
 
-            self.sample_buffer.put(ts, message_dict)
+            self.sample_buffer.put(ts, message)
 
             await self.sensor_hub.process_reading(ts, self.sensor_id)
 

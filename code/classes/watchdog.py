@@ -19,15 +19,27 @@ class Watchdog():
         self.period = period
         self.watched = watched
 
+        self.quit = False
+        self.finish_event = asyncio.Event()
+
     # start() method is async with permanent loop, using asyncio.sleep().
     async def start(self):
         self.quit = False
         while not self.quit:
             await self.watched.watchdog()
-            await asyncio.sleep(self.period)
+            sleep_task = asyncio.ensure_future(asyncio.sleep(self.period))
+            finish_task = asyncio.ensure_future(self.finish_event.wait())
+
+            finished, pending = await asyncio.wait( [ sleep_task, finish_task ],
+                                                    return_when=asyncio.FIRST_COMPLETED )
+
+        print("Watchdog finished")
 
     async def finish(self):
-        #debug this won't terminate the start() loop until 'period' expires
         self.quit = True
-        print("watchdog finish(): set to quit")
+        print("Watchdog set to finish")
+
+        self.finish_event.set()
+
+        print("Watchdog finish completed")
 
