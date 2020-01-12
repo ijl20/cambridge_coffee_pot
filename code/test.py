@@ -6,7 +6,7 @@ from classes.config import Config
 
 from classes.sensor import Sensor
 
-from classes.sensor_utils import list_to_string
+from classes.utils import list_to_string
 
 print("test.py started with {} arguments: [{}]".format(len(sys.argv), list_to_string(sys.argv)))
 

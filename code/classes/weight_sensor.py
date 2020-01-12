@@ -8,7 +8,7 @@ import time
 import simplejson as json
 from hx711_ijl20.hx711 import HX711
 
-from classes.sensor_utils import list_to_string
+from classes.utils import list_to_string
 
 class WeightSensor(object):
     """

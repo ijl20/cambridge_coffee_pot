@@ -65,13 +65,13 @@ class SensorHub(object):
     async def watchdog(self):
         print("{:.3f} SensorHub() watchdog...".format(time.time()))
 
-    # send 'weight' event (periodic)
-    async def send_weight(self, ts, weight_g):
+    # send 'status' event (periodic)
+    async def send_status(self, ts, weight_g):
         weight_event = { 'acp_id': self.settings["SENSOR_ID"],
                          'acp_type': self.settings["SENSOR_TYPE"],
                          'acp_ts': ts,
                          'acp_units': 'GRAMS',
-                         'event_code': self.events.EVENT_WEIGHT,
+                         'event_code': self.events.EVENT_STATUS,
                          'weight': math.floor(weight_g+0.5), # rounded to integer grams
                          'version': self.settings["VERSION"]
                        }
@@ -133,7 +133,7 @@ class SensorHub(object):
             if not sample_value == None:
                 print ("{:.3f} WEIGHT {:5.1f}".format(ts, sample_value))
 
-                await self.send_weight(ts, sample_value)
+                await self.send_status(ts, sample_value)
 
                 self.prev_send_time = ts
 

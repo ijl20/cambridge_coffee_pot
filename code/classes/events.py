@@ -29,8 +29,9 @@ class Events(object):
         self.EVENT_REPLACED = "COFFEE_REPLACED"
         self.EVENT_GRINDING = "COFFEE_GRINDING"
         self.EVENT_BREWING = "COFFEE_BREWING"
-        self.EVENT_WEIGHT = "COFFEE_WEIGHT"
 
+        # Periodic 'watchdog' events
+        self.EVENT_STATUS = "COFFEE_STATUS"
         self.EVENT_GRIND_STATUS = "GRIND_STATUS"
         self.EVENT_BREW_STATUS = "BREW_STATUS"
 
@@ -393,13 +394,13 @@ class Events(object):
 
     # Test any event after a GRIND reading
     def test_grind(self, ts):
-        GRIND_POWER = 9 #debug
+        GRIND_POWER = 9 #debug - power (watts) threshold for valid 'EVENT_GRINDING'
         # TimeBuffer.get() returns {"ts": , "value": }
         sample = self.sensor_buffers[self.settings["GRIND_SENSOR_ID"]]["sample_buffer"].get(0)
 
         value = sample["value"]
 
-        # debug
+        # debug - maybe we can create a more meaningful confidence value
         confidence = 0.81
 
         if "ENERGY" in value and "Power" in value["ENERGY"]:
@@ -414,13 +415,22 @@ class Events(object):
 
     # Test any event after a BREW reading
     def test_brew(self, ts):
+        BREW_POWER = 9 #debug - power (watts) threshold for valid 'EVENT_BREWING'
         # get latest sample from BREW sample buffer
         sample = self.sensor_buffers[self.settings["BREW_SENSOR_ID"]]["sample_buffer"].get(0)
 
         value = sample["value"]
 
-        # debug
+        # debug - maybe we can create a more meaningful confidence value
         confidence = 0.82
+
+        if "ENERGY" in value and "Power" in value["ENERGY"]:
+            power = value["ENERGY"]["Power"]
+            if power > BREW_POWER:
+                return { "event_code": self.EVENT_BREWING,
+                         "power": power,
+                         "value": value,
+                         "acp_confidence": confidence }
 
         return { "event_code": self.EVENT_BREW_STATUS, "value": value, "acp_confidence": confidence }
 
