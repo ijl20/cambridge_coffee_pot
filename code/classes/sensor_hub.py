@@ -8,6 +8,7 @@ import time
 import math
 
 from classes.links_hbmqtt import LinkHBMQTT as Uplink
+#from classes.links_gmqtt import LinkGMQTT as Uplink
 from classes.display import Display
 from classes.events import Events
 
@@ -42,7 +43,7 @@ class SensorHub(object):
     # A LocalSensor or RemoteSensor will call this add_buffers() method to
     # make their TimeBuffers visible to Events
     def add_buffers(self, sensor_id, buffers):
-        print("SensorHub adding buffers for {}: {}".format(sensor_id,buffers))
+        print("SensorHub adding buffers for {}".format(sensor_id))
         self.events.sensor_buffers[sensor_id] = buffers
 
     # start() is async to allow Uplink.send

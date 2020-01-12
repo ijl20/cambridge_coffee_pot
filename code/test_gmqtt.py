@@ -4,6 +4,7 @@ import signal
 import time
 
 from gmqtt import Client as MQTTClient
+from gmqtt.mqtt.constants import MQTTv311
 
 # gmqtt also compatibility with uvloop
 #import uvloop
@@ -35,7 +36,7 @@ async def main(broker_host, token):
 
     print("main started")
 
-    client = MQTTClient("foo")
+    client = MQTTClient(None)
 
     client.on_connect = on_connect
     client.on_message = on_message
@@ -45,11 +46,11 @@ async def main(broker_host, token):
     print("connecting")
 
     # client.set_auth_credentials(token, None)
-    await client.connect(broker_host)
+    await client.connect(broker_host,version=MQTTv311)
 
     print("connected... publishing")
 
-    client.publish('TEST/TIME', str(time.time()), qos=1)
+    client.publish('foo', str(time.time()), qos=1)
 
     print("published")
 
@@ -64,7 +65,7 @@ if __name__ == '__main__':
 
     loop = asyncio.get_event_loop()
 
-    host = '192.168.1.51'
+    host = 'localhost'
     token = 'foo' # os.environ.get('FLESPI_TOKEN')
 
     loop.add_signal_handler(signal.SIGINT, ask_exit)

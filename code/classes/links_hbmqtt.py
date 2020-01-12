@@ -27,7 +27,16 @@ class LinkHBMQTT(object):
     def __init__(self, settings=None):
         print("LinkHBMQTT __init__()")
         self.settings = settings
-        self.client = MQTTClient()
+        client_config = {
+                            'keep_alive': 10,
+                            'ping_delay': 1,
+                            'default_qos': 0,
+                            'default_retain': False,
+                            'auto_reconnect': True,
+                            'reconnect_max_interval': 5,
+                            'reconnect_retries': 10000
+                        }
+        self.client = MQTTClient(config=client_config)
 
     async def start(self, server_settings):
         print('LinkHBMQTT.start() startup')
@@ -40,7 +49,8 @@ class LinkHBMQTT(object):
         sensor_id is string, used as MQTT topic
         event is dictionary which will be converted to bytes for MQTT message
         """
-        print('LinkHBMQTT.put() sending {}'.format(sensor_id))
+        if self.settings["LOG_LEVEL"] <= 2:
+            print('LinkHBMQTT.put() sending {}'.format(sensor_id))
 
         message = json.dumps(event)
 
@@ -49,7 +59,8 @@ class LinkHBMQTT(object):
             asyncio.ensure_future(self.client.publish(sensor_id, message_b))
         ]
         await asyncio.wait(tasks)
-        print("LinkHBMQTT.put() published {} {}".format(sensor_id,message))
+        if self.settings["LOG_LEVEL"] <= 2:
+            print("LinkHBMQTT.put() published {} {}".format(sensor_id,message))
 
     async def subscribe(self, subscribe_settings):
         await self.client.subscribe([(subscribe_settings["topic"], QOS_0)])
@@ -60,23 +71,25 @@ class LinkHBMQTT(object):
         packet = message_obj.publish_packet
         topic = packet.variable_header.topic_name
 
-        print("remote_sensors() topic received {}".format(topic))
+        if self.settings["LOG_LEVEL"] <= 2:
+            print("LinkHBMQTT topic received {}".format(topic))
 
         message = ""
         if packet.payload is None:
-            print("remote_sensors packet.payload=None {}".format(topic))
+            print("LinkHBMQTT packet.payload=None {}".format(topic))
         elif packet.payload.data is None:
-            print("remote_sensors() packet.payload.data=None {}".format(topic))
+            print("LinkHBMQTT packet.payload.data=None {}".format(topic))
         else:
             message = packet.payload.data.decode('utf-8')
-            print("remote_sensors() {} => {}".format(topic,message))
+            if self.settings["LOG_LEVEL"] <= 2:
+                print("LinkHBMQTT {} => {}".format(topic,message))
 
         message_dict = {}
         try:
             message_dict = json.loads(message)
         except JSONDecodeError:
             message_dict["message"] = message
-            print("remote_sensors() json msg error: {} => {}".format(topic,message))
+            print("LinkHBMQTT json msg error: {} => {}".format(topic,message))
 
         message_dict["topic"] = topic
 

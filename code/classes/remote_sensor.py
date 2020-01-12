@@ -5,7 +5,8 @@ RemoteSensor - downstream sensors to Sensor Node
 import asyncio
 import time
 
-from classes.links_hbmqtt import LinkHBMQTT as SensorLink
+#from classes.links_hbmqtt import LinkHBMQTT as SensorLink
+from classes.links_gmqtt import LinkGMQTT as SensorLink
 from classes.time_buffer import TimeBuffer, StatsBuffer
 
 STATS_HISTORY_SIZE = 1000 # Define a stats_buffer with 1000 entries, each 1 second long
@@ -48,7 +49,7 @@ class RemoteSensor():
         await self.sensor_link.start(link_settings)
         
         subscribe_settings = {}
-        subscribe_settings["topic"] = self.sensor_id+"/tele/SENSOR/#"
+        subscribe_settings["topic"] = self.sensor_id+"/tele/SENSOR"
         await self.sensor_link.subscribe(subscribe_settings)
 
         while True:
