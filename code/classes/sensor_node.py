@@ -26,7 +26,7 @@ class SensorNode(object):
     async finish() - attempts cleanup when SensorNode has been signalled to end.
     """
 
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, finish_event=None):
         global GPIO_FAIL
 
         self.settings = settings
@@ -44,8 +44,12 @@ class SensorNode(object):
         if not "DISPLAY_SIMULATION_MODE" in self.settings:
             self.settings["DISPLAY_SIMULATION_MODE"] = GPIO_FAIL
 
+        self.finish_event = finish_event
+
 
     async def start(self):
+
+        print("SensorNode started")
 
         self.sensor_hub = SensorHub(settings=self.settings)
 
@@ -69,11 +73,19 @@ class SensorNode(object):
         await asyncio.gather(self.local_sensor.start(),
                              self.remote_sensor_a.start(),
                              self.remote_sensor_b.start(),
-                             self.watchdog.start()
+                             self.watchdog.start(),
+                             self.finish() # will await the 'finish_event'
                             )
 
+        print("SensorNode finished")
+
     async def finish(self):
-        print("\n")
+
+        print("SensorHub finish waiting")
+
+        await self.finish_event.wait()
+
+        print("\nSensorHub finish executing")
 
         await self.watchdog.finish()
 
@@ -89,5 +101,5 @@ class SensorNode(object):
             print("GPIO cleanup()...")
             GPIO.cleanup()
 
-        print("SensorNode finished")
+        print("SensorNode finish completed")
 

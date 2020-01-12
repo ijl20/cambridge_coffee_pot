@@ -86,8 +86,9 @@ class LocalSensor():
             # sleep 0.01 .. SENSOR_READ_PERIOD seconds.
             await asyncio.sleep(sleep_time)
 
+        print("LocalSensor {} finished".format(self.sensor_id))
 
     async def finish(self):
         self.quit = True
-        print("local_sensor finish(): set to quit")
+        print("local_sensor finish() {}: completed".format(self.sensor_id))
 

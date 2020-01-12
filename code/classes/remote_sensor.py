@@ -26,6 +26,9 @@ class RemoteSensor():
         self.sensor_id = sensor_id
         self.sensor_hub = sensor_hub
 
+        self.quit = False
+        self.finish_event = asyncio.Event()
+
         #debug - StatsBuffer should have a FUNCTION to extract the value from the reading
         # Create a 30-entry x 1-second stats buffer
         #self.stats_buffer = StatsBuffer(size=STATS_HISTORY_SIZE,
@@ -51,7 +54,18 @@ class RemoteSensor():
         await self.sensor_link.subscribe(subscribe_settings)
 
         while True:
-            message_obj = await self.sensor_link.get()
+            get_task = asyncio.ensure_future(self.sensor_link.get())
+            finish_task = asyncio.ensure_future(self.finish_event.wait())
+
+            finished, pending = await asyncio.wait( [ get_task, finish_task ],
+                                                    return_when=asyncio.FIRST_COMPLETED )
+
+            # was self.quit just set in self.finish()?
+            if self.quit:
+                break
+
+            message_obj = finished.pop().result()
+            
             packet = message_obj.publish_packet
             topic = packet.variable_header.topic_name
 
@@ -81,6 +95,13 @@ class RemoteSensor():
 
             await self.sensor_hub.process_reading(ts, self.sensor_id)
 
+        print("RemoteSensor() {} finished".format(self.sensor_id))
+
     async def finish(self):
+        print("RemoteSensor {} set to finish".format(self.sensor_id))
+        self.quit = True
+        self.finish_event.set()
+
         await self.sensor_link.finish()
 
+        print("RemoteSendor() {} finish completed".format(self.sensor_id))
