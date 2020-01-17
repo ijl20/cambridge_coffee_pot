@@ -8,6 +8,22 @@
 
 [Tasmota firmware installation and configuration](tasmota/README.md)
 
+## Templates for UK energy monitoring plugs
+
+Anoopsyche JH-G01B1 `{"NAME":"JH-G01B1","GPIO":[0,145,0,146,0,0,0,0,17,56,21,0,0],"FLAG":0,"BASE":41}`
+
+Anoopsyche UK1 `{"NAME":"UK1D","GPIO":[0,17,0,0,133,132,0,0,130,52,21,0,0],"FLAG":0,"BASE":6}`
+
+Avatar AWP14H `{"NAME":"Avatar UK 10A","GPIO":[0,0,56,0,0,134,0,0,131,17,132,21,0],"FLAG":0,"BASE":45}`
+
+2Nice UP111 `{"NAME":"2NICE UP111","GPIO":[0,52,0,17,134,132,0,0,131,157,21,0,0],"FLAG":0,"BASE":18}`
+
+Gosund UP111 `{"NAME":"Gosund UP111","GPIO":[0,52,0,17,134,132,0,0,131,157,21,0,0],"FLAG":0,"BASE":18}`
+
+Koogeek KLUP1 `{"NAME":"Koogeek-KLUP1","GPIO":[0,0,0,17,134,132,0,0,131,56,21,0,0],"FLAG":0,"BASE":18}`
+
+Aoycocr U3S `{"NAME":"Aoycocr U3S","GPIO":[56,255,57,255,0,134,0,0,131,17,132,21,0],"FLAG":0,"BASE":45}`
+
 ## Anoopsyche JH-G01B1 smart plug
 
 ![Anoopsyche smart plug](Anoopsyche_JH-G01B1/JH-G01B1.png)
