@@ -1,0 +1,14 @@
+[Unit]
+Description=Cambridge Coffee Pot
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/cambridge_coffee_pot
+#Environment=ENV_VAR_NEEDED
+#ExecStartPre=/bin/bash -c `/usr/bin/env`
+ExecStart=/bin/bash -c '/home/pi/run.sh'
+
+[Install]
+WantedBy=multi-user.target
+
