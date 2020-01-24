@@ -48,10 +48,14 @@ class SensorHub(object):
 
     # start() is async to allow Uplink.send
     async def start(self, ts):
-        host_settings = {}
-        host_settings["host"] = self.settings["PLATFORM_HOST"]
 
-        await self.uplink.start(host_settings)
+        uplink_settings = {}
+        uplink_settings["host"] = self.settings["PLATFORM_HOST"]
+        uplink_settings["port"] = self.settings["PLATFORM_PORT"]
+        uplink_settings["user"] = self.settings["PLATFORM_USER"]
+        uplink_settings["password"] = self.settings["PLATFORM_PASSWORD"]
+
+        await self.uplink.start(uplink_settings)
 
         # Send startup message
         startup_event = { "acp_ts": ts,

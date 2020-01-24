@@ -19,7 +19,7 @@ import asyncio
 import simplejson as json
 from simplejson.errors import JSONDecodeError
 
-from hbmqtt.client import MQTTClient, ClientException
+from hbmqtt.client import MQTTClient, ClientException, ConnectException
 from hbmqtt.mqtt.constants import QOS_0, QOS_1, QOS_2
 
 class LinkHBMQTT(object):
@@ -36,12 +36,24 @@ class LinkHBMQTT(object):
                             'reconnect_max_interval': 5,
                             'reconnect_retries': 10000
                         }
+
         self.client = MQTTClient(config=client_config)
 
     async def start(self, server_settings):
         print('LinkHBMQTT.start() startup')
-        await self.client.connect("mqtt://"+server_settings["host"])
-        print('LinkHBMQTT.start() connected {}'.format(server_settings["host"]))
+        host = server_settings["host"]
+        port = server_settings["port"]
+        user = server_settings["user"]
+        password = server_settings["password"]
+        connect_url = "mqtt://"+user+":"+password+"@"+host+":"+str(port)
+        try:
+            await self.client.connect(connect_url)
+        except ConnectionException as ce:
+            print("LinkHBMQTT connect {}@{} failed: {}".format(user, host, ce))
+            return
+
+        print('LinkHBMQTT.start() connected to {}'.format(host))
+
 
     async def put(self, sensor_id, event):
         """
@@ -93,8 +105,10 @@ class LinkHBMQTT(object):
 
         message_dict["topic"] = topic
 
-        return message_dict        
+        return message_dict
 
     async def finish(self):
+        print("LinkHBMQTT disconnecting")
         await self.client.disconnect()
+        print("LinkHBMQTT disconnected")
 
