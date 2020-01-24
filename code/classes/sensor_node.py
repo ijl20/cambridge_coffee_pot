@@ -56,15 +56,15 @@ class SensorNode(object):
         await self.sensor_hub.start(time.time())
 
         self.remote_sensor_a = RemoteSensor( settings=self.settings,
-                                        sensor_id="csn-node-test-a",
+                                        sensor_id=self.settings["GRIND_SENSOR_ID"],
                                         sensor_hub=self.sensor_hub)
 
         self.remote_sensor_b = RemoteSensor( settings=self.settings,
-                                        sensor_id="csn-node-test-b",
+                                        sensor_id=self.settings["BREW_SENSOR_ID"],
                                         sensor_hub=self.sensor_hub)
 
         self.local_sensor = LocalSensor( settings=self.settings,
-                                    sensor_id="csn-node-test-weight",
+                                    sensor_id=self.settings["WEIGHT_SENSOR_ID"],
                                     sensor=WeightSensor(settings=self.settings),
                                     sensor_hub=self.sensor_hub)
 
