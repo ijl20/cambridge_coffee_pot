@@ -45,8 +45,8 @@ class LinkGMQTT(object):
         """
         Connects to broker
         """
-        print('LinkGMQTT.start() startup')
-        # client.set_auth_credentials(token, None)
+        print('LinkGMQTT.start() connecting as user {}'.format(server_settings["user"]))
+        self.client.set_auth_credentials(server_settings["user"], server_settings["password"])
         await self.client.connect(server_settings["host"],keepalive=60,version=MQTTv311)
         print('LinkGMQTT.start() connected {}'.format(server_settings["host"]))
 
@@ -78,7 +78,7 @@ class LinkGMQTT(object):
         message = await self.subscription_queue.get()
         print("LinkGMQTT get returned from queue")
 
-        return message 
+        return message
 
 
     def on_connect(self, client, flags, rc, properties):

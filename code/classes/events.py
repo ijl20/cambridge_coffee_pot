@@ -3,6 +3,13 @@
 # ----------------------------------------------------------------------
 # EVENT PATTERN RECOGNITION
 #
+# Instantiate with e = Events(settings)
+
+# Provides a ".test(ts,sensor_id)" method which returns a (typically empty)
+# list of events.
+# Each event is a python dictionary, e.g.
+# { "event_code": self.EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
+#
 # In general these routines look at the TimeBuffers and
 # decide if an event has just become recognizable, e.g. COFFEE_NEW
 # ----------------------------------------------------------------------

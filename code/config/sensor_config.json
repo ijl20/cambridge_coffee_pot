@@ -15,8 +15,8 @@
 
     "SENSOR_HOST": "localhost",
     "SENSOR_PORT": 1883,
-    "SENSOR_USER": "csn-node",
-    "SENSOR_PASSWORD": "csn-node",
+    "SENSOR_USER": "csn-node-test",
+    "SENSOR_PASSWORD": "csn-node-test",
 
     "TARE_FILENAME": "config/sensor_tare.json",
     "WEIGHT_FACTOR": 374,

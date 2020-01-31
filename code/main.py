@@ -12,7 +12,7 @@ from classes.config import Config
 from classes.sensor_node import SensorNode
 from classes.utils import list_to_string
 
-VERSION = "0.83"
+VERSION = "0.84"
 
 # The asyncio Event the tasks will listen for to cleanup
 FINISH_EVENT = asyncio.Event()

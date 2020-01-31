@@ -1,14 +1,21 @@
 """
-The SensorHub .test() method is called every time new data is available from any of the
-connected sensors. An event will be sent via the PlatformMQTT to the Platform when appropriate.
+The SensorHub, instantiated by a SensorNode with s = SensorHub(settings):
+* the SensorNode will also instantiate LocalSensors and RemoteSensors, passing the SensorHub to them
+* the LocalSensors and RemoteSensors will make their TimeBuffers visible to the SensorHub, and so to Events.
+* the SensorHub will instantiate an Uplink for sending data to the Platform
+* the SensorHub will instantiate an Events to test incoming date for patterns
+* the SensorHub receives data from the LocalSensors and RemoteSensors
+* on each data 'tick' the SensorHub calls the Events.test(ts,sensor_id) method
+* Events will be sent via the Uplink to the Platform when appropriate.
 """
 import simplejson as json
 from simplejson.errors import JSONDecodeError
 import time
 import math
 
-from classes.links_hbmqtt import LinkHBMQTT as Uplink
-#from classes.links_gmqtt import LinkGMQTT as Uplink
+from classes.link_simulator import LinkSimulator as Uplink
+#from classes.link_hbmqtt import LinkHBMQTT as Uplink
+#from classes.link_gmqtt import LinkGMQTT as Uplink
 from classes.display import Display
 from classes.events import Events
 
@@ -147,7 +154,7 @@ class SensorHub(object):
                 print("process_reading send data NOT SENT as data value None")
 
         if self.settings["LOG_LEVEL"] == 1:
-            print ("{:.3f} WEIGHT {:5.1f}".format(weight_sample_buffer.get(0)["value"], time.ctime(ts)))
+            print ("WEIGHT,{:.3f},{:.3f}".format(ts,weight_sample_buffer.get(0)["value"]))
 
         if self.settings["LOG_LEVEL"] == 1:
             print("process_reading time (before sleep) {:.3f} secs.\n".format(time.process_time() - t_start))
