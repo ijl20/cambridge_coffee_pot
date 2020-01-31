@@ -105,7 +105,7 @@ class LinkGMQTT(object):
         print('LinkGMQTT Disconnected')
 
 
-    def on_subscribe(self, client, mid, qos):
+    def on_subscribe(self, client, mid, qos, properties):
         print('LinkGMQTT Subscribed')
 
 

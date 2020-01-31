@@ -15,7 +15,7 @@ from PIL import ImageFont
 from PIL import ImageColor
 
 VALUE_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
-NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 20)
+NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 24)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # ST7735 color mappings
@@ -36,22 +36,24 @@ CHART_SETTINGS = { "x": 0, "y": 100, "w": 160, "h": 28, # 'pixels' top-left coor
 
 VALUE_SETTINGS = {
     "VALUE_X": 59,
-    "VALUE_Y": 70,
+    "VALUE_Y": 100,
     "VALUE_WIDTH": 101,
-    "VALUE_HEIGHT": 30,
+    "VALUE_HEIGHT": 28,
     "VALUE_COLOR_FG": "WHITE",
     "VALUE_COLOR_BG": "BLUE",
     "VALUE_RIGHT_MARGIN": 10,
 
-    "NEW_X": 59,
+     # New Coffee indication
+    "NEW_X": 0,
     "NEW_Y": 0,
-    "NEW_WIDTH": 101,
-    "NEW_HEIGHT": 18,
+    "NEW_WIDTH": 160,
+    "NEW_HEIGHT": 28,
     "NEW_COLOR_FG": "BLUE",
     "NEW_COLOR_BG": "WHITE",
 
+     # Pot is 59x100
     "POT_X": 0,
-    "POT_Y": 0,
+    "POT_Y": 28,
     "POT_FG": "YELLOW",
     "POT_BG": "BLUE",
 }
@@ -73,7 +75,7 @@ class Display(object):
         # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
         if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
             return
-            
+
         if not "LOG_LEVEL" in self.settings:
             self.settings["LOG_LEVEL"] = 2
 
@@ -106,9 +108,12 @@ class Display(object):
         # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
         if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
             return
-        self.chart = self.LCD.add_chart(CHART_SETTINGS)
+        # here we disable the real-time chart
+        #self.chart = self.LCD.add_chart(CHART_SETTINGS)
 
         self.pot.begin()
+
+        self.draw_new("OLD COFFEE")
 
     # -------------------------------------------------------------------
     # ------ DRAW NUMERIC VALUE ON LCD  ---------------------------------
@@ -159,8 +164,11 @@ class Display(object):
 
         draw = ImageDraw.Draw(image)
 
+        # calculate x coordinate necessary to center text
+        string_width, string_height = draw.textsize(new_str, font=NEW_FONT)
+
         # embed this number into the blank image we created earlier
-        draw.text((5,-3),
+        draw.text((math.floor((self.settings["NEW_WIDTH"] - string_width)/2),-3),
                 new_str,
                 fill=self.settings["NEW_COLOR_FG"],
                 font=NEW_FONT)
@@ -268,7 +276,8 @@ class Display(object):
 
             # This is a bar-per-sample. Could use time on x-axis.
             #self.chart.next(bar_height)
-            self.chart.add_time(ts, bar_height)
+            # here we disable the real-time chart
+            #self.chart.add_time(ts, bar_height)
 
     def finish(self):
         self.LCD.cleanup()

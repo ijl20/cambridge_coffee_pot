@@ -13,9 +13,9 @@ from simplejson.errors import JSONDecodeError
 import time
 import math
 
-from classes.link_simulator import LinkSimulator as Uplink
+from classes.link_simulator import LinkSimulator
 #from classes.link_hbmqtt import LinkHBMQTT as Uplink
-#from classes.link_gmqtt import LinkGMQTT as Uplink
+from classes.link_gmqtt import LinkGMQTT as Uplink
 from classes.display import Display
 from classes.events import Events
 
@@ -41,7 +41,11 @@ class SensorHub(object):
         self.events = Events(settings=self.settings)
 
         # Connect to the platform
-        self.uplink = Uplink(settings=self.settings)
+        if ( "UPLINK_SIMULATOR" in self.settings and
+             self.settings["UPLINK_SIMULATOR"]):
+            self.uplink = LinkSimulator(settings=self.settings)
+        else:
+            self.uplink = Uplink(settings=self.settings)
 
         # times to control periodic sends to platform
         self.prev_send_time = None

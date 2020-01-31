@@ -22,7 +22,7 @@ from simplejson.errors import JSONDecodeError
 class LinkSimulator(object):
 
     def __init__(self, settings=None):
-        print("LinkSimulator __init__()")
+        print("Using LinkSimulator")
         self.settings = settings
 
         self.subscription_queue = asyncio.Queue()
