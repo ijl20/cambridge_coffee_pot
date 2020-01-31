@@ -41,8 +41,8 @@ class SensorHub(object):
         self.events = Events(settings=self.settings)
 
         # Connect to the platform
-        if ( "UPLINK_SIMULATOR" in self.settings and
-             self.settings["UPLINK_SIMULATOR"]):
+        if ( "SIMULATE_UPLINK" in self.settings and
+             self.settings["SIMULATE_UPLINK"]):
             self.uplink = LinkSimulator(settings=self.settings)
         else:
             self.uplink = Uplink(settings=self.settings)

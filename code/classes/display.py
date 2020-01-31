@@ -48,8 +48,8 @@ VALUE_SETTINGS = {
     "NEW_Y": 0,
     "NEW_WIDTH": 160,
     "NEW_HEIGHT": 28,
-    "NEW_COLOR_FG": "BLUE",
-    "NEW_COLOR_BG": "WHITE",
+    "NEW_COLOR_FG": "WHITE",
+    "NEW_COLOR_BG": "BLACK",
 
      # Pot is 59x100
     "POT_X": 0,
@@ -168,7 +168,7 @@ class Display(object):
         string_width, string_height = draw.textsize(new_str, font=NEW_FONT)
 
         # embed this number into the blank image we created earlier
-        draw.text((math.floor((self.settings["NEW_WIDTH"] - string_width)/2),-3),
+        draw.text((math.floor((self.settings["NEW_WIDTH"] - string_width)/2),-1),
                 new_str,
                 fill=self.settings["NEW_COLOR_FG"],
                 font=NEW_FONT)
