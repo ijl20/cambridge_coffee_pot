@@ -14,15 +14,28 @@
 #
 # b.get(offset): lookup entry at buffer index offset from now (now = offset ZERO).
 #
-# b.load_readings_file(filename): will reset buffer and load ts,value data from CSV file.
+# b.mean(offset, duration): find mean value for
+#   'duration' seconds ending at the buffer index 'offset' before latest reading
 #
-# b.mean_time(time_offset, duration): find mean value for
-#   'duration' seconds ending time_offset seconds before latest reading
+# b.median(offset, duration): as mean(), but return median value
 #
-# b.median_time(time_offset, duration): as mean_time, but return median value
+# b.time_to_offset(offset, duration): given a duration in seconds, return the index of the
+#       first buffer sample that is earlier or equal to that time offset from the
+#       sample at buffer.get(offset)
 #
-# ---------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------
+# File handling utility methods:
+#
+#   b.load(filename): will reset buffer and load ts,value data from CSV file.
+#
+#   b.save(filename): will store contents of buffer to ts,value CSV file
+#
+#   b.play(callback, realtime, sleep): 'replay' data from the buffer, calling 'callback(ts,value)' for each
+#       sample in the buffer. If 'realtime' is True (default False) then play will sleep for the original
+#       delta of time before calling the callback, otherwise if 'sleep' is non-zero (default=0.0) then
+#       play will sleep for that number of seconds before calling the callback.
+#
+# ----------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------
 
 import time
 from statistics import median
@@ -43,6 +56,9 @@ class TimeBuffer(object):
 
         self.size = size
 
+        # keep track of how many samples are in buffer (max = self.size)
+        self.samples = 0
+
         # Note sample_history is a *circular* buffer (for efficiency)
         self.SAMPLE_HISTORY_SIZE = size # store value samples 0..(size-1)
         self.sample_history_index = 0
@@ -60,6 +76,10 @@ class TimeBuffer(object):
                                                         self.sample_history[self.sample_history_index]["value"]))
 
         self.sample_history_index = (self.sample_history_index + 1) % self.SAMPLE_HISTORY_SIZE
+
+        # Increment the samples count
+        if self.samples < self.size:
+            self.samples += 1
 
         # If a StatsBuffer is associated with this TimeBuffer, update it
         if not self.stats_buffer is None:
@@ -150,7 +170,7 @@ class TimeBuffer(object):
 
     # Pump all the <time, value> buffer samples through a provided processing function.
     # I.e. will call 'process_sample(ts, value)' for each sample in the buffer.
-    def play(self, process_sample, sleep=None, realtime=False):
+    def play(self, process_sample, realtime=False, sleep=0.0 ):
         if self.settings["LOG_LEVEL"] <= 2:
             print("TimeBuffer.play() from buffer index:", self.sample_history_index)
         index = self.sample_history_index # index of oldest entry (could be None if buffer not wrapped)
@@ -168,8 +188,6 @@ class TimeBuffer(object):
 
             # process 'not None' samples
             if sample != None:
-                # HERE WE CALL THE PROVIDED FUNCTION
-                process_sample(sample["ts"], sample["value"])
                 # And sleep() if we want realistic animation
                 # if realtime then sleep for period between samples
                 if realtime:
@@ -177,9 +195,11 @@ class TimeBuffer(object):
                         time.sleep(sample["ts"] - prev_ts)
                     prev_ts = sample["ts"]
                 # of if sleep value is provided then sleep that long
-                elif not sleep is None:
-                    time.sleep(0.1)
+                elif not sleep == 0:
+                    time.sleep(sleep)
                 # otherwise we will not sleep at all, and process the data without delay
+                # HERE WE CALL THE PROVIDED FUNCTION
+                process_sample(sample["ts"], sample["value"])
 
             index = (index + 1) % self.SAMPLE_HISTORY_SIZE
             if index == finish_index:
@@ -188,12 +208,13 @@ class TimeBuffer(object):
         if self.settings["LOG_LEVEL"] <= 2:
             print("TimeBuffer play finished")
 
-    # Iterate backwards through sample_history buffer to find index of reading at a given time offset
-    def time_to_offset(self,time_offset):
+    # Iterate backwards through sample_history buffer from offset to find index of earlier sample at least 'duration'
+    # seconds earlier.
+    def time_to_offset(self, offset=0, duration=0):
         if self.settings["LOG_LEVEL"] == 1:
-            print("time_to_offset",time_offset)
+            print("time_to_offset {} {}".format(offset,duration))
 
-        sample = self.get(0)
+        sample = self.get(offset)
         if sample == None:
             return None
 
@@ -201,20 +222,20 @@ class TimeBuffer(object):
 
         time_limit = sample["ts"] - time_offset
 
-        offset = 0
+        current_offset = offset
 
         while sample_time > time_limit:
-            offset += 1
-            if offset >= self.SAMPLE_HISTORY_SIZE:
+            current_offset += 1
+            if current_offset >= self.SAMPLE_HISTORY_SIZE:
                 if self.settings["LOG_LEVEL"] <= 2:
-                    print("time_to_offset ({}) exceeded buffer size")
+                    print("time_to_offset ({}) exceeded buffer size".format(offset))
                 return None
-            sample = self.get(offset)
+            sample = self.get(current_offset)
             if sample == None:
                 return None
             sample_time = sample["ts"]
 
-        return offset
+        return current_offset
 
     # Calculate the average value recorded over the previous 'duration' seconds from INDEX offset
     # Returns tuple (average_value, next_offset, actual_duration, sample_count)

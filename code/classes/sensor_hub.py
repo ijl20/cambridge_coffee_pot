@@ -168,7 +168,7 @@ class SensorHub(object):
 
         await self.uplink.finish()
 
-        if not self.settings["DISPLAY_SIMULATION_MODE"]:
+        if not self.settings["SIMULATE_DISPLAY"]:
 
             self.display.finish()
 

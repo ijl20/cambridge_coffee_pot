@@ -7,6 +7,7 @@ from classes.sensor_hub import SensorHub
 from classes.remote_sensor import RemoteSensor
 from classes.local_sensor import LocalSensor
 from classes.weight_sensor import WeightSensor
+from classes.weight_simulator import WeightSimulator
 from classes.watchdog import Watchdog
 
 GPIO_FAIL = False
@@ -37,12 +38,12 @@ class SensorNode(object):
         if not "VERSION" in self.settings:
             self.settings["VERSION"] = VERSION
 
-        if "DISPLAY_SIMULATION_MODE" in self.settings and self.settings["DISPLAY_SIMULATION_MODE"]:
-            print("Using DISPLAY_SIMULATION_MODE=True from settings file")
+        if "SIMULATE_DISPLAY" in self.settings and self.settings["SIMULATE_DISPLAY"]:
+            print("Using SIMULATE_DISPLAY=True from settings file")
 
-        # ensure settings["DISPLAY_SIMULATION_MODE"] is set
-        if not "DISPLAY_SIMULATION_MODE" in self.settings:
-            self.settings["DISPLAY_SIMULATION_MODE"] = GPIO_FAIL
+        # ensure settings["SIMULATE_DISPLAY"] is set
+        if not "SIMULATE_DISPLAY" in self.settings:
+            self.settings["SIMULATE_DISPLAY"] = GPIO_FAIL
 
         self.finish_event = finish_event
 
@@ -63,9 +64,16 @@ class SensorNode(object):
                                         sensor_id=self.settings["BREW_SENSOR_ID"],
                                         sensor_hub=self.sensor_hub)
 
+        # Here we choose whether to use the real HX711-based sensor, or a simulation
+        if "SIMULATE_WEIGHT" in self.settings and self.settings["SIMULATE_WEIGHT"]:
+            weight_sensor = WeightSimulator(settings=self.settings)
+            print("Using SIMULATE_WEIGHT=True from settings file")
+        else:
+            weight_sensor = WeightSensor(settings=self.settings)
+
         self.local_sensor = LocalSensor( settings=self.settings,
                                     sensor_id=self.settings["WEIGHT_SENSOR_ID"],
-                                    sensor=WeightSensor(settings=self.settings),
+                                    sensor=weight_sensor,
                                     sensor_hub=self.sensor_hub)
 
         self.watchdog = Watchdog( settings=self.settings, watched=self.sensor_hub, period=30)

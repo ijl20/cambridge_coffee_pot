@@ -3,5 +3,8 @@
     "LOG_LEVEL": 2,
     "SAMPLE_BUFFER_SIZE": 10000,
     "SAMPLE_SAVE_COUNT": 0,
-    "SIMULATE_UPLINK": true
+    "SIMULATE_UPLINK": true,
+    "SIMULATE_WEIGHT": true,
+    "SIMULATE_DISPLAY": true
 }
+

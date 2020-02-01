@@ -15,7 +15,7 @@ from PIL import ImageFont
 from PIL import ImageColor
 
 VALUE_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
-NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 24)
+NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 22)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # ST7735 color mappings
@@ -62,7 +62,7 @@ class Display(object):
 
     def __init__(self, settings=None):
 
-        if settings is None or settings["DISPLAY_SIMULATION_MODE"]:
+        if settings is None or settings["SIMULATE_DISPLAY"]:
             from st7735_ijl20.st7735_emulator import ST7735_EMULATOR as ST7735
         else:
             from st7735_ijl20.st7735 import ST7735
@@ -207,7 +207,10 @@ class Display(object):
         # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
         if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
             return
-        self.new_str = datetime.fromtimestamp(ts,timezone('Europe/London')).strftime("%a %H:%M")
+        # record time as HH:MM from ts
+        time_str = datetime.fromtimestamp(ts,timezone('Europe/London')).strftime("%H:%M")
+        # create message for display e.g. "BREWED 11:27"
+        self.new_str = "BREWED "+time_str
 
     # Update a PIL image with the weight, and send to LCD
     # Note we are creating an image smaller than the screen size, and only updating a part of the display
