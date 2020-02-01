@@ -47,7 +47,11 @@ class LinkGMQTT(object):
         """
         print('LinkGMQTT.start() connecting as user {}'.format(server_settings["user"]))
         self.client.set_auth_credentials(server_settings["user"], server_settings["password"])
-        await self.client.connect(server_settings["host"],keepalive=60,version=MQTTv311)
+        try:
+            await self.client.connect(server_settings["host"],keepalive=60,version=MQTTv311)
+        except Exception as e:
+            print("LinkGMQTT connect exception: {}".format(e))
+            return
         print('LinkGMQTT.start() connected {}'.format(server_settings["host"]))
 
 
@@ -69,7 +73,11 @@ class LinkGMQTT(object):
         """
         Subscribes to sensor events.
         """
-        self.client.subscribe(subscribe_settings["topic"], qos=0)
+        try:
+            self.client.subscribe(subscribe_settings["topic"], qos=0)
+        except Exception as e:
+            print("LinkGMQTT subscribe exception: {}".format(e))
+            return
         print("LinkGMQTT.subscribed() {}".format(subscribe_settings["topic"]))
 
 
