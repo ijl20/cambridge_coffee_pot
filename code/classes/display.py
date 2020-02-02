@@ -14,8 +14,11 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
+from classes.events import EventCodes
+
 VALUE_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
 NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 22)
+EVENT_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # ST7735 color mappings
@@ -34,7 +37,7 @@ CHART_SETTINGS = { "x": 0, "y": 100, "w": 160, "h": 28, # 'pixels' top-left coor
                 "cursor_color": [ 0x00, 0x00 ] # black 565 RGB
               }
 
-VALUE_SETTINGS = {
+DISPLAY_SETTINGS = {
     "VALUE_X": 59,
     "VALUE_Y": 100,
     "VALUE_WIDTH": 101,
@@ -48,14 +51,24 @@ VALUE_SETTINGS = {
     "NEW_Y": 0,
     "NEW_WIDTH": 160,
     "NEW_HEIGHT": 28,
+    "OLD_COLOR_FG": "WHITE",
+    "OLD_COLOR_BG": "RED",
     "NEW_COLOR_FG": "WHITE",
-    "NEW_COLOR_BG": "BLACK",
+    "NEW_COLOR_BG": "GREEN",
 
      # Pot is 59x100
     "POT_X": 0,
     "POT_Y": 28,
     "POT_FG": "YELLOW",
     "POT_BG": "BLUE",
+
+    # Events area, 101 x (18 * 4)
+    "EVENT_X": 59,
+    "EVENT_Y": 28,
+    "EVENT_WIDTH": 101,
+    "EVENT_HEIGHT": 18,
+    "EVENT_COUNT": 4
+
 }
 
 class Display(object):
@@ -68,9 +81,9 @@ class Display(object):
             from st7735_ijl20.st7735 import ST7735
 
         if settings is not None:
-            self.settings = { **VALUE_SETTINGS, **settings }
+            self.settings = { **DISPLAY_SETTINGS, **settings }
         else:
-            self.settings = VALUE_SETTINGS
+            self.settings = DISPLAY_SETTINGS
 
         # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
         if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
@@ -83,8 +96,7 @@ class Display(object):
 
         self.prev_lcd_time = None
 
-        self.prev_new_str = None # used to check if "new pot" string has changed so write.
-        self.new_str = None
+        self.events = [ None, None, None, None ]
 
         self.LCD = ST7735()
 
@@ -113,7 +125,7 @@ class Display(object):
 
         self.pot.begin()
 
-        self.draw_new("OLD COFFEE")
+        self.update_old()
 
     # -------------------------------------------------------------------
     # ------ DRAW NUMERIC VALUE ON LCD  ---------------------------------
@@ -155,12 +167,14 @@ class Display(object):
     # -------------------------------------------------------------------
     # ------ DRAW NEW POT TIME ON LCD  ---------------------------------
     # -------------------------------------------------------------------
-    def draw_new(self, new_str):
+    def update_old(self):
+
+        new_str = "OLD COFFEE"
+        fg=self.settings["OLD_COLOR_FG"]
+        bg=self.settings["OLD_COLOR_BG"]
+        
         # create a blank image to write the weight on
-        image = Image.new( "RGB",
-                           ( self.settings["NEW_WIDTH"],
-                             self.settings["NEW_HEIGHT"]),
-                           self.settings["NEW_COLOR_BG"])
+        image = Image.new( "RGB", ( self.settings["NEW_WIDTH"], self.settings["NEW_HEIGHT"]), bg)
 
         draw = ImageDraw.Draw(image)
 
@@ -168,9 +182,9 @@ class Display(object):
         string_width, string_height = draw.textsize(new_str, font=NEW_FONT)
 
         # embed this number into the blank image we created earlier
-        draw.text((math.floor((self.settings["NEW_WIDTH"] - string_width)/2),-1),
+        draw.text((math.floor((self.settings["NEW_WIDTH"] - string_width)/2),1),
                 new_str,
-                fill=self.settings["NEW_COLOR_FG"],
+                fill=fg,
                 font=NEW_FONT)
 
         # display image on screen at coords x,y. (0,0)=top left.
@@ -203,6 +217,23 @@ class Display(object):
 
             self.LCD.display_window(image, 0, 40, 160, 40)
 
+    # Add the event to the down-scrolling event area
+    def update_event(self,ts,event_code):
+        #debug scroll existing events down
+        x = self.settings["EVENT_X"]
+        y = self.settings["EVENT_Y"]
+        w = self.settings["EVENT_WIDTH"]
+        h = self.settings["EVENT_HEIGHT"]
+        fg = "YELLOW"
+        bg = "BLUE"
+        #debug make event_str "CODE HH:MM"
+        event_str = event_code
+        image = Image.new("RGB", (w, h), bg)
+        draw = ImageDraw.Draw(image)
+        draw.text((0,0),event_str,fill=fg,font=EVENT_FONT)
+        self.LCD.display_window(image,x,y,w,h)
+
+    # Display the "BREWED HH:MM" new pot of coffee message
     def update_new(self, ts):
         # Disable LCD display updates (e.g. for faster execution) if "DISPLAY": False in settings
         if 'DISPLAY' in self.settings and self.settings['DISPLAY'] == False:
@@ -210,7 +241,30 @@ class Display(object):
         # record time as HH:MM from ts
         time_str = datetime.fromtimestamp(ts,timezone('Europe/London')).strftime("%H:%M")
         # create message for display e.g. "BREWED 11:27"
-        self.new_str = "BREWED "+time_str
+        new_str = "BREWED "+time_str
+        fg=self.settings["NEW_COLOR_FG"]
+        bg = "GREEN"
+        
+        # create a blank image to write the weight on
+        image = Image.new( "RGB", ( self.settings["NEW_WIDTH"], self.settings["NEW_HEIGHT"]), bg)
+
+        draw = ImageDraw.Draw(image)
+
+        # calculate x coordinate necessary to center text
+        string_width, string_height = draw.textsize(new_str, font=NEW_FONT)
+
+        # embed this number into the blank image we created earlier
+        draw.text((math.floor((self.settings["NEW_WIDTH"] - string_width)/2),1),
+                new_str,
+                fill=fg,
+                font=NEW_FONT)
+
+        # display image on screen at coords x,y. (0,0)=top left.
+        self.LCD.display_window(image,
+                        self.settings["NEW_X"],
+                        self.settings["NEW_Y"],
+                        self.settings["NEW_WIDTH"],
+                        self.settings["NEW_HEIGHT"])
 
     # Update a PIL image with the weight, and send to LCD
     # Note we are creating an image smaller than the screen size, and only updating a part of the display
@@ -231,7 +285,12 @@ class Display(object):
 
             if not sample_median is None:
 
-                self.draw_value(sample_median)
+                display_value = 0
+
+                if sample_median > self.settings["WEIGHT_EMPTY"] + 30:
+                    display_value = sample_median - self.settings["WEIGHT_EMPTY"]
+
+                self.draw_value(display_value)
 
                 # if level is stable then update pot level
                 if not sample_deviation is None and sample_deviation < 30:
@@ -243,10 +302,6 @@ class Display(object):
                         pot_ratio = 0
 
                     self.pot.update(pot_ratio)
-
-            if self.new_str != self.prev_new_str:
-                self.draw_new(self.new_str)
-                self.prev_new_str = self.new_str
 
             self.prev_lcd_time = ts
 

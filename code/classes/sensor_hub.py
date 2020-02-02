@@ -17,7 +17,7 @@ from classes.link_simulator import LinkSimulator
 #from classes.link_hbmqtt import LinkHBMQTT as Uplink
 from classes.link_gmqtt import LinkGMQTT as Uplink
 from classes.display import Display
-from classes.events import Events
+from classes.events import Events, EventCodes
 
 class SensorHub(object):
     """
@@ -71,7 +71,7 @@ class SensorHub(object):
         # Send startup message
         startup_event = { "acp_ts": ts,
                           "acp_id": self.settings["SENSOR_ID"],
-                          "event_code": self.events.EVENT_STARTUP
+                          "event_code": EventCodes.EVENT_STARTUP
                         }
 
         #send to platform
@@ -88,7 +88,7 @@ class SensorHub(object):
                          'acp_type': self.settings["SENSOR_TYPE"],
                          'acp_ts': ts,
                          'acp_units': 'GRAMS',
-                         'event_code': self.events.EVENT_STATUS,
+                         'event_code': EventCodes.EVENT_STATUS,
                          'weight': math.floor(weight_g+0.5), # rounded to integer grams
                          'version': self.settings["VERSION"]
                        }
@@ -113,7 +113,7 @@ class SensorHub(object):
 
         for event in events_list:
             # display time of new brew is we have one
-            if event["event_code"] == self.events.EVENT_NEW:
+            if event["event_code"] == EventCodes.EVENT_NEW:
                 self.display.update_new(ts)
 
             # add acp_id, acp_ts, acp_type
@@ -125,6 +125,8 @@ class SensorHub(object):
             event_to_send = { **event, **event_params }
 
             await self.uplink.put(self.settings["SENSOR_ID"], event_to_send)
+
+            self.display.update_event(ts, event["event_code"])
 
         #----------------
         # UPDATE DISPLAY

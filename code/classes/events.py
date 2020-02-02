@@ -8,7 +8,7 @@
 # Provides a ".test(ts,sensor_id)" method which returns a (typically empty)
 # list of events.
 # Each event is a python dictionary, e.g.
-# { "event_code": self.EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
+# { "event_code": EventCodes.EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
 #
 # In general these routines look at the TimeBuffers and
 # decide if an event has just become recognizable, e.g. COFFEE_NEW
@@ -19,6 +19,23 @@ import math
 
 from classes.time_buffer import TimeBuffer
 
+# COFFEE POT EVENTS
+class EventCodes(object):
+    EVENT_STARTUP = "COFFEE_STARTUP"
+    EVENT_NEW = "COFFEE_NEW"
+    EVENT_EMPTY = "COFFEE_EMPTY"
+    EVENT_POURED = "COFFEE_POURED"
+    EVENT_REMOVED = "COFFEE_REMOVED"
+    EVENT_REPLACED = "COFFEE_REPLACED"
+    EVENT_GRINDING = "COFFEE_GRINDING"
+    EVENT_BREWING = "COFFEE_BREWING"
+
+    # Periodic 'watchdog' events
+    EVENT_STATUS = "COFFEE_STATUS"
+    EVENT_GRIND_STATUS = "GRIND_STATUS"
+    EVENT_BREW_STATUS = "BREW_STATUS"
+
+
 class Events(object):
 
     def __init__(self, settings=None):
@@ -26,21 +43,6 @@ class Events(object):
         # set up the various timebuffers
         self.settings = settings
 
-        # COFFEE POT EVENTS
-
-        self.EVENT_STARTUP = "COFFEE_STARTUP"
-        self.EVENT_NEW = "COFFEE_NEW"
-        self.EVENT_EMPTY = "COFFEE_EMPTY"
-        self.EVENT_POURED = "COFFEE_POURED"
-        self.EVENT_REMOVED = "COFFEE_REMOVED"
-        self.EVENT_REPLACED = "COFFEE_REPLACED"
-        self.EVENT_GRINDING = "COFFEE_GRINDING"
-        self.EVENT_BREWING = "COFFEE_BREWING"
-
-        # Periodic 'watchdog' events
-        self.EVENT_STATUS = "COFFEE_STATUS"
-        self.EVENT_GRIND_STATUS = "GRIND_STATUS"
-        self.EVENT_BREW_STATUS = "BREW_STATUS"
 
         # CONSTS
         self.EMPTY_WEIGHT = 1630
@@ -202,20 +204,20 @@ class Events(object):
 
                 #latest_event = self.event_buffer.get(0)
                 #if ((latest_event is None) or
-                #   (latest_event["value"]["event_code"] != self.EVENT_POURED) or
+                #   (latest_event["value"]["event_code"] != EventCodes.EVENT_POURED) or
                 #   (ts - latest_event["ts"] > 30 )):
 
                 weight_poured = math.floor(med_delta + 0.5)
                 weight = math.floor(current_median + 0.5)
 
-                is_poured_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_POURED
+                is_poured_event = lambda event_sample: event_sample['value']['event_code'] == EventCodes.EVENT_POURED
 
                 prev_poured, offset, duration, count = self.event_buffer.find(0,POUR_TEST_SECONDS,is_poured_event)
 
                 # Only send this POURED event if there isn't already a recent POURED event with similar weight
                 if prev_poured is None or prev_poured['value']['weight'] - weight > MIN_CUP_WEIGHT:
                     confidence = 0.8 # we don't have much better yet
-                    return { "event_code": self.EVENT_POURED,
+                    return { "event_code": EventCodes.EVENT_POURED,
                              "weight_poured": weight_poured,
                              "weight": weight,
                              "acp_confidence": confidence
@@ -252,7 +254,7 @@ class Events(object):
 
             # ok we found a previous 'removed' median
 
-            is_new_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_NEW
+            is_new_event = lambda event_sample: event_sample['value']['event_code'] == EventCodes.EVENT_NEW
 
             previous_new_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_NEW_TEST_SECONDS, is_new_event )
 
@@ -260,7 +262,7 @@ class Events(object):
                 # and we have no previous NEW event
                 weight = math.floor(full_weight+0.5)
                 confidence = full_confidence
-                return { "event_code": self.EVENT_NEW, "weight": weight, "acp_confidence": confidence }
+                return { "event_code": EventCodes.EVENT_NEW, "weight": weight, "acp_confidence": confidence }
             else:
                 if self.settings["LOG_LEVEL"] <= 1:
                     print("{:.3f} EVENT_NEW suppressed due to prior EVENT_NEW".format(ts))
@@ -284,11 +286,11 @@ class Events(object):
         if not removed_before:
             latest_event = self.event_buffer.get(0)
             if ((latest_event is None) or
-               (latest_event["value"]["event_code"] != self.EVENT_REMOVED) or
+               (latest_event["value"]["event_code"] != EventCodes.EVENT_REMOVED) or
                (ts - latest_event["ts"] > 600 )):
                 weight = math.floor(removed_now_weight+0.5)
                 confidence = removed_now_confidence
-                return { "event_code": self.EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
+                return { "event_code": EventCodes.EVENT_REMOVED, "weight": weight, "acp_confidence": confidence }
 
         return None
 
@@ -342,7 +344,7 @@ class Events(object):
 
             # ok we found a previous 'removed' median
 
-            is_replaced_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_REPLACED
+            is_replaced_event = lambda event_sample: event_sample['value']['event_code'] == EventCodes.EVENT_REPLACED
 
             previous_event, offset, duration, count = self.event_buffer.find(0, 3, is_replaced_event )
 
@@ -350,7 +352,7 @@ class Events(object):
                 # we have no previous REPLACED event in past 3 seconds
                 weight = math.floor(current_median+0.5)
                 confidence = 0.8 #debug need to calculate a reasonable figure
-                return { "event_code": self.EVENT_REPLACED, "weight": weight, "acp_confidence": confidence }
+                return { "event_code": EventCodes.EVENT_REPLACED, "weight": weight, "acp_confidence": confidence }
             elif self.settings["LOG_LEVEL"] <= 1:
                 print("{:.3f} EVENT_REPLACED suppressed due to prior event".format(ts))
 
@@ -380,11 +382,11 @@ class Events(object):
         if stats_not_empty != None:
             #latest_event = self.event_buffer.get(0)
             #if ((latest_event is None) or
-            #   (latest_event["value"]["event_code"] != self.EVENT_EMPTY) or
+            #   (latest_event["value"]["event_code"] != EventCodes.EVENT_EMPTY) or
             #   (ts - latest_event["ts"] > 600 )):
             PREVIOUS_EMPTY_TEST_SECONDS = 60
 
-            is_empty_event = lambda event_sample: event_sample['value']['event_code'] == self.EVENT_EMPTY
+            is_empty_event = lambda event_sample: event_sample['value']['event_code'] == EventCodes.EVENT_EMPTY
 
             previous_empty_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_EMPTY_TEST_SECONDS, is_empty_event )
 
@@ -393,7 +395,7 @@ class Events(object):
                 confidence = empty_confidence
 
                 #print(ts, "test_event_empty: returning EVENT_EMPTY")
-                return { "event_code": self.EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
+                return { "event_code": EventCodes.EVENT_EMPTY, "weight": weight, "acp_confidence": confidence }
             #else:
                 #print(ts,"test_event_empty: returning None due to previous EVENT_EMPTY at ",previous_empty_event['ts'])
 
@@ -413,12 +415,12 @@ class Events(object):
         if "ENERGY" in value and "Power" in value["ENERGY"]:
             power = value["ENERGY"]["Power"]
             if power > GRIND_POWER:
-                return { "event_code": self.EVENT_GRINDING,
+                return { "event_code": EventCodes.EVENT_GRINDING,
                          "power": power,
                          "value": value,
                          "acp_confidence": confidence }
 
-        return { "event_code": self.EVENT_GRIND_STATUS, "value": value, "acp_confidence": confidence }
+        return { "event_code": EventCodes.EVENT_GRIND_STATUS, "value": value, "acp_confidence": confidence }
 
     # Test any event after a BREW reading
     def test_brew(self, ts):
@@ -434,12 +436,12 @@ class Events(object):
         if "ENERGY" in value and "Power" in value["ENERGY"]:
             power = value["ENERGY"]["Power"]
             if power > BREW_POWER:
-                return { "event_code": self.EVENT_BREWING,
+                return { "event_code": EventCodes.EVENT_BREWING,
                          "power": power,
                          "value": value,
                          "acp_confidence": confidence }
 
-        return { "event_code": self.EVENT_BREW_STATUS, "value": value, "acp_confidence": confidence }
+        return { "event_code": EventCodes.EVENT_BREW_STATUS, "value": value, "acp_confidence": confidence }
 
     def test(self, ts, sensor_id):
 
