@@ -18,7 +18,7 @@ from classes.events import EventCodes
 
 VALUE_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
 NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 22)
-EVENT_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
+EVENT_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 12)
 DEBUG_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 14)
 
 # ST7735 color mappings
@@ -218,12 +218,28 @@ class Display(object):
             self.LCD.display_window(image, 0, 40, 160, 40)
 
     # Add the event to the down-scrolling event area
-    def update_event(self,ts,event_code):
-        #debug scroll existing events down
+    def update_event(self,ts,event):
+        print("Display.update_event {} {}".format(ts,event))
+        # scroll existing events down
+        for i in range(self.settings["EVENT_COUNT"]-1,0,-1):
+            self.events[i] = self.events[i-1]
+
+        # store latest event
+        self.events[0] = { "ts": ts, "event": event }
+
+        for i in range(self.settings["EVENT_COUNT"]):
+            self.draw_event(i)
+        
+
+    def draw_event(self, index):
+        if self.events[index] is None:
+            return
         x = self.settings["EVENT_X"]
-        y = self.settings["EVENT_Y"]
+        y = self.settings["EVENT_Y"] + index * self.settings["EVENT_HEIGHT"]
         w = self.settings["EVENT_WIDTH"]
         h = self.settings["EVENT_HEIGHT"]
+
+        event_code = self.events[index]["event"]["event_code"]
         fg = "YELLOW"
         bg = "BLUE"
         #debug make event_str "CODE HH:MM"

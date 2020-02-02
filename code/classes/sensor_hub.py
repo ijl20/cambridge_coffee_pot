@@ -126,7 +126,7 @@ class SensorHub(object):
 
             await self.uplink.put(self.settings["SENSOR_ID"], event_to_send)
 
-            self.display.update_event(ts, event["event_code"])
+            self.display.update_event(ts, event)
 
         #----------------
         # UPDATE DISPLAY
