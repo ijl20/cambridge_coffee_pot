@@ -244,7 +244,11 @@ class Display(object):
         #print("Display.draw_event",event_code)
 
         # get 'displayname' for the event to display
-        event_text = EventCode.INFO[event_code]["text"]
+        try:
+            event_text = EventCode.INFO[event_code]["text"]
+        except KeyError:
+            # omit this event from the display if it isn't defined with a display text
+            return
 
         # get the timestamp for the event, and convert to HH:MM
         event_ts = self.events[index]["ts"]
