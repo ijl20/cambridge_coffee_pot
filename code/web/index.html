@@ -48,9 +48,12 @@ RELEASE INFO:
 <script src="xcoffee.js"></script>
 
 <script>
-    RTMONITOR_URI = 'https://tfc-app2.cl.cam.ac.uk/rtmonitor/A/general/'
+    RTMONITOR_URI = 'https://tfc-app2.cl.cam.ac.uk/rtmonitor/A/mqtt_local/';
 
-    RT_TOKEN = 'y1AS/hH1FzyNCQnPzlSAJvEW5Rs4McIPOpJoPHIsfyy8UC3jCNRW+OYACx7yC6pBwFS9Yr9aBldSfmBNUrjtvB3w2GOLJYzTUzEJ0DTfWr1MD8AWsu1pD0MVyyAp5NjvwECKxLioBwrQ3vf7obhfH/Y0rLbHh/B3bIX31sTWiSfsnLxkOC0pPfCAcQWStpGiPYp4L57HQjp8+S6MBzd1I3ByxG0Y9I4WUEZqZd386ipl91HzKMY41Sv6kSt3QwcrCALZyM3H0CquJrZaqGIOPLIN7ylIhRm6FwqUThwRNnbpyx3WcCEeZqQPSwcFwyM+lFkud0eXsHu3IX2BiwaVkmosSs6pqCAOX/0BOuUlIHeBJf3RQGWzYfZ/xika/TMOk11GCNoFei+HM102Jt4ayQ=='
+    RT_TOKEN = 'y1AS/hH1FzyNCQnPzlSAJvEW5Rs4McIPOpJoPHIsfyy8UC3jCNRW+OYACx7yC6pBwFS9Yr9aBldSfmBNUrjtvB3w2GOLJYzTUzEJ0DTfWr1MD8AWsu1pD0MVyyAp5NjvwECKxLioBwrQ3vf7obhfH/Y0rLbHh/B3bIX31sTWiSfsnLxkOC0pPfCAcQWStpGiPYp4L57HQjp8+S6MBzd1I3ByxG0Y9I4WUEZqZd386ipl91HzKMY41Sv6kSt3QwcrCALZyM3H0CquJrZaqGIOPLIN7ylIhRm6FwqUThwRNnbpyx3WcCEeZqQPSwcFwyM+lFkud0eXsHu3IX2BiwaVkmosSs6pqCAOX/0BOuUlIHeBJf3RQGWzYfZ/xika/TMOk11GCNoFei+HM102Jt4ayQ==';
+
+    RT_SENSOR_ID = 'csn-node-test';
+
 </script>
 
 </head>
@@ -146,7 +149,7 @@ RELEASE INFO:
   "filters" : [
                 { "test": "=",
                   "key": "acp_id",
-                  "value": "cambridge_coffee_pot"
+                  "value": "csn-node-test"
                 }
               ]
 }

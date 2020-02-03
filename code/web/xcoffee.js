@@ -72,6 +72,8 @@ var log_data = false;
 
 var events_div; // Events list dom object
 
+var msg_classname = 'msg_B'; // classname for page message div, will toggle 'msg_A'|'msg_B'
+
 // *********************************************************
 // RTRoutes globals
 
@@ -245,7 +247,7 @@ function xcoffee_handle_msg(msg)
     }
 }
 
-//subscribe to events from cambridge_coffee_pot
+//subscribe to events from RT_SENSOR_ID
 function xcoffee_subscribe(sensor_id)
 {
     console.log('** subscribing to',sensor_id);
@@ -260,7 +262,7 @@ function xcoffee_subscribe(sensor_id)
     rt_mon.subscribe(sensor_id, msg_obj, handle_records);
 }
 
-//subscribe to events from cambridge_coffee_pot
+//subscribe to events from RT_SENSOR_ID (set in index.html)
 function xcoffee_request(sensor_id)
 {
     console.log('** requesting latest message from',sensor_id);
@@ -282,9 +284,9 @@ function xcoffee_connected()
 
     rtmonitor_connected();
 
-    xcoffee_request('cambridge_coffee_pot');
+    xcoffee_request(RT_SENSOR_ID);
 
-    xcoffee_subscribe('cambridge_coffee_pot');
+    xcoffee_subscribe(RT_SENSOR_ID);
 }
 
 function xcoffee_disconnected()
@@ -292,9 +294,15 @@ function xcoffee_disconnected()
     rtmonitor_disconnected();
 }
 
+// Format the incoming message for display on the page
 function xcoffee_format_msg(msg)
 {
     var div = document.createElement('div');
+    // toggle classname between msg_A and msg_B
+    msg_classname = msg_classname == 'msg_A' ? 'msg_B' : 'msg_A';
+
+    div.className = msg_classname;
+
     var div_content = document.createTextNode(JSON.stringify(msg));
     div.appendChild(div_content);
     return div;
