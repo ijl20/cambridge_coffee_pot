@@ -14,7 +14,7 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageColor
 
-from classes.events import EventCodes
+from classes.events import EventCode
 
 VALUE_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 30)
 NEW_FONT = ImageFont.truetype('fonts/Ubuntu-Regular.ttf', 22)
@@ -172,7 +172,7 @@ class Display(object):
         new_str = "OLD COFFEE"
         fg=self.settings["OLD_COLOR_FG"]
         bg=self.settings["OLD_COLOR_BG"]
-        
+
         # create a blank image to write the weight on
         image = Image.new( "RGB", ( self.settings["NEW_WIDTH"], self.settings["NEW_HEIGHT"]), bg)
 
@@ -219,8 +219,8 @@ class Display(object):
 
     # Add the event to the down-scrolling event area
     def update_event(self,ts,event):
-        print("Display.update_event {} {}".format(ts,event))
-        # scroll existing events down
+        #print("Display.update_event {} {}".format(ts,event))
+        # scroll existing events so new event at self.events[0]
         for i in range(self.settings["EVENT_COUNT"]-1,0,-1):
             self.events[i] = self.events[i-1]
 
@@ -229,21 +229,39 @@ class Display(object):
 
         for i in range(self.settings["EVENT_COUNT"]):
             self.draw_event(i)
-        
+
 
     def draw_event(self, index):
         if self.events[index] is None:
             return
         x = self.settings["EVENT_X"]
-        y = self.settings["EVENT_Y"] + index * self.settings["EVENT_HEIGHT"]
+        y = self.settings["EVENT_Y"] + (self.settings["EVENT_COUNT"]-index-1) * self.settings["EVENT_HEIGHT"]
         w = self.settings["EVENT_WIDTH"]
         h = self.settings["EVENT_HEIGHT"]
 
         event_code = self.events[index]["event"]["event_code"]
+
+        #print("Display.draw_event",event_code)
+
+        # get 'displayname' for the event to display
+        event_text = EventCode.INFO[event_code]["text"]
+
+        # get the timestamp for the event, and convert to HH:MM
+        event_ts = self.events[index]["ts"]
+
+        # record time as HH:MM from ts
+        time_str = datetime.fromtimestamp(event_ts,timezone('Europe/London')).strftime("%H:%M")
+
+        # If the event_code has a "value" key (e.g. = "weight_new"), append the value to the display text
+        value_text = ""
+        if "value" in EventCode.INFO[event_code]:
+            value_text = self.events[index]["event"][EventCode.INFO[event_code]["value"]]
+
         fg = "YELLOW"
         bg = "BLUE"
         #debug make event_str "CODE HH:MM"
-        event_str = event_code
+        event_str = time_str + " " + event_text + " " + str(value_text)
+
         image = Image.new("RGB", (w, h), bg)
         draw = ImageDraw.Draw(image)
         draw.text((0,0),event_str,fill=fg,font=EVENT_FONT)
@@ -260,7 +278,7 @@ class Display(object):
         new_str = "BREWED "+time_str
         fg=self.settings["NEW_COLOR_FG"]
         bg = "GREEN"
-        
+
         # create a blank image to write the weight on
         image = Image.new( "RGB", ( self.settings["NEW_WIDTH"], self.settings["NEW_HEIGHT"]), bg)
 
