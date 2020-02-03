@@ -217,9 +217,17 @@ class Display(object):
 
             self.LCD.display_window(image, 0, 40, 160, 40)
 
-    # Add the event to the down-scrolling event area
+    # Add the event to the event area
     def update_event(self,ts,event):
         #print("Display.update_event {} {}".format(ts,event))
+        # get 'displayname' for the event to display
+        try:
+            event_code = event["event_code"]
+            event_text = EventCode.INFO[event_code]["text"]
+        except KeyError:
+            # skip this event if it isn't defined with a display text
+            return
+
         # scroll existing events so new event at self.events[0]
         for i in range(self.settings["EVENT_COUNT"]-1,0,-1):
             self.events[i] = self.events[i-1]
