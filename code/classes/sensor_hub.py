@@ -57,7 +57,7 @@ class SensorHub(object):
         print("SensorHub adding buffers for {}".format(sensor_id))
         self.events.sensor_buffers[sensor_id] = buffers
 
-    # start() is async to allow Uplink.send
+    # start() is async to allow Uplink.put
     async def start(self, ts):
 
         uplink_settings = {}

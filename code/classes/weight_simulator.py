@@ -52,6 +52,9 @@ class WeightSimulator(object):
                 weight = 0.0
             else:
                 self.current_sample = self.sample_buffer.get(self.sample_offset)
+                if self.current_sample is None:
+                    print("WeightSimulator reached end of sample data")
+                    return 0.0
                 weight = self.current_sample["value"]
 
         #print("WeightSimulator {:.3f} returning {}".format(self.current_sample["ts"], weight))

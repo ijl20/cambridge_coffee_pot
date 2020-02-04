@@ -62,12 +62,12 @@ DISPLAY_SETTINGS = {
     "POT_FG": "YELLOW",
     "POT_BG": "BLUE",
 
-    # Events area, 101 x (18 * 4)
+    # Events area, 101 x 72
     "EVENT_X": 59,
     "EVENT_Y": 28,
     "EVENT_WIDTH": 101,
-    "EVENT_HEIGHT": 18,
-    "EVENT_COUNT": 4
+    "EVENT_HEIGHT": 12,
+    "EVENT_COUNT": 6
 
 }
 
@@ -96,7 +96,8 @@ class Display(object):
 
         self.prev_lcd_time = None
 
-        self.events = [ None, None, None, None ]
+        # initialize display events list (all to None)
+        self.events = [None] * self.settings["EVENT_COUNT"]
 
         self.LCD = ST7735()
 
@@ -270,13 +271,20 @@ class Display(object):
             value_text = self.events[index]["event"][EventCode.INFO[event_code]["value"]]
 
         fg = "YELLOW"
-        bg = "BLUE"
-        #debug make event_str "CODE HH:MM"
+        if event_code == EventCode.NEW:
+            bg = "GREEN"
+        elif event_code == EventCode.POURED:
+            bg = "BLUE"
+            fg = "YELLOW"
+        else:
+            bg = "BLUE"
+
         event_str = time_str + " " + event_text + " " + str(value_text)
 
         image = Image.new("RGB", (w, h), bg)
         draw = ImageDraw.Draw(image)
-        draw.text((0,0),event_str,fill=fg,font=EVENT_FONT)
+        # add text to image - we adjust vertical offset -2 for better fit
+        draw.text((0,-2),event_str,fill=fg,font=EVENT_FONT)
         self.LCD.display_window(image,x,y,w,h)
 
     # Display the "BREWED HH:MM" new pot of coffee message
