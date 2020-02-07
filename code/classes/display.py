@@ -61,6 +61,7 @@ DISPLAY_SETTINGS = {
     "POT_Y": 28,
     "POT_FG": "YELLOW",
     "POT_BG": "BLUE",
+    "POT_ZERO_RATIO": 0.055, # force display to zero if less than 0.055 of a pot remaining
 
     # Events area, 101 x 72
     "EVENT_X": 59,
@@ -166,7 +167,7 @@ class Display(object):
                         self.settings["VALUE_HEIGHT"])
 
     # -------------------------------------------------------------------
-    # ------ DRAW NEW POT TIME ON LCD  ---------------------------------
+    # ------ DRAW "OLD COFFEE" ON LCD  ---------------------------------
     # -------------------------------------------------------------------
     def update_old(self):
 
@@ -352,7 +353,7 @@ class Display(object):
                     pot_ratio = (sample_median - self.settings["WEIGHT_EMPTY"]) / max_coffee_weight
                     if pot_ratio > 1:
                         pot_ratio = 1
-                    elif pot_ratio < 0.04: # Force to zero if little coffee in pot
+                    elif pot_ratio < self.settings["POT_ZERO_RATIO"]: # Force to zero if little coffee in pot
                         pot_ratio = 0
 
                     self.pot.update(pot_ratio)

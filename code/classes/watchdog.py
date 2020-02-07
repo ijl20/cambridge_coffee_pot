@@ -5,7 +5,7 @@ class Watchdog():
     """
     Watchdog - will poll the .watchdog method of the watched coroutine
 
-    Instantiation:
+    Instantiation by SensorNode:
         watchdog = WatchDog(settings=settings, watched=<watched coro>, period=30) # period in seconds
 
     Methods:

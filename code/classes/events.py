@@ -3,10 +3,11 @@
 # ----------------------------------------------------------------------
 # EVENT PATTERN RECOGNITION
 #
-# Instantiate with e = Events(settings)
+# Instantiated by SensorHub with e = Events(settings)
 
-# Provides a ".test(ts,sensor_id)" method which returns a (typically empty)
-# list of events.
+# Provides a ".test(ts,sensor_id)" method which is called on *every* data tick,
+# and returns a (typically empty) list of events.
+#
 # Each event is a python dictionary, e.g.
 # { "event_code": EventCode.EMPTY, "weight": weight, "acp_confidence": confidence }
 #
@@ -455,6 +456,9 @@ class Events(object):
 
         return { "event_code": EventCode.BREW_STATUS, "value": value, "acp_confidence": confidence }
 
+    # test(ts, sensor_id)
+    # This is the public method of Events which looks in the various TimeBuffers and
+    # returns a list of events for any patterns recognized.
     def test(self, ts, sensor_id):
 
         if sensor_id == self.settings["WEIGHT_SENSOR_ID"]:

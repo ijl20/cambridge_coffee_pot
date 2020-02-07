@@ -29,5 +29,7 @@
     "FEEDMAKER_HEADER_KEY": "X-Auth-Token",
     "FEEDMAKER_HEADER_VALUE": "testtoken",
 
+    "WATCHDOG_PERIOD": 120,
+
     "SAMPLE_PERIOD": 0.1
 }

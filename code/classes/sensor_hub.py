@@ -21,7 +21,8 @@ from classes.events import Events, EventCode
 
 class SensorHub(object):
     """
-    The SensorHub object provides a .process_reading() function that looks
+    The SensorHub is created by a SensorNode and provides a
+    .process_reading() function that looks
     at the values in the various sensor buffers and
     decides whether an event should be sent to the platform.
     """
@@ -29,6 +30,8 @@ class SensorHub(object):
     def __init__(self, settings=None):
         print("SensorHub __init()__")
         self.settings = settings
+
+        self.new_ts = None # timestamp of latest brew
 
         # LCD DISPLAY
 
@@ -42,20 +45,11 @@ class SensorHub(object):
 
         # Connect to the platform
         if ( "SIMULATE_UPLINK" in self.settings and
-             self.settings["SIMULATE_UPLINK"]):
+                 self.settings["SIMULATE_UPLINK"]):
             self.uplink = LinkSimulator(settings=self.settings)
         else:
             self.uplink = Uplink(settings=self.settings)
 
-        # times to control periodic sends to platform
-        self.prev_send_time = None
-
-
-    # A LocalSensor or RemoteSensor will call this add_buffers() method to
-    # make their TimeBuffers visible to Events
-    def add_buffers(self, sensor_id, buffers):
-        print("SensorHub adding buffers for {}".format(sensor_id))
-        self.events.sensor_buffers[sensor_id] = buffers
 
     # start() is async to allow Uplink.put
     async def start(self, ts):
@@ -71,16 +65,45 @@ class SensorHub(object):
         # Send startup message
         startup_event = { "acp_ts": ts,
                           "acp_id": self.settings["SENSOR_ID"],
+                          "acp_confidence": 1,
                           "event_code": EventCode.STARTUP
                         }
 
         #send to platform
         await self.uplink.put(self.settings["SENSOR_ID"], startup_event)
 
-    #debug still to be implemented
+    # A LocalSensor or RemoteSensor will call this add_buffers() method to
+    # make their TimeBuffers visible to Events
+    # e.g. { "sample_buffer": self.sample_buffer,
+    #        "stats_buffer": self.stats_buffer
+    #      }
+    def add_buffers(self, sensor_id, buffers):
+        print("SensorHub adding buffers for {}".format(sensor_id))
+        self.events.sensor_buffers[sensor_id] = buffers
+
     # watchdog is called by Watchdog coroutine periodically
     async def watchdog(self):
-        print("{:.3f} SensorHub() watchdog...".format(time.time()))
+        ts = time.time()
+        print("{:.3f} SensorHub() watchdog...".format(ts))
+        # ------------------------------------------
+        # SEND 'WATCHDOG' (WITH WEIGHT) TO PLATFORM
+        # ------------------------------------------
+        weight_sensor_id = self.settings["WEIGHT_SENSOR_ID"]
+
+        weight_sample_buffer = self.events.sensor_buffers[weight_sensor_id]["sample_buffer"]
+
+        sample_value, offset, duration, sample_count = weight_sample_buffer.median(0,2)
+
+        if not sample_value == None:
+            print ("{:.3f} WEIGHT {:5.1f}".format(ts, sample_value))
+
+            await self.send_status(ts, sample_value)
+
+            if self.settings["LOG_LEVEL"] == 1:
+                print("SensorHub.watchdog() send status at {:.3f}".format(time.process_time()))
+        else:
+            print("SensorHub.watchdog() status NOT SENT as data value None")
+
 
     # send 'status' event (periodic)
     async def send_status(self, ts, weight_g):
@@ -92,6 +115,10 @@ class SensorHub(object):
                          'weight': math.floor(weight_g+0.5), # rounded to integer grams
                          'version': self.settings["VERSION"]
                        }
+
+        # Add timestamp of latest brew is we have one
+        if not self.new_ts is None:
+            weight_event["new_ts"] = self.new_ts
 
         #send MQTT topic, message
         await self.uplink.put(self.settings["SENSOR_ID"], weight_event)
@@ -105,6 +132,7 @@ class SensorHub(object):
         t_start = time.process_time()
 
         weight_sensor_id = self.settings["WEIGHT_SENSOR_ID"]
+        weight_sample_buffer = self.events.sensor_buffers[weight_sensor_id]["sample_buffer"]
 
         # ---------------------------------
         # TEST EVENTS AND SEND TO PLATFORM
@@ -114,7 +142,24 @@ class SensorHub(object):
         for event in events_list:
             # display time of new brew is we have one
             if event["event_code"] == EventCode.NEW:
+                self.new_ts = ts
                 self.display.update_new(ts)
+
+            # piggyback a weight property if the event doesn't already include it.
+            if not "weight" in event:
+                weight_stats_buffer = self.events.sensor_buffers[weight_sensor_id]["stats_buffer"]
+
+                # we'll add a weight value for events that don't include it
+                default_weight = weight_stats_buffer.get(0)["value"]["median"]
+
+                if default_weight is None:
+                    default_weight = 0
+
+                event["weight"] = math.floor(default_weight+0.5)
+
+            # also piggyback the timestamp of the most recent new brew
+            if not self.new_ts is None:
+                event["new_ts"] = self.new_ts
 
             # add acp_id, acp_ts, acp_type
             event_params =  { "acp_ts": ts,
@@ -132,32 +177,7 @@ class SensorHub(object):
         # UPDATE DISPLAY
         # ---------------
 
-        weight_sample_buffer = self.events.sensor_buffers[weight_sensor_id]["sample_buffer"]
         self.display.update(ts, weight_sample_buffer)
-
-        # ------------------------------------------
-        # SEND 'WATCHDOG' (WITH WEIGHT) TO PLATFORM
-        # ------------------------------------------
-
-        if self.prev_send_time is None:
-            self.prev_send_time = ts
-
-        WATCHDOG_PERIOD = 120
-        if ts - self.prev_send_time > WATCHDOG_PERIOD:
-            # from latest ts, back 2 seconds
-            sample_value, offset, duration, sample_count = weight_sample_buffer.median(0,2)
-
-            if not sample_value == None:
-                print ("{:.3f} WEIGHT {:5.1f}".format(ts, sample_value))
-
-                await self.send_status(ts, sample_value)
-
-                self.prev_send_time = ts
-
-                if self.settings["LOG_LEVEL"] == 1:
-                    print("process_reading send data at {:.3f} secs.".format(time.process_time() - t_start))
-            else:
-                print("process_reading send data NOT SENT as data value None")
 
         if self.settings["LOG_LEVEL"] == 1:
             print ("WEIGHT,{:.3f},{:.3f}".format(ts,weight_sample_buffer.get(0)["value"]))

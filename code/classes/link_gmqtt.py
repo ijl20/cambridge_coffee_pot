@@ -61,7 +61,7 @@ class LinkGMQTT(object):
         sensor_id is string, used as MQTT topic
         event is dictionary which will be converted to bytes for MQTT message
         """
-        print('LinkGMQTT.put() sending {}'.format(sensor_id))
+        #print('LinkGMQTT.put() sending {}'.format(sensor_id))
 
         message = json.dumps(event)
         self.client.publish(sensor_id, message, qos=0)

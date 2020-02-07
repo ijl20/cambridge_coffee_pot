@@ -76,7 +76,9 @@ class SensorNode(object):
                                     sensor=weight_sensor,
                                     sensor_hub=self.sensor_hub)
 
-        self.watchdog = Watchdog( settings=self.settings, watched=self.sensor_hub, period=30)
+        self.watchdog = Watchdog( settings=self.settings,
+                                  watched=self.sensor_hub,
+                                  period=self.settings["WATCHDOG_PERIOD"])
 
         await asyncio.gather(self.local_sensor.start(),
                              self.remote_sensor_a.start(),
