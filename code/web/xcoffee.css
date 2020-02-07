@@ -54,7 +54,6 @@ body {
 }
 
 .control_div {
-    display: inline-block;
     width: 30%;
     min-width: 400px;
     max-width: 600px;

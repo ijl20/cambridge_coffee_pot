@@ -322,7 +322,17 @@ function init()
     while (page_title.firstChild) {
             page_title.removeChild(page_title.firstChild);
     }
+
     document.getElementById('page_title').appendChild(page_title_text);
+
+    if (/[?&]dev=true/.test(location.search))
+    {
+        // Choose whether to display the control div
+        var events_div = document.getElementById('events');
+        var control_div = document.getElementById('control_div');
+        control_div.style.display = "inline-block";
+        events_div.style.display = "block";
+    }
 
     // initialize log 'console'
     log_div = document.getElementById('log_div');
