@@ -31,7 +31,11 @@ class SensorHub(object):
         print("SensorHub __init()__")
         self.settings = settings
 
-        self.new_ts = None # timestamp of latest brew
+        self.new_status = None # timestamp, weight of current pot of coffee
+
+        self.grind_status = None # most recent timestamp, power from grinder
+
+        self.brew_status = None # most recent timestamp, power from brew machine
 
         # LCD DISPLAY
 
@@ -86,7 +90,7 @@ class SensorHub(object):
         ts = time.time()
         print("{:.3f} SensorHub() watchdog...".format(ts))
         # ------------------------------------------
-        # SEND 'WATCHDOG' (WITH WEIGHT) TO PLATFORM
+        # SEND 'STATUS' (WITH WEIGHT) TO PLATFORM
         # ------------------------------------------
         weight_sensor_id = self.settings["WEIGHT_SENSOR_ID"]
 
@@ -116,9 +120,17 @@ class SensorHub(object):
                          'version': self.settings["VERSION"]
                        }
 
-        # Add timestamp of latest brew is we have one
-        if not self.new_ts is None:
-            weight_event["new_ts"] = self.new_ts
+        # Add status (e.g. timestamp, weight) of latest brew if we have one
+        if not self.new_status is None:
+            weight_event["new_status"] = self.new_status
+
+        # Add status (e.g. timestamp, power) of latest grind if we have one
+        if not self.grind_status is None:
+            weight_event["grind_status"] = self.grind_status
+
+        # Add status (e.g. timestamp, power) of latest brewing if we have one
+        if not self.brew_status is None:
+            weight_event["brew_status"] = self.brew_status
 
         #send MQTT topic, message
         await self.uplink.put(self.settings["SENSOR_ID"], weight_event)
@@ -141,10 +153,38 @@ class SensorHub(object):
 
         for event in events_list:
             # display time of new brew is we have one
-            if event["event_code"] == EventCode.NEW:
-                self.new_ts = ts
+
+            event_code = event["event_code"]
+
+            # If this event is a NEW POT then update display and record the time
+            if event_code == EventCode.NEW:
+                self.new_status = { "acp_ts": ts,
+                                    "weight": event["weight"],
+                                    "weight_new": event["weight_new"],
+                                    "acp_confidence": event["acp_confidence"]
+                                  }
                 self.display.update_new(ts)
 
+            # If this event is from the GRINDER then record the grind status for next COFFEE_STATUS event
+            elif event_code == EventCode.GRINDING or event_code == EventCode.GRIND_STATUS:
+                self.grind_status = { "acp_ts" : ts,
+                                      "power": event["value"]["ENERGY"]["Power"],
+                                      "acp_units": "WATTS"
+                                    }
+                # For a 'status' message from a RemoteSensor we only store it and return.
+                if event_code == EventCode.GRIND_STATUS:
+                    return
+
+            # If this event is from the BREWER then record the brew status for the next COFFEE_STATUS event                                    
+            elif event_code == EventCode.BREWING or event_code == EventCode.BREW_STATUS:
+                self.brew_status = { "acp_ts" : ts,
+                                     "power": event["value"]["ENERGY"]["Power"],
+                                     "acp_units": "WATTS"
+                                    }
+                # For a 'status' message from a RemoteSensor we only store it and return.
+                if event_code == EventCode.BREW_STATUS:
+                    return
+                                    
             # piggyback a weight property if the event doesn't already include it.
             if not "weight" in event:
                 weight_stats_buffer = self.events.sensor_buffers[weight_sensor_id]["stats_buffer"]
@@ -158,8 +198,8 @@ class SensorHub(object):
                 event["weight"] = math.floor(default_weight+0.5)
 
             # also piggyback the timestamp of the most recent new brew
-            if not self.new_ts is None:
-                event["new_ts"] = self.new_ts
+            if not self.new_status is None:
+                event["new_status"] = self.new_status
 
             # add acp_id, acp_ts, acp_type
             event_params =  { "acp_ts": ts,
