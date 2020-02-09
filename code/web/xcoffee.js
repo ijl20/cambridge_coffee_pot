@@ -235,6 +235,21 @@ function xcoffee_handle_msg(msg)
         xcoffee_update_pot(ratio);
     }
 
+
+    if ( msg["new_status"] != null )
+    {
+        let unix_timestamp = msg["new_status"]["acp_ts"]
+        // Create a new JavaScript Date object based on the timestamp
+        // multiplied by 1000 so that the argument is in milliseconds, not seconds.
+        var date = new Date(unix_timestamp * 1000);
+        // Hours part from the timestamp
+        var hh = ("0"+date.getHours()).substr(-2);
+        // Minutes part from the timestamp
+        var mm = ("0" + date.getMinutes()).substr(-2);
+
+        document.getElementById('pot_new_time').textContent = hh+':'+mm;
+    }
+
     console.log("msg event_code =",msg["event_code"])
     if ( msg["event_code"] == "COFFEE_REMOVED" )
     {

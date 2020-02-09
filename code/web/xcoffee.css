@@ -156,6 +156,17 @@ body {
                 display: none;
              }
 
+#pot_new_time { position: absolute;
+                left: 60px;
+                top: 60px;
+                height: 40px;
+                width: 90px;
+                font-size: 60px;
+                color: red;
+                /* background-color: red; */
+                z-index: 650;
+            }
+
 #pot_disconnected { position: absolute;
                 left: 0;
                 top: 0;
