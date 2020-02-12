@@ -233,6 +233,13 @@ function xcoffee_handle_msg(msg)
         }
 
         xcoffee_update_pot(ratio);
+
+        var display_weight = Math.floor(msg["weight"] - POT_WEIGHT_EMPTY);
+
+        draw_cyl('pot_canvas',
+                 display_weight,40, 110, "green" , // text, height px, offset_x, color
+                 148,375,196,35 // cylinder offset_x, offset_y, width, angle
+                 );
     }
 
 
@@ -247,7 +254,10 @@ function xcoffee_handle_msg(msg)
         // Minutes part from the timestamp
         var mm = ("0" + date.getMinutes()).substr(-2);
 
-        document.getElementById('pot_new_time').textContent = hh+':'+mm;
+        //document.getElementById('pot_new_time').textContent = hh+':'+mm;
+        draw_cyl('pot_canvas',
+                 hh+':'+mm,60,60,"red",
+                 148,155,196,25);
     }
 
     console.log("msg event_code =",msg["event_code"])
@@ -322,6 +332,52 @@ function xcoffee_format_msg(msg)
     div.appendChild(div_content);
     return div;
 }
+
+function draw_cyl(
+                canvas_id,
+                text, text_h, text_offset_x, text_color,
+                cyl_offset_x, cyl_offset_y, cyl_width, cyl_angle)
+{
+    // image width and height
+    var iw = cyl_width * Math.PI / 2.0;
+    var ih = text_h;
+
+
+    var drawing_canvas = document.getElementById(canvas_id);
+    var dctx = drawing_canvas.getContext("2d");
+    var dw = drawing_canvas.width // DRAWING width of cylinder
+
+
+    var image = document.createElement("canvas");
+    image.width = iw;
+    image.height = ih;
+    var ictx = image.getContext("2d");
+    ictx.font = text_h*1.3+"px arial";
+    ictx.textAlign = "left";
+    //ictx.fillStyle = "#7F5";
+    //ictx.fillRect(0,0,iw,ih)
+    ictx.fillStyle = text_color;
+    ictx.fillText(text,text_offset_x,text_h)
+
+    // iterate through each 1-pixel column of the image
+    for (var ix=0; ix<iw; ix++)
+    {
+        var dx = cyl_offset_x - iw / Math.PI * Math.cos(ix / iw * Math.PI);
+        var dy = cyl_offset_y + cyl_angle * Math.sin(ix / iw * Math.PI);
+        var dh = ih;
+        dctx.drawImage(image, // source image
+                    ix,    // source x
+                    0,     // source y
+                    1,     // source width
+                    ih,    // source height
+                    dx,    // destination x
+                    dy, // y- s * perspective*0.5, // destination y
+                    1,     // destination width
+                    dh // 200 + s * perspective // destination height
+                    );
+    }
+}
+
 
 // *********************************************************************************
 // *********************************************************************************
