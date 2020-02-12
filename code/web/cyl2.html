@@ -1,0 +1,93 @@
+<html>
+<head>
+  <title>cyl2</title>
+
+<style>
+#pot_box { position: relative;
+           width: 300px;
+           height: 486px;
+           border: blue;
+         }
+
+#pot_foreground { position: absolute;
+                top: 0px;
+                left: 0px;
+                z-index: 400;
+                }
+
+#cyl_new { position: absolute;
+           top: 0px;
+           left: 0px;
+           z-index: 500;
+         }
+</style>
+
+<script>
+
+function draw_cyl(
+                canvas_id,
+                text, text_h, text_offset_x, text_color,
+                cyl_offset_x, cyl_offset_y, cyl_width, cyl_angle)
+{
+    // image width and height
+    var iw = cyl_width * Math.PI / 2.0;
+    var ih = text_h;
+
+
+    var drawing_canvas = document.getElementById(canvas_id);
+    var dctx = drawing_canvas.getContext("2d");
+    var dw = drawing_canvas.width // DRAWING width of cylinder
+
+
+    var image = document.createElement("canvas");
+    image.width = iw;
+    image.height = ih;
+    ictx = image.getContext("2d");
+    ictx.font = text_h*1.3+"px arial";
+    ictx.textAlign = "left";
+    //ictx.fillStyle = "#7F5";
+    //ictx.fillRect(0,0,iw,ih)
+    ictx.fillStyle = text_color;
+    ictx.fillText(text,text_offset_x,text_h)
+
+    // iterate through each 1-pixel column of the image
+    for (var ix=0; ix<iw; ix++)
+    {
+        var dx = cyl_offset_x - iw / Math.PI * Math.cos(ix / iw * Math.PI);
+        var dy = cyl_offset_y + cyl_angle * Math.sin(ix / iw * Math.PI);
+        var dh = ih;
+        dctx.drawImage(image, // source image
+                    ix,    // source x
+                    0,     // source y
+                    1,     // source width
+                    ih,    // source height
+                    dx,    // destination x
+                    dy, // y- s * perspective*0.5, // destination y
+                    1,     // destination width
+                    dh // 200 + s * perspective // destination height
+                    );
+    }
+}
+
+function draw()
+{
+    draw_cyl('cyl_new',
+             '08:26',60,60,"red",
+             148,155,196,20);
+    draw_cyl('cyl_new',
+             '1234',40, 90, "green" , // text, height px, color
+             148,375,196,35 // cylinder offset_x, offset_y, width, angle
+             );
+}
+</script>
+
+</head>
+<body onload="draw()">
+
+<div id=pot_box">
+    <img id="pot_foreground" src="images/pot_foreground.png"/>
+    <canvas id="cyl_new" width=300 height=486></canvas>
+</div>
+
+</body>
+</html>
