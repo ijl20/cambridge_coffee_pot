@@ -336,7 +336,7 @@ function xcoffee_format_msg(msg)
 function draw_cyl(
                 canvas_id,
                 text, text_h, text_offset_x, text_color,
-                cyl_offset_x, cyl_offset_y, cyl_width, cyl_angle)
+                cyl_offset_x, cyl_offset_y, cyl_width, cyl_angle_px)
 {
     // image width and height
     var iw = cyl_width * Math.PI / 2.0;
@@ -347,7 +347,7 @@ function draw_cyl(
     var dctx = drawing_canvas.getContext("2d");
     var dw = drawing_canvas.width // DRAWING width of cylinder
 
-
+    dctx.clearRect(0, cyl_offset_y, dw, ih + cyl_angle_px)
     var image = document.createElement("canvas");
     image.width = iw;
     image.height = ih;
@@ -363,7 +363,7 @@ function draw_cyl(
     for (var ix=0; ix<iw; ix++)
     {
         var dx = cyl_offset_x - iw / Math.PI * Math.cos(ix / iw * Math.PI);
-        var dy = cyl_offset_y + cyl_angle * Math.sin(ix / iw * Math.PI);
+        var dy = cyl_offset_y + cyl_angle_px * Math.sin(ix / iw * Math.PI);
         var dh = ih;
         dctx.drawImage(image, // source image
                     ix,    // source x
