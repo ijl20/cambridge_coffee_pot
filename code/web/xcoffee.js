@@ -213,6 +213,7 @@ function xcoffee_update_pot(ratio)
     }
 }
 
+// HERE IS WHERE WE HANDLE THE INCOMING EVENTS FROM THE XCOFFEE SENSOR NODE.
 function xcoffee_handle_msg(msg)
 {
     console.log('xcoffee msg',msg);
@@ -234,15 +235,19 @@ function xcoffee_handle_msg(msg)
 
         xcoffee_update_pot(ratio);
 
-        var display_weight = Math.floor(msg["weight"] - POT_WEIGHT_EMPTY);
+        var display_weight = ratio == 0 ? 'EMPTY' : Math.floor(msg["weight"] - POT_WEIGHT_EMPTY);
 
-        draw_cyl('pot_canvas',
+        var display_color = ratio == 0 ? "red" : "green";
+
+        // display the weight text as cylinder overlay on pot graphic.
+        draw_cyl_text('pot_canvas',
                  display_weight,40, 110, "green" , // text, height px, offset_x, color
                  148,375,196,35 // cylinder offset_x, offset_y, width, angle
                  );
     }
 
 
+    // For previous "COFFEE_NEW", add cylinder text overlay for "new brew time" to pot graphic.
     if ( msg["new_status"] != null )
     {
         let unix_timestamp = msg["new_status"]["acp_ts"]
@@ -255,7 +260,7 @@ function xcoffee_handle_msg(msg)
         var mm = ("0" + date.getMinutes()).substr(-2);
 
         //document.getElementById('pot_new_time').textContent = hh+':'+mm;
-        draw_cyl('pot_canvas',
+        draw_cyl_text('pot_canvas',
                  hh+':'+mm,60,60,"red",
                  148,155,196,25);
     }
@@ -333,21 +338,38 @@ function xcoffee_format_msg(msg)
     return div;
 }
 
-function draw_cyl(
-                canvas_id,
-                text, text_h, text_offset_x, text_color,
-                cyl_offset_x, cyl_offset_y, cyl_width, cyl_angle_px)
+// draw_cyl_text() will draw a text string on a canvas as if it is wrapped around a cylinder.
+// The basic technique is to draw the text on an internal 'working' canvas (called 'image'), and then copy
+// vertical slices of that image to the DOM canvas with a suitable x shift (for cylinder effect) and
+// y shift (for tilt).
+function draw_cyl_text(
+                canvas_id, // id of DOM canvas element on which to draw the text
+                text,      // Text string to draw
+                text_h, text_offset_x, // px values for text height and offset from left side of cylinder
+                text_color, // color for text foreground (background is transparent)
+                // cylinder parameters (in px):
+                cyl_offset_x, // offset from left edge of canvas
+                cyl_offset_y, // offset down from top of canvas
+                cyl_width,    // diameter of cylinder (i.e. width as seen on canvas)
+                cyl_angle_px) // pixel downshift of center of text, creating apparent tilt.
 {
-    // image width and height
-    var iw = cyl_width * Math.PI / 2.0;
-    var ih = text_h;
+    console.log("draw_cyl_text",text);
 
-
+    // destination DOM canvas to receive the distorted text image
     var drawing_canvas = document.getElementById(canvas_id);
     var dctx = drawing_canvas.getContext("2d");
     var dw = drawing_canvas.width // DRAWING width of cylinder
 
-    dctx.clearRect(0, cyl_offset_y, dw, ih + cyl_angle_px)
+    dctx.clearRect(0, cyl_offset_y, dw, text_h + cyl_angle_px)
+
+    // 'working' canvas to contain the undistorted text 'image'
+    // Image width (iw) and height (ih).
+    // Because the wrapped image covers the facing half of the cylinder, we can
+    // calculate the necessary width of the image as (pi/2)*(the cylinder width)
+    var iw = cyl_width * Math.PI / 2.0;
+    // The image height is simply however tall the text is.
+    var ih = text_h;
+
     var image = document.createElement("canvas");
     image.width = iw;
     image.height = ih;
@@ -362,9 +384,13 @@ function draw_cyl(
     // iterate through each 1-pixel column of the image
     for (var ix=0; ix<iw; ix++)
     {
+        // destination x offset
         var dx = cyl_offset_x - iw / Math.PI * Math.cos(ix / iw * Math.PI);
+        // destination y offset
         var dy = cyl_offset_y + cyl_angle_px * Math.sin(ix / iw * Math.PI);
+        // destination height (in case we add perspective)
         var dh = ih;
+        //
         dctx.drawImage(image, // source image
                     ix,    // source x
                     0,     // source y
