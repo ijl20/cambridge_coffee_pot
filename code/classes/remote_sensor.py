@@ -51,7 +51,7 @@ class RemoteSensor():
         await self.sensor_link.start(link_settings)
 
         subscribe_settings = {}
-        subscribe_settings["topic"] = self.sensor_id+"/tele/SENSOR"
+        subscribe_settings["topic"] = "csn/"+self.sensor_id+"/tele/SENSOR"
         await self.sensor_link.subscribe(subscribe_settings)
 
         while True:
