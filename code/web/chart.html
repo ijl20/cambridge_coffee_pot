@@ -1,0 +1,177 @@
+<html>
+<head>
+    <link rel="stylesheet" href="xcoffee.css" />
+
+    <script src="Chart.js"></script>
+    <script>
+            var VERSION = '7.02';
+     
+            // chart.js object for brewing progress donut
+            var brew_progress;
+            // JS interval timer for brewing progress update
+            var brew_timer;
+            // Brewing start time            
+            var brew_start;
+            // Seconds for full brew
+            var BREW_TIME = 320;
+
+            // Draw the initial 'zero' donut on the pot_canvas
+            function draw_chart()
+            {
+                var ctx = document.getElementById('pot_canvas').getContext('2d');
+                // And for a doughnut chart
+                data = {
+                    datasets: [{
+                        data: [0, 1], // The donut is two data values, initially shows zero visible.
+                        backgroundColor: [ 'rgba(255,100,100,0.3)', 'rgba(100,255,100,0.1)']
+                    }]
+                };
+                // Here we actually create the chart
+                brew_progress = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: data
+                });
+               
+            }
+
+            function update_chart(ratio) {
+                brew_progress.data.datasets[0].data = [ratio, 1-ratio];
+                brew_progress.update();
+            }
+
+            function brew_update()
+            {
+                var brew_ratio = ((new Date()).getTime() - brew_start) / (BREW_TIME*1000);
+                if (brew_ratio > 1)
+                {
+                    end_brew();
+                }
+                else
+                {
+                    update_chart(brew_ratio);
+                    xcoffee_update_pot(brew_ratio);
+                }
+            }
+
+            function start_brew()
+            {
+                brew_start = (new Date()).getTime();
+                brew_timer = setInterval(brew_update,1000);
+                console.log("Brew animation started");
+            }
+
+            function end_brew()
+            {
+                console.log("Brew animation ended");
+                clearTimeout(brew_timer);
+            }
+
+    // ********************************************************************************
+    // ********************************************************************************
+    // ***********  XCOFFEE        ****************************************************
+    // ********************************************************************************
+    // ********************************************************************************
+    
+    // POT WEIGHTS
+    //
+    var POT_WEIGHT_FULL = 3400;
+    var POT_WEIGHT_EMPTY = 1630;
+    
+    // Image elements
+    var pot_top;
+    var pot_below;
+    var pot_empty;
+    var pot_removed;
+    var pot_disconnected;
+    
+    // lower limit of coffee
+    var POT_BOTTOM_Y = 454;
+    
+    // Y-pixel of ratio = 1
+    var POT_MAX_Y = 160;
+    // Y-pixel of ratio = 0
+    var POT_MIN_Y = 421;
+    
+    // PX offset from top of pot_top image to the y-value representing the reading
+    var POT_TOP_OFFSET = 30;
+    var POT_BOTTOM_OFFSET = 40;
+    
+    var pot_is_empty;
+    
+    function xcoffee_init()
+    {
+        console.log("init()");
+        document.title = 'xcoffee V' + VERSION;
+    
+        // The 2 images that move up and down to display the coffee level.
+        pot_top = document.getElementById("pot_top");
+        pot_below = document.getElementById("pot_below");
+        pot_empty = document.getElementById("pot_empty");
+        pot_removed = document.getElementById("pot_removed");
+        pot_disconnected = document.getElementById("pot_disconnected");
+    
+        pot_is_empty = false;
+    
+        xcoffee_update_pot(0);
+
+        draw_chart();
+    }
+    
+    // Convert a pot 'fullness' ratio to a Y-pixel value representing the reading
+    function ratio_to_y(ratio)
+    {
+        return Math.floor(ratio * (POT_MAX_Y - POT_MIN_Y) + POT_MIN_Y)
+    }
+    
+    function xcoffee_update_pot(ratio)
+    {
+        var y = ratio_to_y(ratio);
+    
+        //console.log("y=",y);
+    
+        pot_top.style['top'] = (y - POT_TOP_OFFSET)+"px";
+        pot_below.style['top'] = y + "px";
+        pot_below.style['height'] = (POT_MIN_Y - y) + POT_BOTTOM_OFFSET + "px";
+    
+        if (ratio == 0 && !pot_is_empty)
+        {
+            console.log("new empty pot");
+    
+            pot_empty.style['display'] = "block";
+            pot_is_empty = true;
+        }
+        else if (ratio != 0 && pot_is_empty)
+        {
+            console.log("new non-empty pot");
+    
+            pot_empty.style['display'] = "none";
+            pot_is_empty = false;
+        }
+    }
+                </script>
+</head>
+
+<body onload="xcoffee_init()">
+
+    <div class="client_area">
+
+        <h2>Cambridge Coffee Pot</h2>
+    
+        <div id="pot">
+            <img id="pot_background" src="images/pot_background.png"/>
+            <img id="pot_foreground" src="images/pot_foreground.png"/>
+            <img id="pot_empty" src="images/pot_empty.png"/>
+            <img id="pot_top" src="images/pot_top.png"/>
+            <img id="pot_below" src="images/pot_below.png"/>
+            <img id="pot_removed" src="images/pot_removed.png"/>
+            <div id="pot_new_time"></div>
+            <canvas id="pot_canvas" width=300 height=486></canvas>
+            <img id="pot_disconnected" src="images/pot_disconnected.png"/>
+        </div>
+        
+    </div>
+        
+
+</body>
+
+</html>
