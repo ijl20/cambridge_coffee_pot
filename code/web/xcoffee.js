@@ -156,6 +156,15 @@ var POT_MIN_Y = 421;
 var POT_TOP_OFFSET = 30;
 var POT_BOTTOM_OFFSET = 40;
 
+// chart.js object for brewing progress donut
+var brew_progress_chart;
+// JS interval timer for brewing progress update
+var brew_timer = null;
+// Brewing start time            
+var brew_start;
+// Seconds for full brew
+var BREW_TIME = 320;
+
 var pot_is_empty;
 
 function xcoffee_init()
@@ -213,6 +222,65 @@ function xcoffee_update_pot(ratio)
     }
 }
 
+// Draw the initial 'zero' donut on the pot_canvas
+function draw_brew_progress(ctx)
+{
+    // And for a doughnut chart
+    var data = {
+        datasets: [{
+            data: [0, 1], // The donut is two data values, initially shows zero visible.
+            backgroundColor: [ 'rgba(255,100,100,0.3)', 'rgba(100,255,100,0.1)']
+        }]
+    };
+    // Here we actually create the chart
+    brew_progress_chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: {
+            animation: { duration: 0 }
+        }
+    });
+    
+}
+
+function update_brew_progress(ratio) {
+    brew_progress_chart.data.datasets[0].data = [ratio, 1-ratio];
+    brew_progress_chart.update();
+}
+
+function update_brew()
+{
+    var brew_ratio = ((new Date()).getTime() - brew_start) / (BREW_TIME*1000);
+    if (brew_ratio > 1)
+    {
+        end_brew();
+    }
+    else
+    {
+        update_brew_progress(brew_ratio);
+        xcoffee_update_pot(brew_ratio);
+    }
+}
+
+function start_brew()
+{
+    var ctx = document.getElementById('pot_canvas').getContext('2d');
+    brew_start = (new Date()).getTime();
+    draw_brew_progress(ctx);
+    brew_timer = setInterval(update_brew,1000);
+    console.log("Brew animation started");
+}
+
+function end_brew()
+{
+    console.log("Brew animation ended");
+    clearInterval(brew_timer);
+    brew_timer = null;
+    const canvas = document.getElementById('pot_canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
 // HERE IS WHERE WE HANDLE THE INCOMING EVENTS FROM THE XCOFFEE SENSOR NODE.
 function xcoffee_handle_msg(msg)
 {
@@ -241,7 +309,7 @@ function xcoffee_handle_msg(msg)
 
         // display the weight text as cylinder overlay on pot graphic.
         draw_cyl_text('pot_canvas',
-                 display_weight,40, 110, "green" , // text, height px, offset_x, color
+                 display_weight,40, 95, "green" , // text, height px, offset_x, color
                  148,375,196,35 // cylinder offset_x, offset_y, width, angle
                  );
     }
@@ -259,7 +327,6 @@ function xcoffee_handle_msg(msg)
         // Minutes part from the timestamp
         var mm = ("0" + date.getMinutes()).substr(-2);
 
-        //document.getElementById('pot_new_time').textContent = hh+':'+mm;
         draw_cyl_text('pot_canvas',
                  hh+':'+mm,60,60,"red",
                  148,155,196,25);
@@ -348,8 +415,8 @@ function draw_cyl_text(
                 text_h, text_offset_x, // px values for text height and offset from left side of cylinder
                 text_color, // color for text foreground (background is transparent)
                 // cylinder parameters (in px):
-                cyl_offset_x, // offset from left edge of canvas
-                cyl_offset_y, // offset down from top of canvas
+                cyl_offset_x, // cylinder offset from left edge of canvas
+                cyl_offset_y, // cylinder offset from top of canvas
                 cyl_width,    // diameter of cylinder (i.e. width as seen on canvas)
                 cyl_angle_px) // pixel downshift of center of text, creating apparent tilt.
 {

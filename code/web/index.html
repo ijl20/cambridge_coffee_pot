@@ -36,13 +36,16 @@ RELEASE INFO:
 <link rel="stylesheet" href="xcoffee.css" />
 
 <!-- RTMonitor and WebSockets library -->
-<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="sockjs.min.js"></script>
 <!--script src="sockjs.min.js"></script>-->
 
 <script src="rtmonitor_api.js"></script>
 
 <!-- ijl20 library of useful geo functions -->
 <script src="geo.js"></script>
+
+<!-- general chart drawing library (for brew progress donut) -->
+<script src="Chart.js"></script>
 
 <!-- The core realtime display and route analytics code -->
 <script src="xcoffee.js"></script>
@@ -163,13 +166,13 @@ RELEASE INFO:
     <h2>Cambridge Coffee Pot</h2>
 
     <div id="pot">
+        <!-- overlay images in Z-order defined in CSS -->
         <img id="pot_background" src="images/pot_background.png"/>
+        <img id="pot_below" src="images/pot_below.png"/>
+        <img id="pot_top" src="images/pot_top.png"/>
         <img id="pot_foreground" src="images/pot_foreground.png"/>
         <img id="pot_empty" src="images/pot_empty.png"/>
-        <img id="pot_top" src="images/pot_top.png"/>
-        <img id="pot_below" src="images/pot_below.png"/>
         <img id="pot_removed" src="images/pot_removed.png"/>
-        <div id="pot_new_time"></div>
         <canvas id="pot_canvas" width=300 height=486></canvas>
         <img id="pot_disconnected" src="images/pot_disconnected.png"/>
     </div>

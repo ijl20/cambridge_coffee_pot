@@ -122,6 +122,20 @@ body {
                   z-index: 100;
                   }
 
+#pot_below { position: absolute;
+                width: 194px;
+                left: 52px;
+                top: 360px;
+                height: 94px;
+                z-index: 150;
+                }
+
+#pot_top { position: absolute;
+                left: 52px;
+                top: 300px;
+                z-index: 200;
+                }
+
 #pot_foreground { position: absolute;
                   left: 0;
                   top: 0;
@@ -135,37 +149,12 @@ body {
                   display: none;
                   }
 
-#pot_top { position: absolute;
-                left: 52px;
-                top: 300px;
-                z-index: 200;
-                }
-
-#pot_below { position: absolute;
-                width: 194px;
-                left: 52px;
-                top: 360px;
-                height: 94px;
-                z-index: 150;
-                }
-
 #pot_removed { position: absolute;
                 left: 0;
                 top: 0;
                 z-index: 700;
                 display: none;
              }
-
-#pot_new_time { position: absolute;
-                left: 60px;
-                top: 60px;
-                height: 40px;
-                width: 90px;
-                font-size: 60px;
-                color: red;
-                /* background-color: red; */
-                z-index: 650;
-            }
 
 #pot_canvas { position: absolute;
                 left: 0;
