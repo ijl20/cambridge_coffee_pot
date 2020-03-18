@@ -143,6 +143,15 @@ var pot_below;
 var pot_empty;
 var pot_removed;
 var pot_disconnected;
+var pot_canvas;
+
+// Various states the pot can be in, affecting display elements
+var POT_STATE_REMOVED = 1;
+var POT_STATE_BREWING = 2;
+var POT_STATE_RUNNING = 3;
+
+// Current pot state, one of the above
+var pot_state;
 
 // lower limit of coffee
 var POT_BOTTOM_Y = 454;
@@ -178,10 +187,13 @@ function xcoffee_init()
     pot_empty = document.getElementById("pot_empty");
     pot_removed = document.getElementById("pot_removed");
     pot_disconnected = document.getElementById("pot_disconnected");
+    pot_canvas = document.getElementById("pot_canvas");
 
     events_div = document.getElementById("events");
 
     pot_is_empty = false;
+
+    set_state_removed();
 
     rt_mon = RTMONITOR_API.register(xcoffee_connected, rtmonitor_disconnected);
 
@@ -264,7 +276,7 @@ function update_brew()
 
 function start_brew()
 {
-    var ctx = document.getElementById('pot_canvas').getContext('2d');
+    var ctx = pot_canvas.getContext('2d');
     brew_start = (new Date()).getTime();
     draw_brew_progress(ctx);
     brew_timer = setInterval(update_brew,1000);
@@ -276,18 +288,61 @@ function end_brew()
     console.log("Brew animation ended");
     clearInterval(brew_timer);
     brew_timer = null;
-    const canvas = document.getElementById('pot_canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = pot_canvas.getContext('2d');
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
-// HERE IS WHERE WE HANDLE THE INCOMING EVENTS FROM THE XCOFFEE SENSOR NODE.
-function xcoffee_handle_msg(msg)
+function set_state_removed(msg)
 {
-    console.log('xcoffee msg',msg);
+    // Do nothing if we're currently brewing
+    if (pot_state == POT_STATE_BREWING)
+    {
+        return;
+    }
 
-    events_div.insertBefore(xcoffee_format_msg(msg),events_div.firstChild);
+    // Otherwise show the 'pot removed' graphic
+    console.log("state REMOVED");
+    pot_state = POT_STATE_REMOVED;
+    pot_removed.style['display'] = 'block';
+}
 
+function set_state_brewing(msg)
+{
+    console.log("state BREWING");
+    pot_state = POT_STATE_BREWING;
+    pot_removed.style['display'] = 'none';
+    if (brew_timer == null)
+    {
+        start_brew();
+    }
+}
+
+function set_state_running(msg)
+{
+    console.log("state RUNNING");
+    pot_state = POT_STATE_RUNNING;
+    pot_removed.style['display'] = 'none';
+
+    if (brew_timer != null)
+    {
+        end_brew();
+    }
+
+    draw_weight(msg);
+
+    draw_new(msg);
+}
+
+function handle_status(msg)
+{
+    if (msg["weight"] != null && msg["weight"] > 1400)
+    {
+        set_state_running(msg);
+    }
+}
+
+function draw_weight(msg)
+{
     if ( msg["weight"] != null )
     {
         var ratio = (msg["weight"] - POT_WEIGHT_EMPTY) / (POT_WEIGHT_FULL - POT_WEIGHT_EMPTY)
@@ -308,13 +363,15 @@ function xcoffee_handle_msg(msg)
         var display_color = ratio == 0 ? "red" : "green";
 
         // display the weight text as cylinder overlay on pot graphic.
-        draw_cyl_text('pot_canvas',
-                 display_weight,40, 95, "green" , // text, height px, offset_x, color
+        draw_cyl_text(pot_canvas,
+                 display_weight,40, 95, display_color , // text, height px, offset_x, color
                  148,375,196,35 // cylinder offset_x, offset_y, width, angle
                  );
     }
+}
 
-
+function draw_new(msg)
+{
     // For previous "COFFEE_NEW", add cylinder text overlay for "new brew time" to pot graphic.
     if ( msg["new_status"] != null )
     {
@@ -327,20 +384,39 @@ function xcoffee_handle_msg(msg)
         // Minutes part from the timestamp
         var mm = ("0" + date.getMinutes()).substr(-2);
 
-        draw_cyl_text('pot_canvas',
+        draw_cyl_text(pot_canvas,
                  hh+':'+mm,60,60,"red",
                  148,155,196,25);
     }
+}
+// HERE IS WHERE WE HANDLE THE INCOMING EVENTS FROM THE XCOFFEE SENSOR NODE.
+function xcoffee_handle_msg(msg)
+{
+    console.log('xcoffee msg',msg);
 
-    console.log("msg event_code =",msg["event_code"])
-    if ( msg["event_code"] == "COFFEE_REMOVED" )
+    events_div.insertBefore(xcoffee_format_msg(msg),events_div.firstChild);
+
+    switch (msg["event_code"])
     {
-        pot_removed.style['display'] = 'block';
-    }
-    else if (msg["event_code"] != null)
-    {
-        console.log('display=none for pot_removed')
-        pot_removed.style['display'] = 'none';
+        case "COFFEE_REMOVED":
+            set_state_removed();
+            break;
+
+        case "COFFEE_GRINDING":
+        case "COFFEE_BREWING":
+            set_state_brewing();
+            break;
+
+        case "COFFEE_POURED":
+        case "COFFEE_NEW":
+        case "COFFEE_REPLACED":
+            set_state_running();
+            break;
+
+        case "COFFEE_STATUS":
+            handle_status(msg);
+        default:
+            break;
     }
 }
 
@@ -410,7 +486,7 @@ function xcoffee_format_msg(msg)
 // vertical slices of that image to the DOM canvas with a suitable x shift (for cylinder effect) and
 // y shift (for tilt).
 function draw_cyl_text(
-                canvas_id, // id of DOM canvas element on which to draw the text
+                drawing_canvas, // id of DOM canvas element on which to draw the text
                 text,      // Text string to draw
                 text_h, text_offset_x, // px values for text height and offset from left side of cylinder
                 text_color, // color for text foreground (background is transparent)
@@ -423,7 +499,6 @@ function draw_cyl_text(
     console.log("draw_cyl_text",text);
 
     // destination DOM canvas to receive the distorted text image
-    var drawing_canvas = document.getElementById(canvas_id);
     var dctx = drawing_canvas.getContext("2d");
     var dw = drawing_canvas.width // DRAWING width of cylinder
 
