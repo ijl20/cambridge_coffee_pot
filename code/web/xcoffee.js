@@ -3,8 +3,49 @@
 // *******************  Page and map code ************************************
 // ***************************************************************************
 // Constants
+//
+var test_messages = [{"event_code":"COFFEE_POURED","weight_poured":206,"weight":2655,"acp_confidence":0.8,"acp_ts":1584605876.8077903,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
 
-var VERSION = '7.02';
+{"acp_id":"csn-node-test","acp_type":"coffee_pot","acp_ts":1584605876.3270507,"acp_units":"GRAMS","event_code":"COFFEE_STATUS","weight":5676,"version":"0.84","grind_status":{"acp_ts":1584605748.7128072,"power":1,"acp_units":"WATTS"},"brew_status":{"acp_ts":1584605764.6580412,"power":57,"acp_units":"WATTS"}},
+
+{"event_code":"COFFEE_REPLACED","weight":2864,"acp_confidence":0.8,"acp_ts":1584605853.5028512,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_BREWING","power":57,"value":{"Time":"2020-03-19T09:16:04","ENERGY":{"TotalStartTime":"2019-12-26T17:02:35","Total":1.58,"Yesterday":0.225,"Today":0.153,"Power":57,"ApparentPower":2468,"ReactivePower":2467,"Factor":0.02,"Voltage":242,"Current":10.194},"topic":"csn/csn-node-test-brew/tele/SENSOR"},"acp_confidence":0.82,"weight":-7,"acp_ts":1584605764.6580412,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_BREWING","power":2438,"value":{"Time":"2020-03-19T09:15:48","ENERGY":{"TotalStartTime":"2019-12-26T17:02:35","Total":1.569,"Yesterday":0.225,"Today":0.142,"Period":134,"Power":2438,"ApparentPower":2470,"ReactivePower":398,"Factor":0.99,"Voltage":242,"Current":10.203},"topic":"csn/csn-node-test-brew/tele/SENSOR"},"acp_confidence":0.82,"weight":-7,"acp_ts":1584605748.7264717,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"acp_id":"csn-node-test","acp_type":"coffee_pot","acp_ts":1584605576.3233862,"acp_units":"GRAMS","event_code":"COFFEE_STATUS","weight":-8,"version":"0.84","grind_status":{"acp_ts":1584605519.6496623,"power":77,"acp_units":"WATTS"},"brew_status":{"acp_ts":1584605551.6410744,"power":4,"acp_units":"WATTS"}},
+
+{"event_code":"COFFEE_GRINDING","power":77,"value":{"Time":"2020-03-19T09:11:59","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.349,"Yesterday":0.013,"Today":0.001,"Power":77,"ApparentPower":723,"ReactivePower":719,"Factor":0.11,"Voltage":252,"Current":2.868},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":-7,"acp_ts":1584605519.6496623,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":368,"value":{"Time":"2020-03-19T09:11:58","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.349,"Yesterday":0.013,"Today":0.001,"Power":368,"ApparentPower":723,"ReactivePower":622,"Factor":0.51,"Voltage":252,"Current":2.868},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":-7,"acp_ts":1584605518.644406,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_REMOVED","weight":26,"acp_confidence":0.8703468508556151,"acp_ts":1584605491.700776,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":109,"value":{"Time":"2020-03-19T09:10:36","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.349,"Yesterday":0.013,"Today":0.001,"Power":109,"ApparentPower":708,"ReactivePower":700,"Factor":0.15,"Voltage":251,"Current":2.819},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2839,"acp_ts":1584605436.6339674,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":332,"value":{"Time":"2020-03-19T09:10:35","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.349,"Yesterday":0.013,"Today":0.001,"Power":332,"ApparentPower":710,"ReactivePower":628,"Factor":0.47,"Voltage":252,"Current":2.819},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2836,"acp_ts":1584605435.6367328,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":42,"value":{"Time":"2020-03-19T09:10:34","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.349,"Yesterday":0.013,"Today":0.001,"Power":42,"ApparentPower":746,"ReactivePower":745,"Factor":0.06,"Voltage":252,"Current":2.961},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2830,"acp_ts":1584605434.8890438,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":90,"value":{"Time":"2020-03-19T09:10:33","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.348,"Yesterday":0.013,"Today":0.001,"Power":90,"ApparentPower":90,"ReactivePower":0,"Factor":1,"Voltage":251,"Current":0.358},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2828,"acp_ts":1584605433.6303575,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":90,"value":{"Time":"2020-03-19T09:10:32","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.348,"Yesterday":0.013,"Today":0,"Power":90,"ApparentPower":90,"ReactivePower":0,"Factor":1,"Voltage":251,"Current":0.358},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2839,"acp_ts":1584605432.6228054,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":92,"value":{"Time":"2020-03-19T09:10:31","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.348,"Yesterday":0.013,"Today":0,"Power":92,"ApparentPower":1044,"ReactivePower":1040,"Factor":0.09,"Voltage":251,"Current":4.156},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2830,"acp_ts":1584605431.6712625,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"event_code":"COFFEE_GRINDING","power":374,"value":{"Time":"2020-03-19T09:10:30","ENERGY":{"TotalStartTime":"2020-03-11T15:41:50","Total":0.348,"Yesterday":0.013,"Today":0,"Power":374,"ApparentPower":1046,"ReactivePower":976,"Factor":0.36,"Voltage":252,"Current":4.156},"topic":"csn/csn-node-test-grind/tele/SENSOR"},"acp_confidence":0.81,"weight":2828,"acp_ts":1584605430.6688018,"acp_id":"csn-node-test","acp_type":"coffee_pot"},
+
+{"acp_id":"csn-node-test","acp_type":"coffee_pot","acp_ts":1584605276.014674,"acp_units":"GRAMS","event_code":"COFFEE_STATUS","weight":2826,"version":"0.84","grind_status":{"acp_ts":1584605148.5229409,"power":0,"acp_units":"WATTS"},"brew_status":{"acp_ts":1584605148.5232487,"power":1,"acp_units":"WATTS"}}
+];
+
+var test_next = 0;
+function test(i) { var n; if (i==null) { n = test_next;} else { n = i; }; console.log("test",n); xcoffee_handle_msg(test_messages[ test_messages.length - n - 1]); test_next = n+1; }
+
+
+var VERSION = '7.03.1';
+            // 7.03 testing
+            // 7.02 new, removed, disconnected, brewing, running (i.e. normal) working
             // 7.01 connecting, requesting, subscribing on startup
             // 7.00 rtclient.js -> xcoffee.js
             // 6.01 client/rtmonitor connecting on tfc-app2
@@ -169,7 +210,7 @@ var POT_BOTTOM_OFFSET = 40;
 var brew_progress_chart;
 // JS interval timer for brewing progress update
 var brew_timer = null;
-// Brewing start time            
+// Brewing start time
 var brew_start;
 // Seconds for full brew
 var BREW_TIME = 320;
@@ -252,7 +293,7 @@ function draw_brew_progress(ctx)
             animation: { duration: 0 }
         }
     });
-    
+
 }
 
 function update_brew_progress(ratio) {
