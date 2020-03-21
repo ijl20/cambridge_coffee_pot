@@ -54,6 +54,8 @@ class SensorNode(object):
 
         self.sensor_hub = SensorHub(settings=self.settings)
 
+        await asyncio.sleep(3)
+
         await self.sensor_hub.start(time.time())
 
         self.remote_sensor_a = RemoteSensor( settings=self.settings,

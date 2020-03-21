@@ -41,8 +41,6 @@ class SensorHub(object):
 
         self.display = Display(self.settings)
 
-        self.display.begin()
-
         # EVENTS PATTERN MATCH
 
         self.events = Events(settings=self.settings)
@@ -57,6 +55,8 @@ class SensorHub(object):
 
     # start() is async to allow Uplink.put
     async def start(self, ts):
+
+        self.display.begin()
 
         uplink_settings = {}
         uplink_settings["host"] = self.settings["PLATFORM_HOST"]

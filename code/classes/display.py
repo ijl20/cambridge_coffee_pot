@@ -68,7 +68,8 @@ DISPLAY_SETTINGS = {
     "EVENT_Y": 28,
     "EVENT_WIDTH": 101,
     "EVENT_HEIGHT": 12,
-    "EVENT_COUNT": 6
+    "EVENT_COUNT": 6,
+    "EVENT_COLOR_BG": "blue"
 
 }
 
@@ -125,6 +126,8 @@ class Display(object):
         # here we disable the real-time chart
         #self.chart = self.LCD.add_chart(CHART_SETTINGS)
 
+        self.clear_events()
+        
         self.pot.begin()
 
         self.update_old()
@@ -219,6 +222,27 @@ class Display(object):
 
             self.LCD.display_window(image, 0, 40, 160, 40)
 
+    # -------------------------------------------------------------------
+    # ------ DRAW EVENTS ON LCD       ---------------------------
+    # -------------------------------------------------------------------
+    def clear_events(self):
+        # create a blank image
+        w = self.settings["EVENT_WIDTH"]
+        h = self.settings["EVENT_HEIGHT"] * self.settings["EVENT_COUNT"]
+
+        image = Image.new( "RGB",
+                           (w,h),
+                           self.settings["EVENT_COLOR_BG"])
+
+        draw = ImageDraw.Draw(image)
+
+        # display image on screen at coords x,y. (0,0)=top left.
+        self.LCD.display_window(image,
+                        self.settings["EVENT_X"],
+                        self.settings["EVENT_Y"],
+                        w,
+                        h)
+
     # Add the event to the event area
     def update_event(self,ts,event):
         #print("Display.update_event {} {}".format(ts,event))
@@ -269,7 +293,7 @@ class Display(object):
         # If the event_code has a "value" key (e.g. = "weight_new"), append the value to the display text
         value_text = ""
         if "value" in EventCode.INFO[event_code]:
-            value_text = self.events[index]["event"][EventCode.INFO[event_code]["value"]]
+            value_text = " "+str(self.events[index]["event"][EventCode.INFO[event_code]["value"]])
 
         fg = "YELLOW"
         if event_code == EventCode.NEW:
@@ -278,14 +302,25 @@ class Display(object):
             bg = "BLUE"
             fg = "YELLOW"
         else:
-            bg = "BLUE"
+            bg = self.settings["EVENT_COLOR_BG"]
 
-        event_str = time_str + " " + event_text + " " + str(value_text)
+        event_str = event_text + value_text + " |" +  time_str
 
+        # make the w x h empty image we're going to paint the text string onto
         image = Image.new("RGB", (w, h), bg)
+
+        # create a 'Draw' context for the .text()
         draw = ImageDraw.Draw(image)
-        # add text to image - we adjust vertical offset -2 for better fit
-        draw.text((0,-2),event_str,fill=fg,font=EVENT_FONT)
+
+        # calculate x coordinate necessary to right-justify text
+        string_width, string_height = draw.textsize(event_str, font=EVENT_FONT)
+
+        # add text to image - we adjust y offset -2 for better fit, set x to right-justify
+        draw.text((w - string_width,-2), # (x,y) of text top-left
+                  event_str,             # string to display
+                  fill=fg,               # (foreground) color of text 
+                  font=EVENT_FONT)       # character font
+
         self.LCD.display_window(image,x,y,w,h)
 
     # Display the "BREWED HH:MM" new pot of coffee message
