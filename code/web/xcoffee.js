@@ -360,7 +360,7 @@ function set_state_brewing(msg)
 
 function set_state_running(msg)
 {
-    console.log("state RUNNING");
+    console.log("state RUNNING", msg);
     pot_state = POT_STATE_RUNNING;
     pot_removed.style['display'] = 'none';
 
@@ -384,9 +384,13 @@ function handle_status(msg)
 
 function draw_weight(msg)
 {
-    if ( msg["weight"] != null )
+    console.log('draw_weight', msg);
+
+    var weight = msg["weight"];
+
+    if ( weight != null )
     {
-        var ratio = (msg["weight"] - POT_WEIGHT_EMPTY) / (POT_WEIGHT_FULL - POT_WEIGHT_EMPTY)
+        var ratio = (weight - POT_WEIGHT_EMPTY) / (POT_WEIGHT_FULL - POT_WEIGHT_EMPTY)
 
         if (ratio > 1)
         {
@@ -399,13 +403,27 @@ function draw_weight(msg)
 
         xcoffee_update_pot(ratio);
 
-        var display_weight = ratio == 0 ? 'EMPTY' : Math.floor(msg["weight"] - POT_WEIGHT_EMPTY);
+        var display_weight = Math.floor(weight - POT_WEIGHT_EMPTY);
+        var display_color = "green";
+        var offset_x = 135;
+        if (display_weight > 1000)
+        {
+            offset_x = 95;
+        }
+        else if (display_weight > 100)
+        {
+            offset_x = 115;
+        }
 
-        var display_color = ratio == 0 ? "red" : "green";
-
+        if (ratio == 0)
+        {
+            display_weight = 'EMPTY';
+            display_color = "red";
+            offset_x = 75;
+        }
         // display the weight text as cylinder overlay on pot graphic.
         draw_cyl_text(pot_canvas,
-                 display_weight,40, 95, display_color , // text, height px, offset_x, color
+                 display_weight,40, offset_x, display_color , // text, height px, offset_x, color
                  148,375,196,35 // cylinder offset_x, offset_y, width, angle
                  );
     }
@@ -440,18 +458,18 @@ function xcoffee_handle_msg(msg)
     switch (msg["event_code"])
     {
         case "COFFEE_REMOVED":
-            set_state_removed();
+            set_state_removed(msg);
             break;
 
         case "COFFEE_GRINDING":
         case "COFFEE_BREWING":
-            set_state_brewing();
+            set_state_brewing(msg);
             break;
 
         case "COFFEE_POURED":
         case "COFFEE_NEW":
         case "COFFEE_REPLACED":
-            set_state_running();
+            set_state_running(msg);
             break;
 
         case "COFFEE_STATUS":
