@@ -5,6 +5,8 @@
     "SAMPLE_SAVE_COUNT": 0,
     "SIMULATE_UPLINK": true,
     "SIMULATE_WEIGHT": true,
+    "WEIGHT_CSV_FILE": "../data/2019-11-22/2019-11-22_readings.csv",
+    "ALT_WEIGHT_CSV_FILE": "../data/test_fill.csv",
     "SIMULATE_DISPLAY": true
 }
 

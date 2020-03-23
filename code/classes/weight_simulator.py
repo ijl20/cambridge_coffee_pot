@@ -10,6 +10,13 @@ from datetime import datetime
 
 from classes.time_buffer import TimeBuffer
 
+# SensorNode will use WeightSimulator rather than WeightSensor if
+# settings["SIMULATE_WEIGHT"]=True
+
+# WeightSimulator loads CSV timestamp,weight readings into a TimeBuffer, and
+# then serves the data from that buffer on each get_value(ts) request.
+#
+# The CSV data filename is given in the settings["WEIGHT_CSV_FILE"]
 class WeightSimulator(object):
     def __init__(self, settings=None, filename="../data/test_fill.csv"):
 
@@ -21,7 +28,10 @@ class WeightSimulator(object):
 
         self.sample_buffer = TimeBuffer(size=12000,settings=self.settings)
 
-        self.sample_buffer.load(filename)
+        if "WEIGHT_CSV_FILE" in settings:
+            self.sample_buffer.load(settings["WEIGHT_CSV_FILE"])
+        else:
+            self.sample_buffer.load(filename)
 
         # Get the Unix timestamp from the latest entry in the buffer
         start_ts = self.sample_buffer.get(0)["ts"]
