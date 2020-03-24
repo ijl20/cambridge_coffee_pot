@@ -53,14 +53,14 @@ class Events(object):
         # set up the various timebuffers
         self.settings = settings
 
-
         # CONSTS
-        self.EMPTY_WEIGHT = 1630
-        self.EMPTY_MARGIN = 50
-        self.FULL_WEIGHT = 3400
-        self.FULL_MARGIN = 400
-        self.REMOVED_WEIGHT = 0
-        self.REMOVED_MARGIN = 100
+        self.EMPTY_WEIGHT = 1630 # Weight of empty pot (grams)
+        self.EMPTY_MARGIN = 50   # Will send COFFEE_EMPTY at EMPTY_WEIGHT+EMPTY_MARGIN
+        self.FULL_WEIGHT = 3400  # Expected weight of a full pot
+        self.FULL_MARGIN = 400   # full_value(weight) is True if within this margin
+        self.NEW_POT_MINIMUM = 1000 # Weight of COFFEE threshold for a new pot event
+        self.REMOVED_WEIGHT = 0  # Expected weight when pot removed
+        self.REMOVED_MARGIN = 100 # removed_value(weight) is True if within this margin
 
         # Create event buffer for sensor node, i.e. common to all sensors
         self.event_buffer = TimeBuffer(size=1000, settings=self.settings)
@@ -146,6 +146,13 @@ class Events(object):
             return removed, next_offset, m, confidence
         else:
             return None, None, None, None
+
+    # Try and find an Event during previous 'duration' seconds
+    # Returns event or None
+    def find_event(event_code, duration):
+        is_event = lambda event_sample: event_sample['value']['event_code'] == event_code
+        e, e_offset, e_duration, e_count = self.event_buffer.find(0, duration, is_event)
+        return e # either None or the event that was found
 
     # Test if cup has been POURED
     def test_event_poured(self, ts):
@@ -237,53 +244,60 @@ class Events(object):
 
         return None
 
+    # Test for a new pot of coffee
+    # Return event or None
     def test_event_new(self, ts):
-        REMOVED_TEST_SECONDS = 30 # pot must previously have been removed for at least this long
-        PREVIOUS_NEW_TEST_SECONDS = 60 # there must not have been a NEW event within this time
-        # Is the pot full now ?
-        full, offset, full_weight, full_confidence = self.is_full(0)
+        REMOVED_TEST_SECONDS = 30 # pot weight => removed within past 30 seconds
+        PREVIOUS_NEW_TEST_SECONDS = 60*30 # no NEW event within past 30 mins
+        STABILITY_TEST_SECONDS = 1 # the weight must be 'stable' for this long for valid reading
 
-        # Immediate return if pot not full now
-        if not full:
+        # Return None if current weight not stable
+        sample_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["sample_buffer"]
+        current_median, next_offset, duration, sample_count = sample_buffer.median(0, STABILITY_TEST_SECONDS)
+        d, next_offset, duration, sample_count = sample_buffer.deviation(0, STABILITY_TEST_SECONDS, current_median)
+        # Return None if we don't have a stable weight
+        if ( current_median is None or
+             sample_count is None or
+             sample_count < 5 or
+             d is None or
+             d > 30):
             return None
 
-        if self.settings["LOG_LEVEL"] <= 1:
-            print("{:.3f} test_event_new is_full".format(ts))
+        # Return None if pot has not enough coffee for possible NEW event
+        if current_median < self.EMPTY_WEIGHT + self.NEW_POT_MINIMUM:
+            return None
 
-        # Was pot REMOVED during previous 30 seconds ?
+        # Return None if pot is not full and no GRINDING or BREWING events for 30 mins
+        full, confidence = self.full_value(current_median)
+        if not full:
+            if ( find_event(EventCode.GRINDING, 30*60) is None and
+                 find_event(EventCode.BREWING, 30*60) is None):
+                return None
+            else:
+                confidence = 0.85 #debug should calculate this
+
+        # Return None if pot not REMOVED during previous 30 seconds
         # define stats_buffer sample test function
         removed_test = lambda stats_sample: self.removed_value(stats_sample['value']['median'])[0]
-
         # look in stats_buffer to try and find 'removed' 1-second median
         stats_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["stats_buffer"]
         stats_removed, stats_offset, stats_duration, stats_count = stats_buffer.find(0, REMOVED_TEST_SECONDS, removed_test)
+        if stats_removed == None:
+            return None
 
-        if stats_removed != None:
-            if self.settings["LOG_LEVEL"] <= 1:
-                print("{:.3f} test_event_new stats_removed test succeeded".format(ts))
+        if self.settings["LOG_LEVEL"] <= 1:
+            print("{:.3f} test_event_new stats_removed test succeeded".format(ts))
 
-            # ok we found a previous 'removed' median
+        # Return None if New event in past 30 mins
+        if not find_event(EventCode.NEW, PREVIOUS_NEW_TEST_SECONDS) is None:
+            return None
 
-            is_new_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.NEW
-
-            previous_new_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_NEW_TEST_SECONDS, is_new_event )
-
-            if previous_new_event is None:
-                # and we have no previous NEW event
-                weight = math.floor(full_weight+0.5)
-                confidence = full_confidence
-                return { "event_code": EventCode.NEW,
-                         "weight": weight,
-                         "weight_new": weight - self.settings["WEIGHT_EMPTY"],
-                         "acp_confidence": confidence }
-            else:
-                if self.settings["LOG_LEVEL"] <= 1:
-                    print("{:.3f} NEW suppressed due to prior NEW".format(ts))
-
-        elif self.settings["LOG_LEVEL"] <= 1:
-            print("{:.3f} remove_test failed".format(ts))
-
-        return None
+        # All tests passed, so return COFFEE_NEW event
+        weight = math.floor(current_median + 0.5)
+        return { "event_code": EventCode.NEW,
+                 "weight": weight,
+                 "weight_new": weight - self.settings["WEIGHT_EMPTY"],
+                 "acp_confidence": confidence }
 
     def test_event_removed(self, ts):
         # Is the pot removed now ?
@@ -325,7 +339,7 @@ class Events(object):
 
         current_deviation, offset, duration, sample_count = sample_buffer.deviation(0,1,current_median)
 
-        # COFFEE_POURED == False if current 1 second weight not stable
+        # COFFEE_REPLACED == False if current 1 second weight not stable
         if ( current_median is None or
              offset is None or
              duration is None or
@@ -342,14 +356,14 @@ class Events(object):
             #print("test_event_replaced() deviation not stable = {}".format(current_deviation))
             return None
 
-        # Was pot REMOVED during previous 3 seconds ?
+        # Was pot REMOVED during previous 6 seconds ?
         # define stats_buffer sample test function
         removed_test = lambda stats_sample: self.removed_value(stats_sample['value']['median'])[0]
 
         # look in stats_buffer to try and find 'removed' 1-second median
         stats_buffer = self.sensor_buffers[self.settings["WEIGHT_SENSOR_ID"]]["stats_buffer"]
 
-        stats_removed, stats_offset, stats_duration, stats_count = stats_buffer.find(0, 3, removed_test)
+        stats_removed, stats_offset, stats_duration, stats_count = stats_buffer.find(0, 6, removed_test)
 
         if stats_removed != None:
             if self.settings["LOG_LEVEL"] <= 1:
@@ -359,10 +373,10 @@ class Events(object):
 
             is_replaced_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.REPLACED
 
-            previous_event, offset, duration, count = self.event_buffer.find(0, 3, is_replaced_event )
+            previous_event, offset, duration, count = self.event_buffer.find(0, 10, is_replaced_event )
 
             if previous_event is None:
-                # we have no previous REPLACED event in past 3 seconds
+                # we have no previous REPLACED event in past 10 seconds
                 weight = math.floor(current_median+0.5)
                 confidence = 0.8 #debug need to calculate a reasonable figure
                 return { "event_code": EventCode.REPLACED, "weight": weight, "acp_confidence": confidence }
