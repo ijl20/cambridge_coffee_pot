@@ -149,9 +149,18 @@ class Events(object):
 
     # Try and find an Event during previous 'duration' seconds
     # Returns event or None
-    def find_event(event_code, duration):
+    def find_event(self, ts, event_code, duration):
+        # The event_buffer.find() duration is back from the ts of the MOST RECENT event in the buffer, but
+        # the find_event() 'duration' parameter is from the given 'ts'. So we need to adjust the duration given to 
+        # event_buffer.find()
+        sample = self.event_buffer.get(0)
+        if sample is None:
+            return None
+        buffer_end_ts = sample["ts"]
+        buffer_duration = duration - (ts - buffer_end_ts)
+
         is_event = lambda event_sample: event_sample['value']['event_code'] == event_code
-        e, e_offset, e_duration, e_count = self.event_buffer.find(0, duration, is_event)
+        e, e_offset, e_duration, e_count = self.event_buffer.find(0, buffer_duration, is_event)
         return e # either None or the event that was found
 
     # Test if cup has been POURED
@@ -227,9 +236,11 @@ class Events(object):
                 weight_poured = math.floor(med_delta + 0.5)
                 weight = math.floor(current_median + 0.5)
 
-                is_poured_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.POURED
+                #is_poured_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.POURED
 
-                prev_poured, offset, duration, count = self.event_buffer.find(0,POUR_TEST_SECONDS,is_poured_event)
+                #prev_poured, offset, duration, count = self.event_buffer.find(0,POUR_TEST_SECONDS,is_poured_event)
+
+                prev_poured = self.find_event(ts, EventCode.POURED, POUR_TEST_SECONDS)
 
                 # Only send this POURED event if there isn't already a recent POURED event with similar weight
                 if prev_poured is None or prev_poured['value']['weight'] - weight > MIN_CUP_WEIGHT:
@@ -270,8 +281,8 @@ class Events(object):
         # Return None if pot is not full and no GRINDING or BREWING events for 30 mins
         full, confidence = self.full_value(current_median)
         if not full:
-            if ( find_event(EventCode.GRINDING, 30*60) is None and
-                 find_event(EventCode.BREWING, 30*60) is None):
+            if ( self.find_event(ts, EventCode.GRINDING, 30*60) is None and
+                 self.find_event(ts, EventCode.BREWING, 30*60) is None):
                 return None
             else:
                 confidence = 0.85 #debug should calculate this
@@ -289,7 +300,7 @@ class Events(object):
             print("{:.3f} test_event_new stats_removed test succeeded".format(ts))
 
         # Return None if New event in past 30 mins
-        if not find_event(EventCode.NEW, PREVIOUS_NEW_TEST_SECONDS) is None:
+        if not self.find_event(ts, EventCode.NEW, PREVIOUS_NEW_TEST_SECONDS) is None:
             return None
 
         # All tests passed, so return COFFEE_NEW event
@@ -345,15 +356,17 @@ class Events(object):
              duration is None or
              sample_count is None or
              current_deviation is None ):
-            #print("{} no stats now".format(now))
+            print("{:.3f} test_event_replaced() {} no stats now".format(ts,now))
             return None
 
         if current_median < self.EMPTY_WEIGHT * 0.9:
-            #print("test_event_replaced() median too small for replaced")
+            if self.settings["LOG_LEVEL"] <= 1:
+                print("{:.3f} test_event_replaced() weight={:.0f} median too small for replaced".format(ts, current_median))
             return None
 
         if current_deviation > 30:
-            #print("test_event_replaced() deviation not stable = {}".format(current_deviation))
+            if self.settings["LOG_LEVEL"] <= 1:
+                print("{:.3f} test_event_replaced() weight={:.0f} deviation {:.0f} not stable".format(ts, current_median, current_deviation))
             return None
 
         # Was pot REMOVED during previous 6 seconds ?
@@ -367,13 +380,9 @@ class Events(object):
 
         if stats_removed != None:
             if self.settings["LOG_LEVEL"] <= 1:
-                print("{:.3f} test_event_replaced() stats_removed test succeeded".format(ts))
+                print("{:.3f} test_event_replaced() weight={:.0f} stats_removed test succeeded".format(ts, current_median))
 
-            # ok we found a previous 'removed' median
-
-            is_replaced_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.REPLACED
-
-            previous_event, offset, duration, count = self.event_buffer.find(0, 10, is_replaced_event )
+            previous_event = self.find_event(ts, EventCode.REPLACED, 10)
 
             if previous_event is None:
                 # we have no previous REPLACED event in past 10 seconds
@@ -381,14 +390,17 @@ class Events(object):
                 confidence = 0.8 #debug need to calculate a reasonable figure
                 return { "event_code": EventCode.REPLACED, "weight": weight, "acp_confidence": confidence }
             elif self.settings["LOG_LEVEL"] <= 1:
-                print("{:.3f} REPLACED suppressed due to prior event".format(ts))
+                print("{:.3f} test_event_replaced() weight={:.0f} REPLACED suppressed due to prior event {}".format(ts, current_median, previous_event))
 
         elif self.settings["LOG_LEVEL"] <= 1:
-            print("{:.3f} test_event_replaced() remove_test failed".format(ts))
+            print("{:.3f} test_event_replaced() weight={:.0f} remove_test failed".format(ts, current_median))
 
         return None
 
+    # Will return a COFFEE_EMPTY event if the weight ~ empty pot, otherwise None
     def test_event_empty(self, ts):
+        EMPTY_TEST_SECONDS = 30
+        PREVIOUS_EMPTY_TEST_SECONDS = 60
         # Is the pot empty now ?
         empty_now, offset, empty_weight, empty_confidence = self.is_empty(0)
 
@@ -397,7 +409,6 @@ class Events(object):
             return None
 
         # Was pot NOT EMPTY during previous 30 seconds ?
-        EMPTY_TEST_SECONDS = 30
         # define stats_buffer sample test function
         not_empty = lambda stats_sample: not self.empty_value(stats_sample['value']['median'])[0]
         # look in stats_buffer to try and find 'not empty' 1-second median
@@ -411,12 +422,12 @@ class Events(object):
             #if ((latest_event is None) or
             #   (latest_event["value"]["event_code"] != EventCode.EMPTY) or
             #   (ts - latest_event["ts"] > 600 )):
-            PREVIOUS_EMPTY_TEST_SECONDS = 60
 
-            is_empty_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.EMPTY
+            #is_empty_event = lambda event_sample: event_sample['value']['event_code'] == EventCode.EMPTY
 
-            previous_empty_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_EMPTY_TEST_SECONDS, is_empty_event )
+            #previous_empty_event, offset, duration, count = self.event_buffer.find(0, PREVIOUS_EMPTY_TEST_SECONDS, is_empty_event )
 
+            previous_empty_event = self.find_event(ts, EventCode.EMPTY, PREVIOUS_EMPTY_TEST_SECONDS)
             if previous_empty_event is None:
                 weight = math.floor(empty_weight+0.5)
                 confidence = empty_confidence
